@@ -19,9 +19,10 @@ then
     exit 1
 fi
 
+rm -rf ./tools
 mkdir -p ./tools
 
-./setup_oss_cad_suite.sh
+./scripts/setup/setup_oss_cad_suite.sh
 
 echo
 echo 'All tools installed!'
