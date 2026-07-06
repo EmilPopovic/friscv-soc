@@ -16,5 +16,6 @@ No additional tools are needed, the repo manages its own environment for reprodu
 
 ```bash
 git clone https://github.com/EmilPopovic/friscv-tapeout.git
+cd friscv-tapeout
 ./setup.sh
 ```
