@@ -1,21 +1,59 @@
 # FRISC-V Tapeout
 
-The first tapeout of the FRISC-V core.
+The first tapeout of the FRISC-V core, targeting IHP's open-source **SG13G2**
+130nm process.
 
 ## Setup
 
-This repo is meant to be used on Linux systems, preferably Ubuntu 24 or newer. WSL and other Linux distros should work (but you will have to bring your own package manager instead of `apt`).
+The toolchain is provided by **Nix**. This flow is inspired by
+[LibreLane](https://librelane.readthedocs.io) which uses the same mechanism.
+
+This should work on all Linux distros, including WSL, but was only tested on
+Ubuntu 26.04 LTS and Arch using zsh.
 
 **Prerequisites:**
 
-- `direnv` (`sudo apt install direnv`)
-- `wget` (`sudo apt-get install wget`)
-- `tar` (`sudo apt install tar`)
+- `curl` (to bootstrap the Nix installer)
+- `direnv` (for automatic activation, usually `<pkg-manager> install direnv`)
 
-No additional tools are needed, the repo manages its own environment for reproducability. Set it up by cloning and running the setup script:
+Clone and run the setup script:
 
 ```bash
 git clone https://github.com/EmilPopovic/friscv-tapeout.git
 cd friscv-tapeout
 ./setup.sh
 ```
+
+`setup.sh` will:
+
+1. Install **Nix** if it isn't present - a one-time step that asks for `sudo`.
+   Everything after this needs no sudo. It enables flakes and adds the FOSSi binary cache.
+2. Generate `flake.lock`
+3. Install and hook up **nix-direnv** so the environment auto-activates.
+
+### Activating the environment
+
+Make sure your shell has the direnv hook (add to your shell rc):
+
+```bash
+eval "$(direnv hook zsh)"   # zsh  -> ~/.zshrc
+eval "$(direnv hook bash)"  # bash -> ~/.bashrc
+```
+
+Then, in the repo root:
+
+```bash
+direnv allow
+```
+
+The first activation downloads the prebuilt tools (a few minutes). After that,
+`cd`-ing into the repo puts every tool on your `PATH` automatically.
+
+### Tools provided
+
+Synthesis and simulation: **Yosys**, **Icarus Verilog**, **Verilator**, **ngspice**,
+**GTKWave**. Physical design and sign-off: **OpenROAD**, **KLayout**, **Magic**,
+**Netgen** (LVS).
+
+To change the tool set, edit the `packages` list in `flake.nix`, then
+`direnv reload`. Commit the updated `flake.lock`.
