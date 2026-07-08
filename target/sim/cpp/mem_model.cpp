@@ -105,7 +105,7 @@ int MemModel::next_wait_cycles() {
     }
 }
 
-void MemModel::cycle(uint8_t size, uint32_t addr, uint32_t wdata,
+void MemModel::cycle(uint8_t size, uint32_t offset, uint32_t wdata,
                      bool w_en, bool r_en, bool burst_en) {
     err = false;
     beat_valid = false;
@@ -132,6 +132,9 @@ void MemModel::cycle(uint8_t size, uint32_t addr, uint32_t wdata,
                 write(in_flight_addr, in_flight_size, in_flight_wdata);
             }
         } else if (r_en || w_en) {
+            // The bus delivers offsets instead of absolute addresses
+            uint32_t addr = mem->base_addr() + offset;
+
             if (!mem->in_range(addr) || addr_misaligned(addr, size)) {
                 // End transfer immediately if address not in range or misaligned
                 err = true;

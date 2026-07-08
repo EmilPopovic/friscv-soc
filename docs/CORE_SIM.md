@@ -19,7 +19,7 @@ class BusDevice {
     bool     beat_valid = false;
     bool     err        = false;
     virtual ~BusDevice() = default;
-    virtual void cycle(uint8_t size, uint32_t addr, uint32_t wdata,
+    virtual void cycle(uint8_t size, uint32_t offset, uint32_t wdata,
                        bool w_en, bool r_en, bool burst_en) = 0;
 };
 ```
@@ -32,7 +32,7 @@ transfer, and does not allow switching until the responder deasserts `wait`.
 class BusRouter : public BusDevice {
   public:
     void map(uint32_t base, uint32_t size, BusDevice* dev);
-    void cycle(uint8_t size, uint32_t addr, uint32_t wdata,
+    void cycle(uint8_t size, uint32_t offset, uint32_t wdata,
                bool w_en, bool r_en, bool burst_en) override;
   private:
     struct Mapping {
@@ -52,10 +52,12 @@ It can be configured with any number of responders:
 MemModel       dram(&mem_pool, MEM_WAIT_CYCLES);
 Uart16550Model uart;
 SinkDevice     gpio, halt_sink;
+// ...
 BusRouter      bus;
 
 bus.map(MEM_BASE_ADDR,  MEM_SIZE, &dram);
 bus.map(UART_BASE_ADDR, 0x20,     &uart);
 bus.map(GPIO_BASE_ADDR, 4,        &gpio);
 bus.map(HALT_BASE_ADDR, 4,        &halt_sink);
+// ...
 ```

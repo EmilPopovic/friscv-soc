@@ -34,7 +34,7 @@ class MemModel : public BusDevice {
 
   public:
     MemModel(PagedMem* mem, int wait_cycles);
-    void cycle(uint8_t size, uint32_t addr, uint32_t wdata,
+    void cycle(uint8_t size, uint32_t offset, uint32_t wdata,
                bool w_en, bool r_en, bool burst_en) override;
 };
   
