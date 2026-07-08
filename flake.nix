@@ -32,6 +32,36 @@
           };
           openroad = librelane.packages.${system}.openroad
             or librelane.legacyPackages.${system}.openroad;
+          riscv-toolchain = pkgs.stdenv.mkDerivation rec {
+            pname = "riscv64-unknown-elf-toolchain";
+            version = "2026.06.06";
+            src = pkgs.fetchurl {
+              url = "https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/${version}/riscv64-elf-ubuntu-24.04-gcc.tar.xz";
+              hash = "sha256-NzhiQYJWiHCB4IdoVwdux4UucSkrfoxVGM8Cf8stk7U=";
+            };
+            nativeBuildInputs = [ pkgs.autoPatchelfHook ];
+            buildInputs = with pkgs; [
+              stdenv.cc.cc.lib
+              zlib
+              zstd
+              expat
+              gmp
+              mpfr
+              libmpc
+              ncurses
+              glib
+              python312
+            ];
+            dontStrip = true;
+            dontConfigure = true;
+            dontBuild = true;
+            installPhase = ''
+              runHook preInstall
+              mkdir -p $out
+              cp -a ./. $out/
+              runHook postInstall
+            '';
+          };
         in {
           default = pkgs.mkShell {
             name = "friscv-tapeout";
@@ -46,6 +76,7 @@
               netgen
             ]) ++ [
               openroad
+              riscv-toolchain
             ];
           };
         });

@@ -3,3 +3,4 @@ result
 result-*
 obj_dir/
 .slang/local/
+verif/riscv-arch-test/riscv-arch-test/
