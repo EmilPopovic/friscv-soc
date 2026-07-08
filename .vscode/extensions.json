@@ -1,0 +1,10 @@
+{
+    "recommendations": [
+        "mshr-h.veriloghdl",
+        "ms-vscode.cpptools",
+        "mkhl.direnv"
+    ],
+    "unwantedRecommendations": [
+        "llvm-vs-code-extensions.vscode-clangd"
+    ]
+}

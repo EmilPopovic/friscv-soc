@@ -1,3 +1,5 @@
 .direnv/
 result
 result-*
+obj_dir/
+.slang/local/

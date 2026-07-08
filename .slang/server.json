@@ -1,0 +1,10 @@
+{
+  "flags": "-f friscv.f",
+  "index": [
+    {
+      "dirs": ["rtl", "target/sim/rtl", "verif"],
+      "excludeDirs": ["build", "node_modules"]
+    }
+  ],
+  "build": "friscv.f"
+}
