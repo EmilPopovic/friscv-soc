@@ -2,8 +2,9 @@
 
 #include <cstdint>
 #include "paged_mem.hpp"
+#include "bus.hpp"
 
-class MemModel {
+class MemModel : public BusDevice {
   private:
     PagedMem* mem;  // Byte-addressible pool
 
@@ -32,14 +33,8 @@ class MemModel {
     int      next_wait_cycles();
 
   public:
-    // Output interface
-    uint32_t rdata;
-    bool     wait;
-    bool     beat_valid;
-    bool     err;
-
     MemModel(PagedMem* mem, int wait_cycles);
-
     void cycle(uint8_t size, uint32_t addr, uint32_t wdata,
-               bool w_en, bool r_en, bool burst_en);
+               bool w_en, bool r_en, bool burst_en) override;
 };
+  

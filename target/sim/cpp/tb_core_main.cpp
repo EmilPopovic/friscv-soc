@@ -8,12 +8,23 @@
 #include "paged_mem.hpp"
 #include "mem_model.hpp"
 #include "elf_loader.hpp"
-
-#define MEM_BASE_ADDR (0x80000000u)
-#define MEM_SIZE      (0x01000000u)  // 16 MB
-#define MEM_WAIT_CYCLES (0)
+#include "bus.hpp"
+#include "uart16550_model.hpp"
 
 static uint64_t cycle_count = 0;
+
+static constexpr uint32_t MEM_BASE_ADDR = 0x80000000u;
+static constexpr uint32_t MEM_SIZE      = 0x01000000u;  // 16 MB
+
+static constexpr uint32_t UART_BASE_ADDR = 0x10000000u;
+static constexpr uint32_t GPIO_BASE_ADDR = 0x40000000u;
+static constexpr uint32_t HALT_BASE_ADDR = 0x50000000u;
+
+static constexpr uint32_t PASS_VALUE = 0xAABBCCDDu;
+
+static constexpr int MEM_WAIT_CYCLES = 0;
+
+static constexpr uint64_t MAX_CYCLES = 10000000;  // 10M cycles
 
 uint64_t mtime() {
     return cycle_count / 10;
@@ -30,17 +41,18 @@ void negedge(Vfriscv_cpu_verilator* top) {
     top->eval();
 }
 
-void cycle(Vfriscv_cpu_verilator* top, MemModel& mem) {
+void cycle(Vfriscv_cpu_verilator* top, BusRouter& bus) {
     // Posedge for the core
     posedge(top);
 
     // Evaluate memory model
-    mem.cycle(top->size, top->addr, top->wdata,
+    bus.cycle(top->size, top->addr, top->wdata,
               top->w_en, top->r_en, top->burst_en);
-    top->rdata      = mem.rdata;
-    top->stall      = mem.wait;
-    top->beat_valid = mem.beat_valid;
-    top->err        = mem.err;
+
+    top->rdata      = bus.rdata;
+    top->stall      = bus.wait;
+    top->beat_valid = bus.beat_valid;
+    top->err        = bus.err;
 
     negedge(top);
 }
@@ -65,10 +77,21 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    // Instantiate top module
     Vfriscv_cpu_verilator* top = new Vfriscv_cpu_verilator;
 
-    MemModel mem(&mem_pool, MEM_WAIT_CYCLES);
+    // Build the bus and address map
+    MemModel       dram(&mem_pool, MEM_WAIT_CYCLES);
+    Uart16550Model uart;
+    SinkDevice     gpio, halt_sink;
+    BusRouter      bus;
 
+    bus.map(MEM_BASE_ADDR,  MEM_SIZE, &dram);
+    bus.map(UART_BASE_ADDR, 0x20,     &uart);
+    bus.map(GPIO_BASE_ADDR, 4,        &gpio);
+    bus.map(HALT_BASE_ADDR, 4,        &halt_sink);
+
+    // Initialize into reset
     top->rstn = 0;
     top->clk = 0;
     top->eval();
@@ -78,15 +101,25 @@ int main(int argc, char **argv) {
     top->meip = 0;
 
     // Reset for 20 cycles
-    for (int i = 0; i < 20 && !Verilated::gotFinish(); i++) cycle(top, mem);
+    for (int i = 0; i < 20 && !Verilated::gotFinish(); i++) cycle(top, bus);
 
     top->rstn = 1;  // Release reset
-    while (!top->halt) {
-        cycle(top, mem);
+    // Run until halt or timeout
+    while (!top->halt && cycle_count < MAX_CYCLES && !Verilated::gotFinish()) {
+        cycle(top, bus);
         top->mtime = mtime();
+    }
+
+    int exit_code;
+    if (gpio.get_last_write() == PASS_VALUE) {
+        std::fprintf(stderr, "PASS\n");
+        exit_code = 0;
+    } else {
+        std::fprintf(stderr, "FAIL (gpio=0x%08X)\n", gpio.get_last_write());
+        exit_code = 1;
     }
 
     top->final();
     delete top;
-    return 0;
+    return exit_code;
 }
