@@ -34,10 +34,10 @@
             or librelane.legacyPackages.${system}.openroad;
           riscv-toolchain = pkgs.stdenv.mkDerivation rec {
             pname = "riscv64-unknown-elf-toolchain";
-            version = "2026.06.06";
+            version = "2026.04.26";
             src = pkgs.fetchurl {
               url = "https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/${version}/riscv64-elf-ubuntu-24.04-gcc.tar.xz";
-              hash = "sha256-NzhiQYJWiHCB4IdoVwdux4UucSkrfoxVGM8Cf8stk7U=";
+              hash = "sha256-SmajKWU8nPuGm4Jsrm1wxgO+3MHhPUGdPj6SuZ4IFrE=";
             };
             nativeBuildInputs = [ pkgs.autoPatchelfHook ];
             buildInputs = with pkgs; [
@@ -62,6 +62,23 @@
               runHook postInstall
             '';
           };
+          sail-riscv = pkgs.stdenv.mkDerivation rec {
+            pname = "sail-riscv";
+            version = "0.11";
+            src = pkgs.fetchurl {
+              url = "https://github.com/riscv/sail-riscv/releases/download/${version}/sail-riscv-Linux-x86_64.tar.gz";
+              hash = "sha256-JFRY4WDN7dQurOh5ViQS6MCMrq962h+9pE2AfaNBc6g=";
+            };
+            nativeBuildInputs = [ pkgs.autoPatchelfHook ];
+            dontConfigure = true;
+            dontBuild = true;
+            installPhase = ''
+              runHook preInstall
+              mkdir -p $out
+              cp -a ./. $out/
+              runHook postInstall
+            '';
+          };
         in {
           default = pkgs.mkShell {
             name = "friscv-tapeout";
@@ -74,9 +91,12 @@
               klayout
               magic
               netgen
+              mise
+              uv
             ]) ++ [
               openroad
               riscv-toolchain
+              sail-riscv
             ];
           };
         });
