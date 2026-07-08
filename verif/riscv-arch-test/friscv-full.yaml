@@ -1,0 +1,133 @@
+kind: architecture configuration
+type: fully configured
+name: friscv-full
+description: FRISC-V RV32IMA_Zicsr_Zifencei with M/S/U and Sv32
+
+implemented_extensions:
+  - { name: I, version: "= 2.1" }
+  - { name: M, version: "= 2.0" }
+  - { name: A, version: "= 2.1.0" }
+  - { name: Zicsr, version: "= 2.0" }
+  - { name: Zifencei, version: "= 2.0.0" }
+  - { name: Zaamo, version: "= 1.0.0" }
+  - { name: Zalrsc, version: "= 1.0.0" }
+  - { name: Zicntr, version: "= 2.0.0"}
+  - { name: U, version: "= 1.0.0" }
+  - { name: S, version: "= 1.12.0" }
+  - { name: Sstc, version: "= 1.0.0" }
+  - { name: Sv32, version: "= 1.12.0" }
+  - { name: Sm, version: "= 1.12.0" }
+
+params:
+  MXLEN: 32
+  UXLEN: [32]
+  SXLEN: [32]
+  PHYS_ADDR_WIDTH: 32
+
+  M_MODE_ENDIANNESS: little
+  S_MODE_ENDIANNESS: little
+  U_MODE_ENDIANNESS: little
+
+  MISA_CSR_IMPLEMENTED: true
+  MUTABLE_MISA_A: false
+  MUTABLE_MISA_M: false
+  MUTABLE_MISA_S: false
+  MUTABLE_MISA_U: false
+
+  CONFIG_PTR_ADDRESS: 0x0
+  MARCHID_IMPLEMENTED: false
+  MIMPID_IMPLEMENTED: false
+  VENDOR_ID_BANK: 0
+  VENDOR_ID_OFFSET: 0
+
+  TIME_CSR_IMPLEMENTED: true
+  HPM_COUNTER_EN: [
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false
+  ]
+  COUNTINHIBIT_EN: [
+    true, false, true, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false
+  ]
+  MCOUNTENABLE_EN: [
+    true, true, true, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false
+  ]
+  SCOUNTENABLE_EN: [
+    true, true, true, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false
+  ]
+
+  ASID_WIDTH: 9
+  SATP_MODE_BARE: true
+
+  NUM_PMP_ENTRIES: 16
+  PMP_GRANULARITY: 2
+  PMA_GRANULARITY: 2
+
+  MTVEC_ACCESS: rw
+  MTVEC_MODES: [0, 1]
+  MTVEC_BASE_ALIGNMENT_DIRECT: 4
+  MTVEC_BASE_ALIGNMENT_VECTORED: 4
+  MTVEC_ILLEGAL_WRITE_BEHAVIOR: custom
+  STVEC_MODE_DIRECT: true
+  STVEC_MODE_VECTORED: true
+
+  MSTATUS_FS_LEGAL_VALUES: [0]
+  MSTATUS_VS_LEGAL_VALUES: [0]
+  MSTATUS_TVM_IMPLEMENTED: true
+
+  MTVAL_WIDTH: 32
+  STVAL_WIDTH: 32
+
+  PRECISE_SYNCHRONOUS_EXCEPTIONS: true
+  TRAP_ON_EBREAK: true
+  TRAP_ON_ECALL_FROM_M: true
+  TRAP_ON_ECALL_FROM_S: true
+  TRAP_ON_ECALL_FROM_U: true
+  TRAP_ON_ILLEGAL_WLRL: false
+  TRAP_ON_RESERVED_INSTRUCTION: true
+  TRAP_ON_UNIMPLEMENTED_CSR: true
+  TRAP_ON_UNIMPLEMENTED_INSTRUCTION: true
+
+  REPORT_ENCODING_IN_MTVAL_ON_ILLEGAL_INSTRUCTION: true
+  REPORT_ENCODING_IN_STVAL_ON_ILLEGAL_INSTRUCTION: true
+
+  REPORT_VA_IN_MTVAL_ON_BREAKPOINT: false
+  REPORT_VA_IN_MTVAL_ON_INSTRUCTION_ACCESS_FAULT: false
+  REPORT_VA_IN_MTVAL_ON_INSTRUCTION_MISALIGNED: true
+  REPORT_VA_IN_MTVAL_ON_INSTRUCTION_PAGE_FAULT: true
+  REPORT_VA_IN_MTVAL_ON_LOAD_ACCESS_FAULT: false
+  REPORT_VA_IN_MTVAL_ON_LOAD_MISALIGNED: true
+  REPORT_VA_IN_MTVAL_ON_LOAD_PAGE_FAULT: true
+  REPORT_VA_IN_MTVAL_ON_STORE_AMO_ACCESS_FAULT: false
+  REPORT_VA_IN_MTVAL_ON_STORE_AMO_MISALIGNED: true
+  REPORT_VA_IN_MTVAL_ON_STORE_AMO_PAGE_FAULT: true
+
+  REPORT_VA_IN_STVAL_ON_BREAKPOINT: false
+  REPORT_VA_IN_STVAL_ON_INSTRUCTION_ACCESS_FAULT: false
+  REPORT_VA_IN_STVAL_ON_INSTRUCTION_MISALIGNED: true
+  REPORT_VA_IN_STVAL_ON_INSTRUCTION_PAGE_FAULT: true
+  REPORT_VA_IN_STVAL_ON_LOAD_ACCESS_FAULT: false
+  REPORT_VA_IN_STVAL_ON_LOAD_MISALIGNED: true
+  REPORT_VA_IN_STVAL_ON_LOAD_PAGE_FAULT: true
+  REPORT_VA_IN_STVAL_ON_STORE_AMO_ACCESS_FAULT: false
+  REPORT_VA_IN_STVAL_ON_STORE_AMO_MISALIGNED: true
+  REPORT_VA_IN_STVAL_ON_STORE_AMO_PAGE_FAULT: true
+
+  MISALIGNED_LDST: false
+  MISALIGNED_LDST_EXCEPTION_PRIORITY: high
+
+  MISALIGNED_AMO: false
+  LRSC_RESERVATION_STRATEGY: "reserve exactly enough to cover the access"
+  LRSC_FAIL_ON_NON_EXACT_LRSC: true
+  LRSC_FAIL_ON_VA_SYNONYM: true
+  LRSC_MISALIGNED_BEHAVIOR: custom
