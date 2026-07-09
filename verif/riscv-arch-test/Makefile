@@ -33,8 +33,8 @@ all: config
 	UV_LINK_MODE=$(UV_LINK_MODE) CONFIG_FILES=$(ACT_CONFIG) EXCLUDE_EXTENSIONS=$(ACT_EXCLUDE_EXTENSIONS) $(MAKE) -C $(ACT_ROOT) --jobs $(JOBS)
 	python3 scripts/copy_elfs.py
 
-.PHONY: run
-run:
+.PHONY: run-core
+run-core:
 	python3 scripts/copy_elfs.py
 	make -C $(TARGET_SIM_ROOT)
 	python3 scripts/run_core.py

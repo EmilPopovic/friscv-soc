@@ -15,7 +15,9 @@ make -C verif/riscv-arch-test all  # run once
 Then run the tests at any time:
 
 ```bash
-make -C verif/riscv-arch-test run
+make -C verif/riscv-arch-test run-core
+# or
+make act-run-core
 ```
 
 That target automatically builds the testbench binary and
