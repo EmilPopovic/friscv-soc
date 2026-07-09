@@ -72,33 +72,6 @@ friscv_core_complex #(
 );
 
 // ============================================================
-// Adapter reset sequencer
-// ============================================================
-
-// External memory reset sequencer
-// Wait for transactions to complete before resetting the bus adapter.
-logic r_mem_reset_req;
-logic r_mem_in_reset = 1'b1;  // Start in reset
-
-always_ff @(posedge i_clk) begin
-    if (!i_rstn) begin
-        r_mem_reset_req <= 1'b1;  // Request reset when button pressed
-    end else begin
-        r_mem_reset_req <= 1'b0;  // Clear request when button released
-    end
-end
-
-always_ff @(posedge i_clk) begin
-    if (r_mem_reset_req && !w_wait) begin
-        // Once transaction completes and reset is requested, assert reset
-        r_mem_in_reset <= 1'b1;
-    end else if (!r_mem_reset_req) begin
-        // Only release reset when external reset is released
-        r_mem_in_reset <= 1'b0;
-    end
-end
-
-// ============================================================
 // Connect external memory interface
 // ============================================================
 
@@ -107,10 +80,9 @@ assign mem_if.addr     = w_addr;
 assign mem_if.wdata    = w_wdata;
 assign mem_if.rw       = w_rw;
 assign mem_if.burst_en = w_burst_en;
-assign mem_if.rstn     = !r_mem_in_reset;
 
 assign w_rdata         = mem_if.rdata;
-assign w_wait          = mem_if.wait_req || r_mem_in_reset;
+assign w_wait          = mem_if.wait_req;
 assign w_beat_valid    = mem_if.beat_valid;
 
 endmodule

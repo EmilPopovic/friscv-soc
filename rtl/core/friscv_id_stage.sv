@@ -173,7 +173,7 @@ always_ff @(posedge clk_in) begin
         pc_mode_buff     <= M_MODE;
 
         for (int i = 0; i < REGISTER_NUM; i++) begin
-            regfile[i] = '0;
+            regfile[i] <= '0;
         end
 
     end else begin
@@ -849,7 +849,7 @@ always_comb begin : csr_read
         CSR_MVENDORID:     csr_out = 32'h0;
         CSR_MARCHID:       csr_out = 32'h0;
         CSR_MIMPID:        csr_out = 32'h0;
-        CSR_MHARTID:       csr_out = 32'(HART_ID);
+        CSR_MHARTID:       csr_out = HART_ID;
         CSR_MCONFIGPTR:    csr_out = 32'h0;
 
         // Machine Trap Setup

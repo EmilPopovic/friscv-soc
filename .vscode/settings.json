@@ -1,6 +1,6 @@
 {
     "verilog.linting.linter": "verilator",
-    "verilog.linting.verilator.arguments": "--timing -Wno-MODDUP -y rtl/core -y rtl/soc -y target/sim/rtl rtl/core/friscv_pkg.sv",
+    "verilog.linting.verilator.arguments": "--timing -Wno-MODDUP -f sources.f",
     "verilog.linting.verilator.runAtFileLocation": false,
 
     "C_Cpp.intelliSenseEngine": "default",

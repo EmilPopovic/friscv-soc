@@ -28,17 +28,16 @@ interface friscv_mem_if;
     rw_cmd_e    rw;
     logic       wait_req;
     logic       burst_en;
-    logic       rstn;
     logic       beat_valid;
     logic       err;
 
     modport master (
-        output size, addr, wdata, rw, burst_en, rstn,
+        output size, addr, wdata, rw, burst_en,
         input  rdata, wait_req, beat_valid, err
     );
 
     modport slave (
-        input  size, addr, wdata, rw, burst_en, rstn,
+        input  size, addr, wdata, rw, burst_en,
         output rdata, wait_req, beat_valid, err
     );
 

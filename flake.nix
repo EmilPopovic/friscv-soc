@@ -86,6 +86,7 @@
               yosys
               iverilog
               verilator
+              bender
               ngspice
               gtkwave
               klayout
