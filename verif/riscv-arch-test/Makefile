@@ -8,6 +8,7 @@ ACT_CONFIG := config/cores/friscv/friscv-full/test_config.yaml
 ACT_EXCLUDE_EXTENSIONS ?= Sm,S,InterruptsSm,InterruptsS,InterruptsU,ExceptionsZalrsc,ExceptionsZaamo,Svade,Svadu,SvaduPMP,SvPMP,SvZicbo,SvPMPZicbo,PMPF,PMPS,PMPSm,PMPU,PMPZaamo,PMPZalrsc,PMPZca,PMPZicbo
 UV_LINK_MODE ?= copy
 JOBS ?= $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+TARGET_SIM_ROOT ?= $(shell pwd)/../../target/sim
 
 .PHONY: clone
 clone:
@@ -27,5 +28,13 @@ config: clone
 
 .PHONY: all
 all: config
+	rm -rf elfs/
 	rm -rf $(ACT_WORK)/build $(ACT_WORK)/elfs
 	UV_LINK_MODE=$(UV_LINK_MODE) CONFIG_FILES=$(ACT_CONFIG) EXCLUDE_EXTENSIONS=$(ACT_EXCLUDE_EXTENSIONS) $(MAKE) -C $(ACT_ROOT) --jobs $(JOBS)
+	python3 scripts/copy_elfs.py
+
+.PHONY: run
+run:
+	python3 scripts/copy_elfs.py
+	make -C $(TARGET_SIM_ROOT)
+	python3 scripts/run_core.py
