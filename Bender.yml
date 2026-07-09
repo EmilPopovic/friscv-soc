@@ -41,5 +41,5 @@ sources:
   # SoC RTL files
   - rtl/soc/friscv_axi4_full_adapter.sv
   - rtl/soc/friscv_clint.v
-  - rtl/soc/sync.sv
+  - rtl/soc/friscv_sync.sv
   - rtl/soc/friscv_soc.sv

@@ -1,5 +1,6 @@
 {
     "recommendations": [
+        "hudson-river-trading.vscode-slang",
         "mshr-h.veriloghdl",
         "ms-vscode.cpptools",
         "mkhl.direnv"

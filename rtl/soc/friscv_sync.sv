@@ -19,7 +19,7 @@
 
 `timescale 1ns / 1ps
 
-module sync #(
+module friscv_sync #(
     parameter WIDTH=1
 ) (
     input  logic             i_clk,

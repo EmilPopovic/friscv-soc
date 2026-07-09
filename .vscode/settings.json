@@ -1,10 +1,6 @@
 {
-    "verilog.linting.linter": "verilator",
-    "verilog.linting.verilator.arguments": "--timing -Wno-MODDUP -f sources.f",
-    "verilog.linting.verilator.runAtFileLocation": false,
-
+    "verilog.linting.linter": "none",
     "C_Cpp.intelliSenseEngine": "default",
     "clangd.enable": false,
-
     "direnv.restart.automatic": true
 }

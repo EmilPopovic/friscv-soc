@@ -1,10 +1,10 @@
 {
-  "flags": "-f sources.f",
+  "flags": "--top friscv_soc --timescale 1ns/1ps -Wno-duplicate-definition",
+  "build": "sources.f",
   "index": [
     {
       "dirs": ["rtl", "target/sim/rtl", "verif"],
-      "excludeDirs": ["build", "node_modules"]
+      "excludeDirs": ["build", "node_modules", "obj_dir", ".bender"]
     }
-  ],
-  "build": "sources.f"
+  ]
 }
