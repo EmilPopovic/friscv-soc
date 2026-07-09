@@ -57,3 +57,20 @@ Synthesis and simulation: **Yosys**, **Icarus Verilog**, **Verilator**, **ngspic
 
 To change the tool set, edit the `packages` list in `flake.nix`, then
 `direnv reload`. Commit the updated `flake.lock`.
+
+## Documentation
+
+- [Core-level simulation](docs/CORE_SIM.md) - the C++/Verilator testbench in
+  `target/sim/` that drives a bare FRISC-V CPU subsystem over a virtual bus.
+- [Architecture certification tests](docs/RISCV_ARCH_TEST.md) — running the
+  official `riscv-arch-test` suite against the core.
+
+## Repository layout
+
+- `rtl/` - Core (`rtl/core/`) and SoC (`rtl/soc/`) SystemVerilog sources.
+- `target/asic/` - ASIC synthesis flow.
+- `target/sim/` - Core-level C++/Verilator simulation harness.
+- `target/xilinx/` - FPGA target (WIP).
+- `verif/` - Verification, including `riscv-arch-test`.
+- `sw/` - Software / test programs.
+- `flake.nix` - Nix toolchain definition.
