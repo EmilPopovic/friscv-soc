@@ -120,11 +120,20 @@
                 $out/bin/svase
             '';
           };
+          yosys-full = nix-eda.packages.${system}.yosysFull;
+          ihp-pdk = pkgs.fetchFromGitHub {
+            owner = "IHP-GmbH";
+            repo = "IHP-Open-PDK";
+            rev = "22f2a25f1734796de3debbbf29cf697cbbc54081";
+            hash = "sha256-MvJn3QmIA+Ixaq9XERTT2lVFo9x+9G4VvtdOyR+mM+Q=";
+          };
+          ihp-liberty = "${ihp-pdk}/ihp-sg13g2/libs.ref/sg13g2_stdcell/lib/sg13g2_stdcell_typ_1p20V_25C.lib";
         in {
           default = pkgs.mkShell {
             name = "friscv-tapeout";
+            LIBERTY = ihp-liberty;
+            PDK_ROOT = "${ihp-pdk}/ihp-sg13g2";
             packages = (with pkgs; [
-              yosys
               iverilog
               verilator
               bender
@@ -137,6 +146,7 @@
               uv
               haskellPackages.sv2v
             ]) ++ [
+              yosys-full
               openroad
               riscv-toolchain
               sail-riscv
