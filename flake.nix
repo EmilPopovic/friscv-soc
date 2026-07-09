@@ -79,6 +79,47 @@
               runHook postInstall
             '';
           };
+          morty = pkgs.stdenv.mkDerivation rec {
+            pname = "morty";
+            version = "0.9.0";
+            src = pkgs.fetchurl {
+              url = "https://github.com/pulp-platform/morty/releases/download/v${version}/morty-ubuntu.22.04-x86_64.tar.gz";
+              hash = "sha256-/EZl0ynsGLEGgl37sdDM9gDR0FJQi6M87IlwlEj7sys=";
+            };
+            nativeBuildInputs = [ pkgs.autoPatchelfHook ];
+            buildInputs = [ pkgs.stdenv.cc.cc.lib ];
+            sourceRoot = ".";
+            dontConfigure = true;
+            dontBuild = true;
+            installPhase = ''
+              runHook preInstall
+              install -Dm755 morty $out/bin/morty
+              runHook postInstall
+            '';
+          };
+          svase = pkgs.stdenv.mkDerivation rec {
+            pname = "svase";
+            version = "0.1.0-alpha";
+            src = pkgs.fetchurl {
+              url = "https://github.com/pulp-platform/svase/releases/download/v${version}/svase-linux_v${version}.zip";
+              hash = "sha256-6btwL2y5znNgQmN0CwcsTUAXckQORuRfWT9WTHuqAIM=";
+            };
+            nativeBuildInputs = [ pkgs.unzip pkgs.patchelf ];
+            sourceRoot = ".";
+            dontConfigure = true;
+            dontBuild = true;
+            installPhase = ''
+              runHook preInstall
+              install -Dm755 svase $out/bin/svase
+              runHook postInstall
+            '';
+            postFixup = ''
+              patchelf \
+                --set-interpreter ${pkgs.musl}/lib/ld-musl-x86_64.so.1 \
+                --set-rpath ${pkgs.musl}/lib \
+                $out/bin/svase
+            '';
+          };
         in {
           default = pkgs.mkShell {
             name = "friscv-tapeout";
@@ -94,10 +135,13 @@
               netgen
               mise
               uv
+              haskellPackages.sv2v
             ]) ++ [
               openroad
               riscv-toolchain
               sail-riscv
+              morty
+              svase
             ];
           };
         });

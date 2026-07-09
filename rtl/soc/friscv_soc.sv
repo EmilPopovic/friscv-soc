@@ -440,10 +440,10 @@ friscv_clint #(
     .MTIME_FREQ_HZ ( 10_000_000 )
 ) clint (
     .clk_in ( i_clk ),
-    .rstn_in       ( i_rstn                 ),
-    .time_out      ( mtime                  ),
-    .msip_out      ( msip                   ),
-    .mtip_out      ( mtip                   ),
+    .rstn_in       ( i_rstn                  ),
+    .time_out      ( mtime                   ),
+    .msip_out      ( msip                    ),
+    .mtip_out      ( mtip                    ),
     .s_axi_awaddr  ( clint_lite_req.aw.addr  ),
     .s_axi_awvalid ( clint_lite_req.aw_valid ),
     .s_axi_awready ( clint_lite_rsp.aw_ready ),
