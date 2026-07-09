@@ -56,24 +56,23 @@ package friscv_pkg;
     // Memory protection and address translation
     localparam logic ENABLE_MMU = 1;
     localparam logic ENFORCE_PMP = 1;
+    localparam logic ENABLE_FAKE_PMP = 1;
     localparam logic ENFORCE_PTW_PMP = 0;
-    localparam int   PMP_ENTRIES = 16;
-    localparam int   PMP_USABLE = 5;
+    localparam int   PMP_ENTRIES = 8;
+    localparam int   PMP_USABLE = 8;
     // Must be a power of 2 greater than 1
-    localparam int   ITLB_ENTRIES = 4;
-    localparam int   DTLB_ENTRIES = 8;
+    localparam int   ITLB_ENTRIES = 2;
+    localparam int   DTLB_ENTRIES = 4;
     // If not enabled, any sfence.vma will flush all TLB entries
-    localparam logic ENABLE_FINE_TLB_FLUSH = 1;
+    localparam logic ENABLE_FINE_TLB_FLUSH = 0;
 
     // Extension selection
-    localparam logic ENABLE_MUL = 1;
+    localparam logic ENABLE_MUL = 0;
     localparam logic ENABLE_DIV = 1;
     // M extension configured by choosing MUL and DIV above
     localparam logic ENABLE_EXTENSION_M = ENABLE_MUL && ENABLE_DIV;
     localparam logic ENABLE_EXTENSION_A = 1;
-    // ALWAYS ENABLED localparam logic ENABLE_EXTENSION_ZICSR = 1;
     localparam logic ENABLE_EXTENSION_ZIFENCEI = 1;
-    // ALWAYS ENABLED localparam logic ENABLE_EXTENSION_SSTC = 1;
 
     // If enabled, a write to END_ADDRESS will stall the core until reset
     localparam logic ENABLE_HALT_ON_END_ADDRESS = 1;
@@ -202,7 +201,6 @@ package friscv_pkg;
     typedef struct packed {
         pmp_cfg_t cfg;
         addr_t    addr;
-        addr_t    napot_mask;
     } pmp_entry_t;
 
     typedef pmp_entry_t [PMP_ENTRIES-1:0] pmp_table_t;

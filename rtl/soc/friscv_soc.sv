@@ -37,35 +37,34 @@ localparam int unsigned AxiUserWidth = 1;
 //  Slave  port 0: CPU
 //  ---------------------
 //  Master port 0: RAM
-//  Master port 1: UART0
-//  Master port 2: CLINT
-localparam int unsigned NumMst    = 3;
-localparam int unsigned RamPort   = 0;
-localparam int unsigned UartPort  = 1;
-localparam int unsigned ClintPort = 2;
+//  Master port 1: AXI Lite subsystem
+localparam int unsigned NumAxiMst   = 2;
+localparam int unsigned NumAxiRules = 3;
+localparam int unsigned RamPort     = 0;
+localparam int unsigned LitePort    = 1;
 
-localparam axi_pkg::xbar_cfg_t XbarCfg = '{
+localparam axi_pkg::xbar_cfg_t AxiXbarCfg = '{
     NoSlvPorts:         1,
-    NoMstPorts:         NumMst,
+    NoMstPorts:         NumAxiMst,
     MaxMstTrans:        4,
     MaxSlvTrans:        4,
     FallThrough:        1'b0,
-    LatencyMode:        axi_pkg::CUT_ALL_AX,
+    LatencyMode:        axi_pkg::NO_LATENCY,
     AxiIdWidthSlvPorts: AxiIdWidth,
     AxiIdUsedSlvPorts:  AxiIdWidth,
     UniqueIds:          1'b0,
     AxiAddrWidth:       AxiAddrWidth,
     AxiDataWidth:       AxiDataWidth,
-    NoAddrRules:        NumMst
+    NoAddrRules:        NumAxiRules
 };
 
 // Address decode
 // idx is the target master-port index
 // Order of rules does not matter.
-localparam axi_pkg::xbar_rule_32_t [NumMst-1:0] AddrMap = '{
-    '{ idx: UartPort,  start_addr: 32'h1000_0000, end_addr: 32'h1000_1000 },
-    '{ idx: RamPort,   start_addr: 32'h8000_0000, end_addr: 32'h8100_0000 },
-    '{ idx: ClintPort, start_addr: 32'h0200_0000, end_addr: 32'h0201_0000 }
+localparam axi_pkg::xbar_rule_32_t [NumAxiRules-1:0] AxiAddrMap = '{
+    '{ idx: LitePort,  start_addr: 32'h0200_0000, end_addr: 32'h0201_0000 },  // CLINT
+    '{ idx: LitePort,  start_addr: 32'h1000_0000, end_addr: 32'h1000_1000 },  // UART0
+    '{ idx: RamPort,   start_addr: 32'h8000_0000, end_addr: 32'h8100_0000 }
 };
 
 // ============================================================
@@ -180,77 +179,77 @@ AXI_BUS #(
     .AXI_DATA_WIDTH ( AxiDataWidth ),
     .AXI_ID_WIDTH   ( AxiIdWidth   ),
     .AXI_USER_WIDTH ( AxiUserWidth )
-) xbar_slv [0:0] ();
+) axi_xbar_slv [0:0] ();
 
 AXI_BUS #(
     .AXI_ADDR_WIDTH ( AxiAddrWidth ),
     .AXI_DATA_WIDTH ( AxiDataWidth ),
     .AXI_ID_WIDTH   ( AxiIdWidth   ),
     .AXI_USER_WIDTH ( AxiUserWidth )
-) xbar_mst [NumMst-1:0] ();
+) axi_xbar_mst [NumAxiMst-1:0] ();
 
 // Bundle the flat adapter wires into the xbar's slave port
 // Signals the CPU does not produce (id/region/atop/user) are tied to 0
 // AW
-assign xbar_slv[0].aw_id     = '0;
-assign xbar_slv[0].aw_addr   = m_axi_awaddr;
-assign xbar_slv[0].aw_len    = m_axi_awlen;
-assign xbar_slv[0].aw_size   = m_axi_awsize;
-assign xbar_slv[0].aw_burst  = m_axi_awburst;
-assign xbar_slv[0].aw_lock   = m_axi_awlock;
-assign xbar_slv[0].aw_cache  = m_axi_awcache;
-assign xbar_slv[0].aw_prot   = m_axi_awprot;
-assign xbar_slv[0].aw_qos    = m_axi_awqos;
-assign xbar_slv[0].aw_region = '0;
-assign xbar_slv[0].aw_atop   = '0;
-assign xbar_slv[0].aw_user   = '0;
-assign xbar_slv[0].aw_valid  = m_axi_awvalid;
-assign m_axi_awready         = xbar_slv[0].aw_ready;  // Master of cpu is Slave 0 of xbar
+assign axi_xbar_slv[0].aw_id     = '0;
+assign axi_xbar_slv[0].aw_addr   = m_axi_awaddr;
+assign axi_xbar_slv[0].aw_len    = m_axi_awlen;
+assign axi_xbar_slv[0].aw_size   = m_axi_awsize;
+assign axi_xbar_slv[0].aw_burst  = m_axi_awburst;
+assign axi_xbar_slv[0].aw_lock   = m_axi_awlock;
+assign axi_xbar_slv[0].aw_cache  = m_axi_awcache;
+assign axi_xbar_slv[0].aw_prot   = m_axi_awprot;
+assign axi_xbar_slv[0].aw_qos    = m_axi_awqos;
+assign axi_xbar_slv[0].aw_region = '0;
+assign axi_xbar_slv[0].aw_atop   = '0;
+assign axi_xbar_slv[0].aw_user   = '0;
+assign axi_xbar_slv[0].aw_valid  = m_axi_awvalid;
+assign m_axi_awready             = axi_xbar_slv[0].aw_ready;  // Master of cpu is Slave 0 of xbar
 // W
-assign xbar_slv[0].w_data    = m_axi_wdata;
-assign xbar_slv[0].w_strb    = m_axi_wstrb;
-assign xbar_slv[0].w_last    = m_axi_wlast;
-assign xbar_slv[0].w_user    = '0;
-assign xbar_slv[0].w_valid   = m_axi_wvalid;
-assign m_axi_wready          = xbar_slv[0].w_ready;
+assign axi_xbar_slv[0].w_data    = m_axi_wdata;
+assign axi_xbar_slv[0].w_strb    = m_axi_wstrb;
+assign axi_xbar_slv[0].w_last    = m_axi_wlast;
+assign axi_xbar_slv[0].w_user    = '0;
+assign axi_xbar_slv[0].w_valid   = m_axi_wvalid;
+assign m_axi_wready              = axi_xbar_slv[0].w_ready;
 // B
-assign m_axi_bresp           = xbar_slv[0].b_resp;
-assign m_axi_bvalid          = xbar_slv[0].b_valid;
-assign xbar_slv[0].b_ready   = m_axi_bready;
+assign m_axi_bresp               = axi_xbar_slv[0].b_resp;
+assign m_axi_bvalid              = axi_xbar_slv[0].b_valid;
+assign axi_xbar_slv[0].b_ready   = m_axi_bready;
 // AR
-assign xbar_slv[0].ar_id     = '0;
-assign xbar_slv[0].ar_addr   = m_axi_araddr;
-assign xbar_slv[0].ar_len    = m_axi_arlen;
-assign xbar_slv[0].ar_size   = m_axi_arsize;
-assign xbar_slv[0].ar_burst  = m_axi_arburst;
-assign xbar_slv[0].ar_lock   = m_axi_arlock;
-assign xbar_slv[0].ar_cache  = m_axi_arcache;
-assign xbar_slv[0].ar_prot   = m_axi_arprot;
-assign xbar_slv[0].ar_qos    = m_axi_arqos;
-assign xbar_slv[0].ar_region = '0;
-assign xbar_slv[0].ar_user   = '0;
-assign xbar_slv[0].ar_valid  = m_axi_arvalid;
-assign m_axi_arready         = xbar_slv[0].ar_ready;
+assign axi_xbar_slv[0].ar_id     = '0;
+assign axi_xbar_slv[0].ar_addr   = m_axi_araddr;
+assign axi_xbar_slv[0].ar_len    = m_axi_arlen;
+assign axi_xbar_slv[0].ar_size   = m_axi_arsize;
+assign axi_xbar_slv[0].ar_burst  = m_axi_arburst;
+assign axi_xbar_slv[0].ar_lock   = m_axi_arlock;
+assign axi_xbar_slv[0].ar_cache  = m_axi_arcache;
+assign axi_xbar_slv[0].ar_prot   = m_axi_arprot;
+assign axi_xbar_slv[0].ar_qos    = m_axi_arqos;
+assign axi_xbar_slv[0].ar_region = '0;
+assign axi_xbar_slv[0].ar_user   = '0;
+assign axi_xbar_slv[0].ar_valid  = m_axi_arvalid;
+assign m_axi_arready             = axi_xbar_slv[0].ar_ready;
 // R
-assign m_axi_rdata           = xbar_slv[0].r_data;
-assign m_axi_rresp           = xbar_slv[0].r_resp;
-assign m_axi_rlast           = xbar_slv[0].r_last;
-assign m_axi_rvalid          = xbar_slv[0].r_valid;
-assign xbar_slv[0].r_ready   = m_axi_rready;
+assign m_axi_rdata               = axi_xbar_slv[0].r_data;
+assign m_axi_rresp               = axi_xbar_slv[0].r_resp;
+assign m_axi_rlast               = axi_xbar_slv[0].r_last;
+assign m_axi_rvalid              = axi_xbar_slv[0].r_valid;
+assign axi_xbar_slv[0].r_ready   = m_axi_rready;
 
 axi_xbar_intf #(
     .AXI_USER_WIDTH ( AxiUserWidth            ),
-    .Cfg            ( XbarCfg                 ),
+    .Cfg            ( AxiXbarCfg              ),
     .rule_t         ( axi_pkg::xbar_rule_32_t )
-) xbar (
-    .clk_i                 ( i_clk    ),
-    .rst_ni                ( i_rstn   ),
-    .test_i                ( 1'b0     ),
-    .slv_ports             ( xbar_slv ),
-    .mst_ports             ( xbar_mst ),
-    .addr_map_i            ( AddrMap  ),
-    .en_default_mst_port_i ( '0       ),
-    .default_mst_port_i    ( '0       )
+) axi_xbar (
+    .clk_i                 ( i_clk        ),
+    .rst_ni                ( i_rstn       ),
+    .test_i                ( 1'b0         ),
+    .slv_ports             ( axi_xbar_slv ),
+    .mst_ports             ( axi_xbar_mst ),
+    .addr_map_i            ( AxiAddrMap   ),
+    .en_default_mst_port_i ( '0           ),
+    .default_mst_port_i    ( '0           )
 );
 
 // ============================================================
@@ -268,19 +267,19 @@ axi_to_mem_intf #(
     .USER_WIDTH ( AxiUserWidth ),
     .NUM_BANKS  ( 1            )
 ) axi_to_mem (
-    .clk_i        ( i_clk             ),
-    .rst_ni       ( i_rstn            ),
-    .busy_o       (                   ),
-    .slv          ( xbar_mst[RamPort] ),
-    .mem_req_o    ( mem_req           ),
-    .mem_gnt_i    ( mem_gnt           ),
-    .mem_addr_o   ( mem_addr          ),
-    .mem_wdata_o  ( mem_wdata         ),
-    .mem_strb_o   ( mem_be            ),
-    .mem_atop_o   (                   ),
-    .mem_we_o     ( mem_we            ),
-    .mem_rvalid_i ( mem_rvalid        ),
-    .mem_rdata_i  ( mem_rdata         )
+    .clk_i        ( i_clk                 ),
+    .rst_ni       ( i_rstn                ),
+    .busy_o       (                       ),
+    .slv          ( axi_xbar_mst[RamPort] ),
+    .mem_req_o    ( mem_req               ),
+    .mem_gnt_i    ( mem_gnt               ),
+    .mem_addr_o   ( mem_addr              ),
+    .mem_wdata_o  ( mem_wdata             ),
+    .mem_strb_o   ( mem_be                ),
+    .mem_atop_o   (                       ),
+    .mem_we_o     ( mem_we                ),
+    .mem_rvalid_i ( mem_rvalid            ),
+    .mem_rdata_i  ( mem_rdata             )
 );
 
 tc_sram #(
@@ -317,13 +316,42 @@ typedef logic [AxiDataWidth/8-1:0] strb_t;
 `APB_TYPEDEF_ALL     (apb,      addr_t, data_t, strb_t)  // apb_req_t, apb_resp_t
 
 // ============================================================
-// UART0: xbar port -> AXI-Lite -> reg_bus -> APB -> UART0
+// AXI-Lite peripherals
 // ============================================================
+
+localparam int unsigned NumAxiLiteMst = 2;
+localparam int unsigned UartPort      = 0;
+localparam int unsigned ClintPort     = 1;
+
+localparam axi_pkg::xbar_cfg_t AxiLiteXbarCfg = '{
+    NoSlvPorts:         1,
+    NoMstPorts:         NumAxiLiteMst,
+    MaxMstTrans:        4,
+    MaxSlvTrans:        4,
+    FallThrough:        1'b0,
+    LatencyMode:        axi_pkg::NO_LATENCY,
+    AxiIdWidthSlvPorts: 0,
+    AxiIdUsedSlvPorts:  0,
+    UniqueIds:          1'b0,
+    AxiAddrWidth:       AxiAddrWidth,
+    AxiDataWidth:       AxiDataWidth,
+    NoAddrRules:        NumAxiLiteMst
+};
+
+localparam axi_pkg::xbar_rule_32_t [NumAxiLiteMst-1:0] AxiLiteAddrMap = '{
+    '{ idx: UartPort,  start_addr: 32'h1000_0000, end_addr: 32'h1000_1000 },
+    '{ idx: ClintPort, start_addr: 32'h0200_0000, end_addr: 32'h0201_0000 }
+};
 
 AXI_LITE #(
     .AXI_ADDR_WIDTH ( AxiAddrWidth ),
     .AXI_DATA_WIDTH ( AxiDataWidth )
-) uart0_lite ();
+) axi_lite_xbar_slv[0:0] ();
+
+AXI_LITE #(
+    .AXI_ADDR_WIDTH ( AxiAddrWidth ),
+    .AXI_DATA_WIDTH ( AxiDataWidth )
+) axi_lite_xbar_mst[NumAxiLiteMst-1:0] ();
 
 axi_to_axi_lite_intf #(
     .AXI_ADDR_WIDTH     ( AxiAddrWidth ),
@@ -333,19 +361,36 @@ axi_to_axi_lite_intf #(
     .AXI_MAX_WRITE_TXNS ( 1            ),
     .AXI_MAX_READ_TXNS  ( 1            ),
     .FALL_THROUGH       ( 1'b1         )
-) axi_to_uart_lite (
-    .clk_i      ( i_clk              ),
-    .rst_ni     ( i_rstn             ),
-    .testmode_i ( 1'b0               ),
-    .slv        ( xbar_mst[UartPort] ),
-    .mst        ( uart0_lite        )
+) axi_to_axi_lite (
+    .clk_i      ( i_clk                  ),
+    .rst_ni     ( i_rstn                 ),
+    .testmode_i ( 1'b0                   ),
+    .slv        ( axi_xbar_mst[LitePort] ),
+    .mst        ( axi_lite_xbar_slv[0]   )
 );
+
+axi_lite_xbar_intf #(
+    .Cfg ( AxiLiteXbarCfg )
+) axi_lite_xbar (
+    .clk_i                 ( i_clk             ),
+    .rst_ni                ( i_rstn            ),
+    .test_i                ( 1'b0              ),
+    .slv_ports             ( axi_lite_xbar_slv ),
+    .mst_ports             ( axi_lite_xbar_mst ),
+    .addr_map_i            ( AxiLiteAddrMap    ),
+    .en_default_mst_port_i ( '0                ),
+    .default_mst_port_i    ( '0                )
+);
+
+// ============================================================
+// UART0: lite xbar port -> AXI-Lite -> reg_bus -> APB -> UART0
+// ============================================================
 
 // Connect the AXI_LITE interface object and req/rsp structs
 axi_lite_req_t  uart0_lite_req;
 axi_lite_resp_t uart0_lite_rsp;
-`AXI_LITE_ASSIGN_TO_REQ   (uart0_lite_req, uart0_lite)
-`AXI_LITE_ASSIGN_FROM_RESP(uart0_lite, uart0_lite_rsp)
+`AXI_LITE_ASSIGN_TO_REQ   (uart0_lite_req, axi_lite_xbar_mst[UartPort])
+`AXI_LITE_ASSIGN_FROM_RESP(axi_lite_xbar_mst[UartPort], uart0_lite_rsp)
 
 // AXI-Lite -> reg_bus
 reg_bus_req_t uart0_reg_req;
@@ -406,34 +451,13 @@ apb_uart_wrap #(
 );
 
 // ============================================================
-// CLINT: xbar port -> AXI-Lite -> CLINT
+// CLINT: Lite xbar port -> AXI-Lite -> CLINT
 // ============================================================
-
-AXI_LITE #(
-    .AXI_ADDR_WIDTH ( AxiAddrWidth ),
-    .AXI_DATA_WIDTH ( AxiDataWidth )
-) clint_lite ();
-
-axi_to_axi_lite_intf #(
-    .AXI_ADDR_WIDTH     ( AxiAddrWidth ),
-    .AXI_DATA_WIDTH     ( AxiDataWidth ),
-    .AXI_ID_WIDTH       ( AxiIdWidth   ),
-    .AXI_USER_WIDTH     ( AxiUserWidth ),
-    .AXI_MAX_WRITE_TXNS ( 1            ),
-    .AXI_MAX_READ_TXNS  ( 1            ),
-    .FALL_THROUGH       ( 1'b1         )
-) axi_to_clint_lite (
-    .clk_i      ( i_clk               ),
-    .rst_ni     ( i_rstn              ),
-    .testmode_i ( 1'b0                ),
-    .slv        ( xbar_mst[ClintPort] ),
-    .mst        ( clint_lite          )
-);
 
 axi_lite_req_t  clint_lite_req;
 axi_lite_resp_t clint_lite_rsp;
-`AXI_LITE_ASSIGN_TO_REQ   (clint_lite_req, clint_lite)
-`AXI_LITE_ASSIGN_FROM_RESP(clint_lite, clint_lite_rsp)
+`AXI_LITE_ASSIGN_TO_REQ   (clint_lite_req, axi_lite_xbar_mst[ClintPort])
+`AXI_LITE_ASSIGN_FROM_RESP(axi_lite_xbar_mst[ClintPort], clint_lite_rsp)
 
 friscv_clint #(
     .CLK_FREQ_HZ   ( 50_000_000 ),

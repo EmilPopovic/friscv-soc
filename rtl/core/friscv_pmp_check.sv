@@ -52,7 +52,7 @@ always_comb begin
     for (int i = 0; i < PMP_ENTRIES; i++) begin
         automatic pmp_entry_t entry     = i_pmp_table[i];
         automatic addr_t      prev_addr = (i > 0) ? i_pmp_table[i-1].addr : '0;
-        automatic addr_t      cmp_mask  = ~entry.napot_mask;
+        automatic addr_t      cmp_mask  = ~entry.addr ^ (~entry.addr + 1'b1);
         case (entry.cfg.a)
             // Top of range: pmpaddr[i-1] <= pa < pmpaddr[i]
             PMP_TOR:   w_match[i] = (prev_addr <= w_aligned_pa) && (w_aligned_pa < entry.addr);
@@ -70,7 +70,7 @@ end
 // Stage 2: priority-encode
 always_comb begin
     o_fault = 1'b0;
-    if (i_access_r || i_access_w || i_access_x) begin
+    if (!ENABLE_FAKE_PMP && (i_access_r || i_access_w || i_access_x)) begin
         o_fault = (i_mode != M_MODE);
         for (int i = PMP_ENTRIES-1; i >= 0; i--)
             if (w_match[i]) o_fault = fault_for_cfg(i_pmp_table[i].cfg);

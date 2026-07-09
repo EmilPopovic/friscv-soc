@@ -818,8 +818,6 @@ always_ff @(posedge clk_in) begin
                 // Ignore write if unusable (read-only-zero entry), or this/following TOR entry is locked
                 if (i < PMP_USABLE && !pmpaddr_write_ignored(i)) begin
                     pmp_table[i].addr       <= csr_data_in;
-                    // Precompute the NAPOT mask once
-                    pmp_table[i].napot_mask <= csr_data_in ^ (csr_data_in + 1'b1);
                 end
             end
         end
