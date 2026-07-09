@@ -33,13 +33,16 @@ localparam int unsigned AxiDataWidth = 32;
 localparam int unsigned AxiIdWidth   = 1;
 localparam int unsigned AxiUserWidth = 1;
 
-// Crossbar port map
+// Crossbar port map:
 //  Slave  port 0: CPU
+//  ---------------------
 //  Master port 0: RAM
-//  Master port 1: Peripherals (UART, etc.)
-localparam int unsigned NumMst   = 2;
-localparam int unsigned RamPort  = 0;
-localparam int unsigned UartPort = 1;
+//  Master port 1: UART0
+//  Master port 2: CLINT
+localparam int unsigned NumMst    = 3;
+localparam int unsigned RamPort   = 0;
+localparam int unsigned UartPort  = 1;
+localparam int unsigned ClintPort = 2;
 
 localparam axi_pkg::xbar_cfg_t XbarCfg = '{
     NoSlvPorts:         1,
@@ -60,8 +63,9 @@ localparam axi_pkg::xbar_cfg_t XbarCfg = '{
 // idx is the target master-port index
 // Order of rules does not matter.
 localparam axi_pkg::xbar_rule_32_t [NumMst-1:0] AddrMap = '{
-    '{ idx: UartPort, start_addr: 32'h1000_0000, end_addr: 32'h1000_1000 },
-    '{ idx: RamPort,  start_addr: 32'h8000_0000, end_addr: 32'h8100_0000 }
+    '{ idx: UartPort,  start_addr: 32'h1000_0000, end_addr: 32'h1000_1000 },
+    '{ idx: RamPort,   start_addr: 32'h8000_0000, end_addr: 32'h8100_0000 },
+    '{ idx: ClintPort, start_addr: 32'h0200_0000, end_addr: 32'h0201_0000 }
 };
 
 // ============================================================
@@ -70,14 +74,18 @@ localparam axi_pkg::xbar_rule_32_t [NumMst-1:0] AddrMap = '{
 
 friscv_mem_if mem_if();
 
+logic [63:0] mtime;
+logic        msip, mtip, meip;
+assign meip = 1'b0;
+
 friscv_cpu_subsystem_core cpu_subsystem (
     .i_clk   ( i_clk  ),
     .i_rstn  ( i_rstn ),
     .o_end   ( o_end  ),
-    .i_msip  ( 1'b0   ),
-    .i_mtip  ( 1'b0   ),
-    .i_meip  ( 1'b0   ),
-    .i_mtime ( 64'd0  ),
+    .i_msip  ( msip ),
+    .i_mtip  ( mtip ),
+    .i_meip  ( meip ),
+    .i_mtime ( mtime ),
     .mem_if  ( mem_if )
 );
 
@@ -299,29 +307,6 @@ always_ff @(posedge i_clk) begin
 end
 
 // ============================================================
-// Peripherals: xbar port -> AXI-Lite -> reg_bus -> APB -> UART
-// ============================================================
-
-AXI_LITE #(
-    .AXI_ADDR_WIDTH ( AxiAddrWidth ),
-    .AXI_DATA_WIDTH ( AxiDataWidth )
-) periph_lite ();
-
-axi_to_axi_lite_intf #(
-    .AXI_ADDR_WIDTH     ( AxiAddrWidth ),
-    .AXI_DATA_WIDTH     ( AxiDataWidth ),
-    .AXI_ID_WIDTH       ( AxiIdWidth   ),
-    .AXI_USER_WIDTH     ( AxiUserWidth ),
-    .AXI_MAX_WRITE_TXNS ( 1            ),
-    .AXI_MAX_READ_TXNS  ( 1            ),
-    .FALL_THROUGH       ( 1'b1         )
-) axi_to_lite (
-    .clk_i      ( i_clk              ),
-    .rst_ni     ( i_rstn             ),
-    .testmode_i ( 1'b0               ),
-    .slv        ( xbar_mst[UartPort] ),
-    .mst        ( periph_lite        )
-);
 
 // Struct types for the reg/apb
 typedef logic [AxiAddrWidth-1:0]   addr_t;
@@ -331,15 +316,40 @@ typedef logic [AxiDataWidth/8-1:0] strb_t;
 `REG_BUS_TYPEDEF_ALL (reg_bus,  addr_t, data_t, strb_t)  // reg_bus_req_t, reg_bus_rsp_t
 `APB_TYPEDEF_ALL     (apb,      addr_t, data_t, strb_t)  // apb_req_t, apb_resp_t
 
+// ============================================================
+// UART0: xbar port -> AXI-Lite -> reg_bus -> APB -> UART0
+// ============================================================
+
+AXI_LITE #(
+    .AXI_ADDR_WIDTH ( AxiAddrWidth ),
+    .AXI_DATA_WIDTH ( AxiDataWidth )
+) uart0_lite ();
+
+axi_to_axi_lite_intf #(
+    .AXI_ADDR_WIDTH     ( AxiAddrWidth ),
+    .AXI_DATA_WIDTH     ( AxiDataWidth ),
+    .AXI_ID_WIDTH       ( AxiIdWidth   ),
+    .AXI_USER_WIDTH     ( AxiUserWidth ),
+    .AXI_MAX_WRITE_TXNS ( 1            ),
+    .AXI_MAX_READ_TXNS  ( 1            ),
+    .FALL_THROUGH       ( 1'b1         )
+) axi_to_uart_lite (
+    .clk_i      ( i_clk              ),
+    .rst_ni     ( i_rstn             ),
+    .testmode_i ( 1'b0               ),
+    .slv        ( xbar_mst[UartPort] ),
+    .mst        ( uart0_lite        )
+);
+
 // Connect the AXI_LITE interface object and req/rsp structs
-axi_lite_req_t  lite_req;
-axi_lite_resp_t lite_rsp;
-`AXI_LITE_ASSIGN_TO_REQ   (lite_req, periph_lite)
-`AXI_LITE_ASSIGN_FROM_RESP(periph_lite, lite_rsp)
+axi_lite_req_t  uart0_lite_req;
+axi_lite_resp_t uart0_lite_rsp;
+`AXI_LITE_ASSIGN_TO_REQ   (uart0_lite_req, uart0_lite)
+`AXI_LITE_ASSIGN_FROM_RESP(uart0_lite, uart0_lite_rsp)
 
 // AXI-Lite -> reg_bus
-reg_bus_req_t reg_req;
-reg_bus_rsp_t reg_rsp;
+reg_bus_req_t uart0_reg_req;
+reg_bus_rsp_t uart0_reg_rsp;
 axi_lite_to_reg #(
     .ADDR_WIDTH     ( AxiAddrWidth    ),
     .DATA_WIDTH     ( AxiDataWidth    ),
@@ -348,17 +358,17 @@ axi_lite_to_reg #(
     .reg_req_t      ( reg_bus_req_t   ),
     .reg_rsp_t      ( reg_bus_rsp_t   )
 ) lite_to_reg (
-    .clk_i          ( i_clk    ),
-    .rst_ni         ( i_rstn   ),
-    .axi_lite_req_i ( lite_req ),
-    .axi_lite_rsp_o ( lite_rsp ),
-    .reg_req_o      ( reg_req  ),
-    .reg_rsp_i      ( reg_rsp  )
+    .clk_i          ( i_clk          ),
+    .rst_ni         ( i_rstn         ),
+    .axi_lite_req_i ( uart0_lite_req ),
+    .axi_lite_rsp_o ( uart0_lite_rsp ),
+    .reg_req_o      ( uart0_reg_req  ),
+    .reg_rsp_i      ( uart0_reg_rsp  )
 );
 
 // reg_bus -> APB
-apb_req_t  apb_req;
-apb_resp_t apb_rsp;
+apb_req_t  uart0_apb_req;
+apb_resp_t uart0_apb_rsp;
 reg_to_apb #(
     .reg_req_t ( reg_bus_req_t ),
     .reg_rsp_t ( reg_bus_rsp_t ),
@@ -367,32 +377,89 @@ reg_to_apb #(
 ) reg_to_apb (
     .clk_i     ( i_clk   ),
     .rst_ni    ( i_rstn  ),
-    .reg_req_i ( reg_req ),
-    .reg_rsp_o ( reg_rsp ),
-    .apb_req_o ( apb_req ),
-    .apb_rsp_i ( apb_rsp )
+    .reg_req_i ( uart0_reg_req ),
+    .reg_rsp_o ( uart0_reg_rsp ),
+    .apb_req_o ( uart0_apb_req ),
+    .apb_rsp_i ( uart0_apb_rsp )
 );
 
 // APB -> 16550 UART
 apb_uart_wrap #(
     .apb_req_t ( apb_req_t  ),
     .apb_rsp_t ( apb_resp_t )
-) uart (
-    .clk_i     ( i_clk     ),
-    .rst_ni    ( i_rstn    ),
-    .apb_req_i ( apb_req   ),
-    .apb_rsp_o ( apb_rsp   ),
-    .intr_o    (           ),
-    .sin_i     ( i_uart_rx ),
-    .sout_o    ( o_uart_tx ),
-    .cts_ni    ( 1'b0      ),
-    .dsr_ni    ( 1'b0      ),
-    .dcd_ni    ( 1'b0      ),
-    .rin_ni    ( 1'b0      ),
-    .out1_no   (           ),
-    .out2_no   (           ),
-    .rts_no    (           ),
-    .dtr_no    (           )
+) uart0 (
+    .clk_i     ( i_clk         ),
+    .rst_ni    ( i_rstn        ),
+    .apb_req_i ( uart0_apb_req ),
+    .apb_rsp_o ( uart0_apb_rsp ),
+    .intr_o    (               ),
+    .sin_i     ( i_uart_rx     ),
+    .sout_o    ( o_uart_tx     ),
+    .cts_ni    ( 1'b0          ),
+    .dsr_ni    ( 1'b0          ),
+    .dcd_ni    ( 1'b0          ),
+    .rin_ni    ( 1'b0          ),
+    .out1_no   (               ),
+    .out2_no   (               ),
+    .rts_no    (               ),
+    .dtr_no    (               )
+);
+
+// ============================================================
+// CLINT: xbar port -> AXI-Lite -> CLINT
+// ============================================================
+
+AXI_LITE #(
+    .AXI_ADDR_WIDTH ( AxiAddrWidth ),
+    .AXI_DATA_WIDTH ( AxiDataWidth )
+) clint_lite ();
+
+axi_to_axi_lite_intf #(
+    .AXI_ADDR_WIDTH     ( AxiAddrWidth ),
+    .AXI_DATA_WIDTH     ( AxiDataWidth ),
+    .AXI_ID_WIDTH       ( AxiIdWidth   ),
+    .AXI_USER_WIDTH     ( AxiUserWidth ),
+    .AXI_MAX_WRITE_TXNS ( 1            ),
+    .AXI_MAX_READ_TXNS  ( 1            ),
+    .FALL_THROUGH       ( 1'b1         )
+) axi_to_clint_lite (
+    .clk_i      ( i_clk               ),
+    .rst_ni     ( i_rstn              ),
+    .testmode_i ( 1'b0                ),
+    .slv        ( xbar_mst[ClintPort] ),
+    .mst        ( clint_lite          )
+);
+
+axi_lite_req_t  clint_lite_req;
+axi_lite_resp_t clint_lite_rsp;
+`AXI_LITE_ASSIGN_TO_REQ   (clint_lite_req, clint_lite)
+`AXI_LITE_ASSIGN_FROM_RESP(clint_lite, clint_lite_rsp)
+
+friscv_clint #(
+    .CLK_FREQ_HZ   ( 50_000_000 ),
+    .MTIME_FREQ_HZ ( 10_000_000 )
+) clint (
+    .clk_in ( i_clk ),
+    .rstn_in       ( i_rstn                 ),
+    .time_out      ( mtime                  ),
+    .msip_out      ( msip                   ),
+    .mtip_out      ( mtip                   ),
+    .s_axi_awaddr  ( clint_lite_req.aw.addr  ),
+    .s_axi_awvalid ( clint_lite_req.aw_valid ),
+    .s_axi_awready ( clint_lite_rsp.aw_ready ),
+    .s_axi_wdata   ( clint_lite_req.w.data   ),
+    .s_axi_wvalid  ( clint_lite_req.w_valid  ),
+    .s_axi_wready  ( clint_lite_rsp.w_ready  ),
+    .s_axi_bresp   ( clint_lite_rsp.b.resp   ),
+    .s_axi_bvalid  ( clint_lite_rsp.b_valid  ),
+    .s_axi_bready  ( clint_lite_req.b_ready  ),
+    .s_axi_araddr  ( clint_lite_req.ar.addr  ),
+    .s_axi_arvalid ( clint_lite_req.ar_valid ),
+    .s_axi_arready ( clint_lite_rsp.ar_ready ),
+    .s_axi_rdata   ( clint_lite_rsp.r.data   ),
+    .s_axi_rresp   ( clint_lite_rsp.r.resp   ),
+    .s_axi_rvalid  ( clint_lite_rsp.r_valid  ),
+    .s_axi_rready  ( clint_lite_req.r_ready  )
 );
 
 endmodule
