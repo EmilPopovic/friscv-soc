@@ -31,7 +31,9 @@ module friscv_cpu_subsystem_core (
 
     input  mtime_t       i_mtime,
 
-    friscv_mem_if.master mem_if
+    friscv_mem_if.master mem_if,
+
+    input  logic         i_dbg_req
 );
 
 mem_width_e w_size;

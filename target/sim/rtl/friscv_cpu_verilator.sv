@@ -46,14 +46,15 @@ assign mem.beat_valid = beat_valid;
 assign mem.err = err;
 
 friscv_cpu_subsystem_core core (
-    .i_clk   ( clk   ),
-    .i_rstn  ( rstn  ),
-    .o_end   ( halt  ),
-    .i_msip  ( msip  ),
-    .i_mtip  ( mtip  ),
-    .i_meip  ( meip  ),
-    .i_mtime ( mtime ),
-    .mem_if  ( mem   )
+    .i_clk     ( clk   ),
+    .i_rstn    ( rstn  ),
+    .o_end     ( halt  ),
+    .i_msip    ( msip  ),
+    .i_mtip    ( mtip  ),
+    .i_meip    ( meip  ),
+    .i_mtime   ( mtime ),
+    .mem_if    ( mem   ),
+    .i_dbg_req ( 1'b0  )
 );
 
 endmodule

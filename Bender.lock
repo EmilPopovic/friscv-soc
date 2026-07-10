@@ -64,6 +64,14 @@ packages:
     - apb
     - axi
     - common_cells
+  riscv-dbg:
+    revision: 1cd764a82d7d49c5e8679fbb70b540b2e274bab9
+    version: 0.10.0
+    source:
+      Git: https://github.com/pulp-platform/riscv-dbg.git
+    dependencies:
+    - common_cells
+    - tech_cells_generic
   tech_cells_generic:
     revision: 3a3de73632a06826b1bd9c65a0a2e92b32016845
     version: 0.2.14
