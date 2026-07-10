@@ -307,6 +307,7 @@ friscv_id_stage #(
     // Inputs from older stages
     .ex_rd_sel_in     ( ex_rd_sel_out    ),
     .mem_rd_sel_in    ( mem_rd_sel_out   ),
+    .ex_muldiv_active_in ( ex_muldiv_active ),
 
     // Inputs from WB stage
     .rd_sel_in        ( wb_rd_sel_out    ),

@@ -101,6 +101,7 @@ module friscv_id_stage #(
     // Inputs from older stages for state visibility
     input  reg_addr_t ex_rd_sel_in,
     input  reg_addr_t mem_rd_sel_in,
+    input  logic      ex_muldiv_active_in,
 
     // Inputs from WB stage
     input  reg_addr_t rd_sel_in,
@@ -484,11 +485,13 @@ logic r_in_ebreak_handler;
 
 // An incoming trap has a pipeline hazard if
 //  1) there is a memory instruction in the pipeline or
-//  2) a dispatched instruction will write back to a register.
+//  2) a dispatched instruction will write back to a register or
+//  3) an iterative multiply/divide operation is still active.
 // These must commit before taking a trap.
 logic trap_pipe_hazard;
 assign trap_pipe_hazard = trap_raw &&
-                          (ex_mem_inflight_in || mem_mem_inflight_in || trap_gpr_hazard);
+                          (ex_mem_inflight_in || mem_mem_inflight_in ||
+                           ex_muldiv_active_in || trap_gpr_hazard);
 assign trap_out         = trap_raw && !trap_seen && !trap_csr_hazard && !trap_pipe_hazard;
 assign trap_pending_out = trap_raw && !trap_seen && (trap_csr_hazard || trap_pipe_hazard);
 
