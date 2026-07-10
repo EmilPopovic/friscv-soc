@@ -66,7 +66,7 @@ module friscv_ex_stage (
 
     // Outputs to control logic
     output logic           branch_ok_out,
-    output logic           div_active_out,
+    output logic           muldiv_active_out,
     output addr_t          branch_target_out,
 
     // Trap signals
@@ -129,69 +129,77 @@ friscv_ex_stage_branch_unit branch_unit (
 assign branch_target_out = branch_target;
 
 // ============================================================
-// Non-restoring divider
+// Iterative multiply/divide unit
 // ============================================================
-
-logic [31:0] div_q, div_r;
 
 data_t alu_input_a;
 data_t alu_input_b;
 
-generate if (ENABLE_DIV) begin : gen_div
-    logic div_active, div_done;
-    logic div_started;
-    logic div_done_latched;
+logic [63:0] muldiv_result;
+logic        mul_en;
+logic        div_en;
+logic        muldiv_en;
+logic        operand_a_signed;
+logic        operand_b_signed;
 
-    logic div_start_pulse;
-    assign div_start_pulse = instr_buff.div_en && !div_started && !div_done_latched;
+assign mul_en = ENABLE_MUL && ((instr_buff.alu_op == MUL_OP)   ||
+                               (instr_buff.alu_op == MULH_OP)  ||
+                               (instr_buff.alu_op == MULHU_OP) ||
+                               (instr_buff.alu_op == MULHSU_OP));
+assign div_en = ENABLE_DIV && ((instr_buff.alu_op == DIV_OP)  ||
+                               (instr_buff.alu_op == DIVU_OP) ||
+                               (instr_buff.alu_op == REM_OP)  ||
+                               (instr_buff.alu_op == REMU_OP));
+assign muldiv_en = mul_en || div_en;
 
-    logic div_flush;
-    assign div_flush = stage_flush_in || trap_commit_in;
+assign operand_a_signed = (instr_buff.alu_op == MULH_OP)  ||
+                          (instr_buff.alu_op == MULHSU_OP) ||
+                          (instr_buff.alu_op == DIV_OP)    ||
+                          (instr_buff.alu_op == REM_OP);
+assign operand_b_signed = (instr_buff.alu_op == MULH_OP) ||
+                          (instr_buff.alu_op == DIV_OP)   ||
+                          (instr_buff.alu_op == REM_OP);
 
-    data_t div_a_reg, div_b_reg;
-    logic  div_signed_reg;
-    logic  div_start_r;
+generate if (ENABLE_MUL || ENABLE_DIV) begin : gen_muldiv
+    logic muldiv_done;
+    logic muldiv_started;
+    logic muldiv_done_latched;
+    logic muldiv_start_pulse;
+    logic muldiv_flush;
+
+    assign muldiv_start_pulse = muldiv_en && !muldiv_started && !muldiv_done_latched;
+    assign muldiv_flush = stage_flush_in || trap_commit_in;
 
     always_ff @(posedge clk_in) begin
-        if (!rst_n_in || div_flush || !instr_buff.div_en || (div_done_latched && !stage_stall_in)) begin
-            div_started      <= 1'b0;
-            div_done_latched <= 1'b0;
-            div_start_r      <= 1'b0;
-            div_a_reg        <= '0;
-            div_b_reg        <= '0;
-            div_signed_reg   <= 1'b0;
+        if (!rst_n_in || muldiv_flush || !muldiv_en || (muldiv_done_latched && !stage_stall_in)) begin
+            muldiv_started      <= 1'b0;
+            muldiv_done_latched <= 1'b0;
         end else begin
-            div_start_r <= div_start_pulse;
-            if (div_start_pulse) begin
-                div_started  <= 1'b1;
-                div_a_reg    <= alu_input_a;
-                div_b_reg    <= alu_input_b;
-                div_signed_reg <= instr_buff.div_signed;
-            end
-            if (div_done)
-                div_done_latched <= 1'b1;
+            if (muldiv_start_pulse)
+                muldiv_started <= 1'b1;
+            if (muldiv_done)
+                muldiv_done_latched <= 1'b1;
         end
     end
 
-    friscv_divider i_divider (
-        .clk_in               ( clk_in         ),
-        .rst_n_in             ( rst_n_in       ),
-        .flush_in             ( div_flush      ),
-        .division_detected_in ( div_start_r    ),
-        .signed_division_in   ( div_signed_reg ),
-        .divisor              ( div_b_reg      ),
-        .dividend             ( div_a_reg      ),
-        .quotient             ( div_q          ),
-        .remainder            ( div_r          ),
-        .active_out           ( div_active     ),
-        .done_out             ( div_done       )
+    friscv_muldiv i_muldiv (
+        .clk_in              ( clk_in             ),
+        .rst_n_in            ( rst_n_in           ),
+        .flush_in            ( muldiv_flush       ),
+        .start_in            ( muldiv_start_pulse ),
+        .multiply_in         ( mul_en             ),
+        .operand_a_signed_in ( operand_a_signed    ),
+        .operand_b_signed_in ( operand_b_signed    ),
+        .operand_a_in        ( alu_input_a         ),
+        .operand_b_in        ( alu_input_b         ),
+        .result_out          ( muldiv_result       ),
+        .done_out            ( muldiv_done         )
     );
 
-    assign div_active_out = instr_buff.div_en && !div_done_latched;
-end else begin : gen_no_div
-    assign div_q = '0;
-    assign div_r = '0;
-    assign div_active_out = 1'b0;
+    assign muldiv_active_out = muldiv_en && !muldiv_done_latched;
+end else begin : gen_no_muldiv
+    assign muldiv_result = '0;
+    assign muldiv_active_out = 1'b0;
 end endgenerate
 
 // ============================================================
@@ -344,42 +352,6 @@ assign addr_result = alu_input_a + alu_input_b;
 assign branch_target = instr_buff.jalr_target ? {addr_result[31:1], 1'b0} : addr_result;
 
 // ============================================================
-// Multiplier
-// ============================================================
-
-data_t mul_result_lo, mul_result_hi;
-
-generate if (ENABLE_MUL) begin : gen_mul
-    // The goal here is to do only one 33x33 multiplication with pre-signed operands,
-    // instead of separate signed/unsigned multiplications with 4 32x32 multipliers.
-    // This saves area and improves timing, at the cost of minimal extra logic.
-    logic signed [32:0] mul_op_a, mul_op_b;
-    logic signed [65:0] mul_result;
-
-    always_comb begin
-        // A: sign-extend for MULH, MULHSU, zero-extend for MULHU
-        case (instr_buff.alu_op)
-            MULHU_OP: mul_op_a = {1'b0, alu_input_a};
-            default:  mul_op_a = {alu_input_a[31], alu_input_a};
-        endcase
-
-        // B: sign-extend for MULH only, zero-extend for MULHU, MULHSU
-        case (instr_buff.alu_op)
-            MULH_OP: mul_op_b = {alu_input_b[31], alu_input_b};
-            default: mul_op_b = {1'b0, alu_input_b};
-        endcase
-    end
-
-    // Here is the single multiplier
-    assign mul_result = mul_op_a * mul_op_b;
-    assign mul_result_lo = mul_result[31:0];
-    assign mul_result_hi = mul_result[63:32];
-end else begin : gen_no_mul
-    assign mul_result_lo = '0;
-    assign mul_result_hi = '0;
-end endgenerate
-
-// ============================================================
 // Execute operation
 // ============================================================
 
@@ -395,14 +367,14 @@ always_comb begin
         SRA_OP:    alu_data_raw = $signed(alu_input_a) >>> alu_input_b[4:0];
         SLT_OP:    alu_data_raw = {31'b0, $signed(alu_input_a) < $signed(alu_input_b)};
         SLTU_OP:   alu_data_raw = {31'b0, alu_input_a < alu_input_b};
-        MUL_OP:    alu_data_raw = mul_result_lo;
-        MULH_OP:   alu_data_raw = mul_result_hi;
-        MULHU_OP:  alu_data_raw = mul_result_hi;
-        MULHSU_OP: alu_data_raw = mul_result_hi;
-        DIV_OP:    alu_data_raw = div_q;
-        DIVU_OP:   alu_data_raw = div_q;
-        REM_OP:    alu_data_raw = div_r;
-        REMU_OP:   alu_data_raw = div_r;
+        MUL_OP:    alu_data_raw = muldiv_result[31:0];
+        MULH_OP:   alu_data_raw = muldiv_result[63:32];
+        MULHU_OP:  alu_data_raw = muldiv_result[63:32];
+        MULHSU_OP: alu_data_raw = muldiv_result[63:32];
+        DIV_OP:    alu_data_raw = muldiv_result[31:0];
+        DIVU_OP:   alu_data_raw = muldiv_result[31:0];
+        REM_OP:    alu_data_raw = muldiv_result[63:32];
+        REMU_OP:   alu_data_raw = muldiv_result[63:32];
         default:   alu_data_raw = 32'h0;
     endcase
 end

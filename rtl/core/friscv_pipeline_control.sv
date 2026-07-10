@@ -48,7 +48,7 @@ module friscv_pipeline_control (
     input  addr_t     branch_target_in,
     input  logic      ex_csr_en_in,
     input  csr_addr_e ex_csr_sel_in,
-    input  logic      ex_div_active_in,
+    input  logic      ex_muldiv_active_in,
 
     // MEM stage
     input  reg_addr_t mem_rd_sel_in,
@@ -155,15 +155,15 @@ always_comb begin
     effective_ret = ret_in && !ret_csr_hazard && !ret_pipe_hazard;
     effective_jal = jal_ok_in && !mem_stall && !hazard_stall && !trap_pending_stall;
 
-    stall_if_out  = mem_stall || hazard_stall || trap_pending_stall || ex_div_active_in || halt_in;
-    stall_id_out  = mem_stall || hazard_stall || trap_pending_stall || ex_div_active_in || halt_in;
-    stall_ex_out  = mem_stall || ex_div_active_in;
+    stall_if_out  = mem_stall || hazard_stall || trap_pending_stall || ex_muldiv_active_in || halt_in;
+    stall_id_out  = mem_stall || hazard_stall || trap_pending_stall || ex_muldiv_active_in || halt_in;
+    stall_ex_out  = mem_stall || ex_muldiv_active_in;
     stall_mem_out = mem_stall;
 
     // Flush only when trap committed
     flush_if_out = branch_ok_in || effective_jal || trap_in || effective_ret;
     flush_id_out = branch_ok_in || effective_jal || trap_in || effective_ret;
-    flush_ex_out = ((hazard_stall || trap_pending_stall) && !mem_stall && !ex_div_active_in) || trap_in;
+    flush_ex_out = ((hazard_stall || trap_pending_stall) && !mem_stall && !ex_muldiv_active_in) || trap_in;
 
     jump_ok_out     = branch_ok_in || effective_jal;
     jump_target_out = (branch_ok_in) ? branch_target_in : jal_target_in;

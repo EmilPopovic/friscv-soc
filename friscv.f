@@ -3,7 +3,7 @@ rtl/core/friscv_amo_unit.sv
 rtl/core/friscv_core_complex.sv
 rtl/core/friscv_core.sv
 rtl/core/friscv_cpu_subsystem_core.sv
-rtl/core/friscv_divider.sv
+rtl/core/friscv_muldiv.sv
 rtl/core/friscv_ex_stage_branch_unit.sv
 rtl/core/friscv_ex_stage.sv
 rtl/core/friscv_id_stage.sv

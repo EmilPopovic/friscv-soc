@@ -108,7 +108,7 @@ csr_addr_e      ex_csr_sel_out;
 data_t          ex_csr_readback_out;
 logic           ex_csr_en_out;
 logic           ex_instr_valid_out;
-logic           ex_div_active;
+logic           ex_muldiv_active;
 addr_t          ex_branch_target;
 ex_trap_e       ex_trap_out;
 addr_t          ex_trap_pc_out;
@@ -183,7 +183,7 @@ friscv_pipeline_control control_unit (
     .branch_target_in ( ex_branch_target   ),
     .ex_csr_en_in     ( ex_csr_en_out      ),
     .ex_csr_sel_in    ( ex_csr_sel_out     ),
-    .ex_div_active_in ( ex_div_active      ),
+    .ex_muldiv_active_in ( ex_muldiv_active ),
 
     // MEM stage
     .mem_rd_sel_in    ( mem_rd_sel_out     ),
@@ -381,7 +381,7 @@ friscv_ex_stage ex_stage (
 
     // Outputs to control logic
     .branch_ok_out        ( branch_ok               ),
-    .div_active_out       ( ex_div_active           ),
+    .muldiv_active_out    ( ex_muldiv_active        ),
     .branch_target_out    ( ex_branch_target        ),
     .flush_tlb_out        ( flush_tlb_out           ),
     .flush_vpn_out        ( flush_vpn_out           ),

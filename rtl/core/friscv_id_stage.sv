@@ -1172,36 +1172,20 @@ always_comb begin
                     else illegal_inst = 1'b1;
                 3'b100:
                     if      (ir_buff.r.funct7 == 7'b0000000) instr_ex_out.alu_op = XOR_OP;  // XOR
-                    else if (ir_buff.r.funct7 == 7'b0000001 && ENABLE_DIV) begin            // DIV
-                        instr_ex_out.alu_op = DIV_OP;
-                        instr_ex_out.div_en = 1'b1;
-                        instr_ex_out.div_signed = 1'b1;
-                    end
+                    else if (ir_buff.r.funct7 == 7'b0000001 && ENABLE_DIV) instr_ex_out.alu_op = DIV_OP;    // DIV
                     else illegal_inst = 1'b1;
                 3'b101:
                     if      (ir_buff.r.funct7 == 7'b0000000) instr_ex_out.alu_op = SRL_OP;  // SRL
                     else if (ir_buff.r.funct7 == 7'b0100000) instr_ex_out.alu_op = SRA_OP;  // SRA
-                    else if (ir_buff.r.funct7 == 7'b0000001 && ENABLE_DIV) begin            // DIVU
-                        instr_ex_out.alu_op = DIVU_OP;
-                        instr_ex_out.div_en = 1'b1;
-                        instr_ex_out.div_signed = 1'b0;
-                    end
+                    else if (ir_buff.r.funct7 == 7'b0000001 && ENABLE_DIV) instr_ex_out.alu_op = DIVU_OP;   // DIVU
                     else illegal_inst = 1'b1;
                 3'b110:
                     if      (ir_buff.r.funct7 == 7'b0000000) instr_ex_out.alu_op = OR_OP;    // OR
-                    else if (ir_buff.r.funct7 == 7'b0000001 && ENABLE_DIV) begin             // REM
-                        instr_ex_out.alu_op = REM_OP;
-                        instr_ex_out.div_en = 1'b1;
-                        instr_ex_out.div_signed = 1'b1;
-                    end
+                    else if (ir_buff.r.funct7 == 7'b0000001 && ENABLE_DIV) instr_ex_out.alu_op = REM_OP;    // REM
                     else illegal_inst = 1'b1;
                 3'b111:
                     if      (ir_buff.r.funct7 == 7'b0000000) instr_ex_out.alu_op = AND_OP;   // AND
-                    else if (ir_buff.r.funct7 == 7'b0000001 && ENABLE_DIV) begin             // REMU
-                        instr_ex_out.alu_op = REMU_OP;
-                        instr_ex_out.div_en = 1'b1;
-                        instr_ex_out.div_signed = 1'b0;
-                    end
+                    else if (ir_buff.r.funct7 == 7'b0000001 && ENABLE_DIV) instr_ex_out.alu_op = REMU_OP;   // REMU
                     else illegal_inst = 1'b1;
             endcase
 

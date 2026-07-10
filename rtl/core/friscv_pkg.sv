@@ -67,7 +67,7 @@ package friscv_pkg;
     localparam logic ENABLE_FINE_TLB_FLUSH = 0;
 
     // Extension selection
-    localparam logic ENABLE_MUL = 0;
+    localparam logic ENABLE_MUL = 1;
     localparam logic ENABLE_DIV = 1;
     // M extension configured by choosing MUL and DIV above
     localparam logic ENABLE_EXTENSION_M = ENABLE_MUL && ENABLE_DIV;
@@ -473,8 +473,6 @@ package friscv_pkg;
         logic           sret_en;
         csr_addr_e      csr_addr;
         logic           sfence_vma;
-        logic           div_en;
-        logic           div_signed;
     } instr_ex_t;
 
     // A NOP instruction with all control signals set to safe values.
@@ -498,9 +496,7 @@ package friscv_pkg;
         mret_en: 1'b0,   
         sret_en: 1'b0,
         csr_addr: CSR_ZERO,
-        sfence_vma: 1'b0,
-        div_en: 1'b0,
-        div_signed: 1'b0
+        sfence_vma: 1'b0
     };
 
     // Control signals for the downstream memory system
