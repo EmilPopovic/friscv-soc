@@ -157,13 +157,18 @@ localparam int unsigned AxiUserWidth = 1;
 //  Slave  port 1: Debug module System Bus Access (SBA) master
 //  ---------------------
 //  Master port 0: AXI Lite subsystem
+//  Master port 1: RAM
 localparam int unsigned NumAxiSlv   = 2;
 localparam int unsigned CpuPort     = 0;
 localparam int unsigned DmSbaPort   = 1;
 
-localparam int unsigned NumAxiMst   = 1;
-localparam int unsigned NumAxiRules = 3;
+localparam int unsigned NumAxiMst   = 2;
+localparam int unsigned NumAxiRules = 5;
 localparam int unsigned LitePort    = 0;
+localparam int unsigned SramPort    = 1;
+
+localparam int unsigned SramBase    = 32'h0000_0000;  // Sram starts at 0
+localparam int unsigned SramSize    = 32'h0000_4000;  // 16 KiB RAM
 
 localparam int unsigned AxiIdWidthMst = AxiIdWidth + $clog2(NumAxiSlv);
 
@@ -192,7 +197,9 @@ localparam axi_pkg::xbar_cfg_t AxiXbarCfg = '{
 localparam axi_pkg::xbar_rule_32_t [NumAxiRules-1:0] AxiAddrMap = '{
     '{ idx: LitePort,  start_addr: DmBaseAddr, end_addr: DmBaseAddr + DmSize },  // Debug module
     '{ idx: LitePort,  start_addr: 32'h0200_0000, end_addr: 32'h0201_0000 },     // CLINT
-    '{ idx: LitePort,  start_addr: 32'h1000_0000, end_addr: 32'h1000_1000 }      // UART0
+    '{ idx: LitePort,  start_addr: 32'h1000_0000, end_addr: 32'h1000_1000 },     // UART0
+    '{ idx: SramPort,  start_addr: SramBase, end_addr: SramBase + SramSize },    // SRAM
+    '{ idx: LitePort,  start_addr: 32'h4000_0000, end_addr: 32'h4000_1000 }      // Scratch
 };
 
 AXI_BUS #(
@@ -279,7 +286,7 @@ axi_xbar_intf #(
 // ============================================================
 
 localparam int unsigned NumAxiLiteMst   = 2;
-localparam int unsigned NumAxiLiteRules = 3;
+localparam int unsigned NumAxiLiteRules = 4;
 localparam int unsigned ClintPort       = 0;
 localparam int unsigned RegsPort        = 1;
 
@@ -301,7 +308,8 @@ localparam axi_pkg::xbar_cfg_t AxiLiteXbarCfg = '{
 localparam axi_pkg::xbar_rule_32_t [NumAxiLiteRules-1:0] AxiLiteAddrMap = '{
     '{ idx: ClintPort, start_addr: 32'h0200_0000, end_addr: 32'h0201_0000 },
     '{ idx: RegsPort,  start_addr: 32'h1000_0000, end_addr: 32'h1000_1000 },        // UART0
-    '{ idx: RegsPort,  start_addr: DmBaseAddr,     end_addr: DmBaseAddr + DmSize }  // Debug module
+    '{ idx: RegsPort,  start_addr: DmBaseAddr,    end_addr: DmBaseAddr + DmSize },  // Debug module
+    '{ idx: RegsPort,  start_addr: 32'h4000_0000, end_addr: 32'h4000_1000 }         // Scratch
 };
 
 // Struct types for the reg/apb
@@ -384,17 +392,19 @@ axi_lite_to_reg #(
     .reg_rsp_i      ( regs_reg_rsp  )
 );
 
-localparam int unsigned NoRegPorts   = 2;
+localparam int unsigned NoRegPorts   = 3;
 localparam int unsigned DmPort       = 0;
 localparam int unsigned Uart0Port    = 1;
+localparam int unsigned ScratchPort  = 2;
 
 reg_bus_req_t [NoRegPorts-1:0] reg_dev_req;
 reg_bus_rsp_t [NoRegPorts-1:0] reg_dev_rsp;
 
-localparam int unsigned NoRegRules = 2;
+localparam int unsigned NoRegRules = 3;
 localparam axi_pkg::xbar_rule_32_t [NoRegRules-1:0] RegAddrMap = '{
-    '{ idx: DmPort,    start_addr: DmBaseAddr,    end_addr: DmBaseAddr + DmSize },
-    '{ idx: Uart0Port, start_addr: 32'h1000_0000, end_addr: 32'h1000_1000 }
+    '{ idx: DmPort,      start_addr: DmBaseAddr,    end_addr: DmBaseAddr + DmSize },
+    '{ idx: Uart0Port,   start_addr: 32'h1000_0000, end_addr: 32'h1000_1000 },
+    '{ idx: ScratchPort, start_addr: 32'h4000_0000, end_addr: 32'h4000_1000 }
 };
 
 logic [$clog2(NoRegPorts)-1:0] reg_select;
@@ -410,7 +420,7 @@ addr_decode #(
     .dec_valid_o      (                   ),
     .dec_error_o      (                   ),
     .en_default_idx_i ( 1'b1              ),
-    .default_idx_i    ( DmPort[0:0]       )
+    .default_idx_i    ( 2'(DmPort)        )
 );
 
 reg_demux #(
@@ -426,6 +436,80 @@ reg_demux #(
     .out_req_o   ( reg_dev_req  ),
     .out_rsp_i   ( reg_dev_rsp  )
 );
+
+// ============================================================
+// Scratch register (32-bit reg aliased in its 4K window)
+// ============================================================
+
+logic [31:0] scratch_q;
+always_ff @(posedge i_clk) begin
+    if (!soc_rstn) begin
+        scratch_q <= 32'h0;
+    end else if (reg_dev_req[ScratchPort].valid && reg_dev_req[ScratchPort].write) begin
+        for (int i = 0; i < 4; i++) begin
+            if (reg_dev_req[ScratchPort].wstrb[i])
+                scratch_q[8*i +: 8] <= reg_dev_req[ScratchPort].wdata[8*i +: 8];
+        end
+    end
+end
+
+assign reg_dev_rsp[ScratchPort].rdata = scratch_q;
+assign reg_dev_rsp[ScratchPort].error = 1'b0;
+assign reg_dev_rsp[ScratchPort].ready = 1'b1;
+
+// ============================================================
+// SRAM
+// ============================================================
+
+logic        sram_req, sram_gnt, sram_we, sram_rvalid;
+logic [31:0] sram_addr, sram_wdata, sram_rdata;
+logic [3:0]  sram_be;
+
+axi_to_mem_intf #(
+    .ADDR_WIDTH ( AxiAddrWidth  ),
+    .DATA_WIDTH ( AxiDataWidth  ),
+    .ID_WIDTH   ( AxiIdWidthMst ),
+    .USER_WIDTH ( AxiUserWidth  ),
+    .NUM_BANKS  ( 1             )
+) axi_to_mem (
+    .clk_i        ( i_clk                   ),
+    .rst_ni       ( soc_rstn                ),
+    .busy_o       (                         ),
+    .slv          ( axi_xbar_mst[SramPort]  ),
+    .mem_req_o    ( sram_req                ),
+    .mem_gnt_i    ( sram_gnt                ),
+    .mem_addr_o   ( sram_addr               ),
+    .mem_wdata_o  ( sram_wdata              ),
+    .mem_strb_o   ( sram_be                 ),
+    .mem_atop_o   (                         ),
+    .mem_we_o     ( sram_we                 ),
+    .mem_rvalid_i ( sram_rvalid             ),
+    .mem_rdata_i  ( sram_rdata              )
+);
+
+// TODO temporary, replace with axi_llc later
+tc_sram #(
+    .NumWords  ( SramSize/4 ),
+    .DataWidth ( 32         ),
+    .ByteWidth ( 8          ),
+    .NumPorts  ( 1          ),
+    .Latency   ( 1          )
+) sram (
+    .clk_i   ( i_clk                           ),
+    .rst_ni  ( i_rstn                          ),
+    .req_i   ( sram_req                        ),
+    .we_i    ( sram_we                         ),
+    .addr_i  ( sram_addr[$clog2(SramSize)-1:2] ),
+    .wdata_i ( sram_wdata                      ),
+    .be_i    ( sram_be                         ),
+    .rdata_o ( sram_rdata                      )
+);
+
+assign sram_gnt = 1'b1;
+always_ff @(posedge i_clk) begin
+    if (!soc_rstn) sram_rvalid <= 1'b0;
+    else           sram_rvalid <= sram_req;
+end
 
 // ============================================================
 // Debugger
