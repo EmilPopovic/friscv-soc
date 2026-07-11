@@ -66,24 +66,17 @@ friscv_cpu_subsystem_core #(
 );
 
 // ============================================================
-// mem_if -> flat AXI4 adapter
+// mem_if -> flat AXI-Lite adapter
 // ============================================================
 
 // AW channel
 logic        m_axi_awvalid;
 logic        m_axi_awready;
 logic [31:0] m_axi_awaddr;
-logic [2:0]  m_axi_awsize;
-logic [3:0]  m_axi_awcache;
 logic [2:0]  m_axi_awprot;
-logic [1:0]  m_axi_awburst;
-logic [7:0]  m_axi_awlen;
-logic        m_axi_awlock;
-logic [3:0]  m_axi_awqos;
 // W channel
 logic        m_axi_wvalid;
 logic        m_axi_wready;
-logic        m_axi_wlast;
 logic [31:0] m_axi_wdata;
 logic [3:0]  m_axi_wstrb;
 // B channel
@@ -94,37 +87,23 @@ logic [1:0]  m_axi_bresp;
 logic        m_axi_arvalid;
 logic        m_axi_arready;
 logic [31:0] m_axi_araddr;
-logic [2:0]  m_axi_arsize;
-logic [3:0]  m_axi_arcache;
 logic [2:0]  m_axi_arprot;
-logic [1:0]  m_axi_arburst;
-logic [7:0]  m_axi_arlen;
-logic        m_axi_arlock;
-logic [3:0]  m_axi_arqos;
 // R channel
 logic        m_axi_rvalid;
 logic        m_axi_rready;
-logic        m_axi_rlast;
 logic [31:0] m_axi_rdata;
 logic [1:0]  m_axi_rresp;
 
-friscv_axi4_full_adapter m_axi (
+friscv_axi_lite_adapter m_axi (
     .i_clk          ( i_clk         ),
     .i_rstn         ( soc_rstn      ),
     .mem_if         ( mem_if        ),
     .m_axi_awvalid  ( m_axi_awvalid ),
     .m_axi_awready  ( m_axi_awready ),
     .m_axi_awaddr   ( m_axi_awaddr  ),
-    .m_axi_awsize   ( m_axi_awsize  ),
-    .m_axi_awcache  ( m_axi_awcache ),
     .m_axi_awprot   ( m_axi_awprot  ),
-    .m_axi_awburst  ( m_axi_awburst ),
-    .m_axi_awlen    ( m_axi_awlen   ),
-    .m_axi_awlock   ( m_axi_awlock  ),
-    .m_axi_awqos    ( m_axi_awqos   ),
     .m_axi_wvalid   ( m_axi_wvalid  ),
     .m_axi_wready   ( m_axi_wready  ),
-    .m_axi_wlast    ( m_axi_wlast   ),
     .m_axi_wdata    ( m_axi_wdata   ),
     .m_axi_wstrb    ( m_axi_wstrb   ),
     .m_axi_bvalid   ( m_axi_bvalid  ),
@@ -133,22 +112,15 @@ friscv_axi4_full_adapter m_axi (
     .m_axi_arvalid  ( m_axi_arvalid ),
     .m_axi_arready  ( m_axi_arready ),
     .m_axi_araddr   ( m_axi_araddr  ),
-    .m_axi_arsize   ( m_axi_arsize  ),
-    .m_axi_arcache  ( m_axi_arcache ),
     .m_axi_arprot   ( m_axi_arprot  ),
-    .m_axi_arburst  ( m_axi_arburst ),
-    .m_axi_arlen    ( m_axi_arlen   ),
-    .m_axi_arlock   ( m_axi_arlock  ),
-    .m_axi_arqos    ( m_axi_arqos   ),
     .m_axi_rvalid   ( m_axi_rvalid  ),
     .m_axi_rready   ( m_axi_rready  ),
-    .m_axi_rlast    ( m_axi_rlast   ),
     .m_axi_rdata    ( m_axi_rdata   ),
     .m_axi_rresp    ( m_axi_rresp   )
 );
 
 // ============================================================
-// Interconnect: flat AXI -> AXI_BUS -> axi_xbar -> {RAM, peripherals}
+// Interconnect: flat AXI-Lite -> AXI_LITE -> lite xbar -> {RAM, peripherals}
 // ============================================================
 
 localparam int unsigned AxiAddrWidth = 32;
@@ -156,146 +128,32 @@ localparam int unsigned AxiDataWidth = 32;
 localparam int unsigned AxiIdWidth   = 1;
 localparam int unsigned AxiUserWidth = 1;
 
-// Crossbar port map:
+// Lite crossbar port map:
 //  Slave  port 0: CPU
 //  Slave  port 1: Debug module System Bus Access (SBA) master
 //  ---------------------
-//  Master port 0: AXI Lite subsystem
-//  Master port 1: RAM
-localparam int unsigned NumAxiSlv   = 2;
-localparam int unsigned CpuPort     = 0;
-localparam int unsigned DmSbaPort   = 1;
+//  Master port 0: CLINT
+//  Master port 1: Peripheral regs (DM, UART0, scratch)
+//  Master port 2: RAM
+localparam int unsigned NumAxiLiteSlv   = 2;
+localparam int unsigned CpuPort         = 0;
+localparam int unsigned DmSbaPort       = 1;
 
-localparam int unsigned NumAxiMst   = 2;
-localparam int unsigned NumAxiRules = 5;
-localparam int unsigned LitePort    = 0;
-localparam int unsigned SramPort    = 1;
+localparam int unsigned NumAxiLiteMst   = 3;
+localparam int unsigned NumAxiLiteRules = 5;
+localparam int unsigned ClintPort       = 0;
+localparam int unsigned RegsPort        = 1;
+localparam int unsigned SramPort        = 2;
 
 localparam int unsigned SramBase    = 32'h0000_0000;  // Sram starts at 0
 localparam int unsigned SramSize    = 32'h0000_4000;  // 16 KiB RAM
-
-localparam int unsigned AxiIdWidthMst = AxiIdWidth + $clog2(NumAxiSlv);
 
 // Debug module base address
 localparam logic [31:0] DmBaseAddr = 32'h0001_0000;
 localparam logic [31:0] DmSize     = 32'h0000_1000;  // 4 KiB page
 
-localparam axi_pkg::xbar_cfg_t AxiXbarCfg = '{
-    NoSlvPorts:         NumAxiSlv,
-    NoMstPorts:         NumAxiMst,
-    MaxMstTrans:        4,
-    MaxSlvTrans:        4,
-    FallThrough:        1'b0,
-    LatencyMode:        axi_pkg::NO_LATENCY,
-    AxiIdWidthSlvPorts: AxiIdWidth,
-    AxiIdUsedSlvPorts:  AxiIdWidth,
-    UniqueIds:          1'b0,
-    AxiAddrWidth:       AxiAddrWidth,
-    AxiDataWidth:       AxiDataWidth,
-    NoAddrRules:        NumAxiRules
-};
-
-// Address decode
-// idx is the target master-port index
-// Order of rules does not matter.
-localparam axi_pkg::xbar_rule_32_t [NumAxiRules-1:0] AxiAddrMap = '{
-    '{ idx: LitePort,  start_addr: DmBaseAddr, end_addr: DmBaseAddr + DmSize },  // Debug module
-    '{ idx: LitePort,  start_addr: 32'h0200_0000, end_addr: 32'h0201_0000 },     // CLINT
-    '{ idx: LitePort,  start_addr: 32'h1000_0000, end_addr: 32'h1000_1000 },     // UART0
-    '{ idx: SramPort,  start_addr: SramBase, end_addr: SramBase + SramSize },    // SRAM
-    '{ idx: LitePort,  start_addr: 32'h4000_0000, end_addr: 32'h4000_1000 }      // Scratch
-};
-
-AXI_BUS #(
-    .AXI_ADDR_WIDTH ( AxiAddrWidth ),
-    .AXI_DATA_WIDTH ( AxiDataWidth ),
-    .AXI_ID_WIDTH   ( AxiIdWidth   ),
-    .AXI_USER_WIDTH ( AxiUserWidth )
-) axi_xbar_slv [NumAxiSlv-1:0] ();
-
-AXI_BUS #(
-    .AXI_ADDR_WIDTH ( AxiAddrWidth  ),
-    .AXI_DATA_WIDTH ( AxiDataWidth  ),
-    .AXI_ID_WIDTH   ( AxiIdWidthMst ),
-    .AXI_USER_WIDTH ( AxiUserWidth  )
-) axi_xbar_mst [NumAxiMst-1:0] ();
-
-// Bundle the flat adapter wires into the xbar's slave port
-// Signals the CPU does not produce (id/region/atop/user) are tied to 0
-
-// AW
-assign axi_xbar_slv[CpuPort].aw_id     = '0;
-assign axi_xbar_slv[CpuPort].aw_addr   = m_axi_awaddr;
-assign axi_xbar_slv[CpuPort].aw_len    = m_axi_awlen;
-assign axi_xbar_slv[CpuPort].aw_size   = m_axi_awsize;
-assign axi_xbar_slv[CpuPort].aw_burst  = m_axi_awburst;
-assign axi_xbar_slv[CpuPort].aw_lock   = m_axi_awlock;
-assign axi_xbar_slv[CpuPort].aw_cache  = m_axi_awcache;
-assign axi_xbar_slv[CpuPort].aw_prot   = m_axi_awprot;
-assign axi_xbar_slv[CpuPort].aw_qos    = m_axi_awqos;
-assign axi_xbar_slv[CpuPort].aw_region = '0;
-assign axi_xbar_slv[CpuPort].aw_atop   = '0;
-assign axi_xbar_slv[CpuPort].aw_user   = '0;
-assign axi_xbar_slv[CpuPort].aw_valid  = m_axi_awvalid;
-assign m_axi_awready                   = axi_xbar_slv[CpuPort].aw_ready;
-// W
-assign axi_xbar_slv[CpuPort].w_data    = m_axi_wdata;
-assign axi_xbar_slv[CpuPort].w_strb    = m_axi_wstrb;
-assign axi_xbar_slv[CpuPort].w_last    = m_axi_wlast;
-assign axi_xbar_slv[CpuPort].w_user    = '0;
-assign axi_xbar_slv[CpuPort].w_valid   = m_axi_wvalid;
-assign m_axi_wready                    = axi_xbar_slv[CpuPort].w_ready;
-// B
-assign m_axi_bresp                     = axi_xbar_slv[CpuPort].b_resp;
-assign m_axi_bvalid                    = axi_xbar_slv[CpuPort].b_valid;
-assign axi_xbar_slv[CpuPort].b_ready   = m_axi_bready;
-// AR
-assign axi_xbar_slv[CpuPort].ar_id     = '0;
-assign axi_xbar_slv[CpuPort].ar_addr   = m_axi_araddr;
-assign axi_xbar_slv[CpuPort].ar_len    = m_axi_arlen;
-assign axi_xbar_slv[CpuPort].ar_size   = m_axi_arsize;
-assign axi_xbar_slv[CpuPort].ar_burst  = m_axi_arburst;
-assign axi_xbar_slv[CpuPort].ar_lock   = m_axi_arlock;
-assign axi_xbar_slv[CpuPort].ar_cache  = m_axi_arcache;
-assign axi_xbar_slv[CpuPort].ar_prot   = m_axi_arprot;
-assign axi_xbar_slv[CpuPort].ar_qos    = m_axi_arqos;
-assign axi_xbar_slv[CpuPort].ar_region = '0;
-assign axi_xbar_slv[CpuPort].ar_user   = '0;
-assign axi_xbar_slv[CpuPort].ar_valid  = m_axi_arvalid;
-assign m_axi_arready                   = axi_xbar_slv[CpuPort].ar_ready;
-// R
-assign m_axi_rdata                     = axi_xbar_slv[CpuPort].r_data;
-assign m_axi_rresp                     = axi_xbar_slv[CpuPort].r_resp;
-assign m_axi_rlast                     = axi_xbar_slv[CpuPort].r_last;
-assign m_axi_rvalid                    = axi_xbar_slv[CpuPort].r_valid;
-assign axi_xbar_slv[CpuPort].r_ready   = m_axi_rready;
-
-axi_xbar_intf #(
-    .AXI_USER_WIDTH ( AxiUserWidth            ),
-    .Cfg            ( AxiXbarCfg              ),
-    .rule_t         ( axi_pkg::xbar_rule_32_t )
-) axi_xbar (
-    .clk_i                 ( i_clk        ),
-    .rst_ni                ( soc_rstn     ),
-    .test_i                ( 1'b0         ),
-    .slv_ports             ( axi_xbar_slv ),
-    .mst_ports             ( axi_xbar_mst ),
-    .addr_map_i            ( AxiAddrMap   ),
-    .en_default_mst_port_i ( '0           ),
-    .default_mst_port_i    ( '0           )
-);
-
-// ============================================================
-// AXI-Lite crossbar: xbar port -> AXI -> AXI-Lite -> lite xbar
-// ============================================================
-
-localparam int unsigned NumAxiLiteMst   = 2;
-localparam int unsigned NumAxiLiteRules = 4;
-localparam int unsigned ClintPort       = 0;
-localparam int unsigned RegsPort        = 1;
-
 localparam axi_pkg::xbar_cfg_t AxiLiteXbarCfg = '{
-    NoSlvPorts:         1,
+    NoSlvPorts:         NumAxiLiteSlv,
     NoMstPorts:         NumAxiLiteMst,
     MaxMstTrans:        4,
     MaxSlvTrans:        4,
@@ -309,11 +167,15 @@ localparam axi_pkg::xbar_cfg_t AxiLiteXbarCfg = '{
     NoAddrRules:        NumAxiLiteRules
 };
 
+// Address decode
+// idx is the target master-port index
+// Order of rules does not matter.
 localparam axi_pkg::xbar_rule_32_t [NumAxiLiteRules-1:0] AxiLiteAddrMap = '{
-    '{ idx: ClintPort, start_addr: 32'h0200_0000, end_addr: 32'h0201_0000 },
+    '{ idx: ClintPort, start_addr: 32'h0200_0000, end_addr: 32'h0201_0000 },        // CLINT
     '{ idx: RegsPort,  start_addr: 32'h1000_0000, end_addr: 32'h1000_1000 },        // UART0
     '{ idx: RegsPort,  start_addr: DmBaseAddr,    end_addr: DmBaseAddr + DmSize },  // Debug module
-    '{ idx: RegsPort,  start_addr: 32'h4000_0000, end_addr: 32'h4000_1000 }         // Scratch
+    '{ idx: RegsPort,  start_addr: 32'h4000_0000, end_addr: 32'h4000_1000 },        // Scratch
+    '{ idx: SramPort,  start_addr: SramBase,      end_addr: SramBase + SramSize }   // SRAM
 };
 
 // Struct types for the reg/apb
@@ -324,11 +186,11 @@ typedef logic [AxiDataWidth/8-1:0] strb_t;
 `REG_BUS_TYPEDEF_ALL (reg_bus,  addr_t, data_t, strb_t)  // reg_bus_req_t, reg_bus_rsp_t
 `APB_TYPEDEF_ALL     (apb,      addr_t, data_t, strb_t)  // apb_req_t, apb_resp_t
 
-// AXI xbar Master -> AXI-Lite xbar Slave
+// Masters -> AXI-Lite xbar Slave ports
 AXI_LITE #(
     .AXI_ADDR_WIDTH ( AxiAddrWidth ),
     .AXI_DATA_WIDTH ( AxiDataWidth )
-) axi_lite_xbar_slv[0:0] ();
+) axi_lite_xbar_slv[NumAxiLiteSlv-1:0] ();
 
 // AXI-Lite xbar Master -> peripheral Slaves
 AXI_LITE #(
@@ -336,22 +198,31 @@ AXI_LITE #(
     .AXI_DATA_WIDTH ( AxiDataWidth )
 ) axi_lite_xbar_mst[NumAxiLiteMst-1:0] ();
 
-// Convert between xbars
-axi_to_axi_lite_intf #(
-    .AXI_ADDR_WIDTH     ( AxiAddrWidth  ),
-    .AXI_DATA_WIDTH     ( AxiDataWidth  ),
-    .AXI_ID_WIDTH       ( AxiIdWidthMst ),
-    .AXI_USER_WIDTH     ( AxiUserWidth  ),
-    .AXI_MAX_WRITE_TXNS ( 1             ),
-    .AXI_MAX_READ_TXNS  ( 1             ),
-    .FALL_THROUGH       ( 1'b1          )
-) axi_to_axi_lite (
-    .clk_i      ( i_clk                  ),
-    .rst_ni     ( soc_rstn               ),
-    .testmode_i ( 1'b0                   ),
-    .slv        ( axi_xbar_mst[LitePort] ),
-    .mst        ( axi_lite_xbar_slv[0]   )
-);
+// Bundle the flat adapter wires into the lite xbar's CPU slave port
+// AW
+assign axi_lite_xbar_slv[CpuPort].aw_addr  = m_axi_awaddr;
+assign axi_lite_xbar_slv[CpuPort].aw_prot  = m_axi_awprot;
+assign axi_lite_xbar_slv[CpuPort].aw_valid = m_axi_awvalid;
+assign m_axi_awready                       = axi_lite_xbar_slv[CpuPort].aw_ready;
+// W
+assign axi_lite_xbar_slv[CpuPort].w_data   = m_axi_wdata;
+assign axi_lite_xbar_slv[CpuPort].w_strb   = m_axi_wstrb;
+assign axi_lite_xbar_slv[CpuPort].w_valid  = m_axi_wvalid;
+assign m_axi_wready                        = axi_lite_xbar_slv[CpuPort].w_ready;
+// B
+assign m_axi_bresp                         = axi_lite_xbar_slv[CpuPort].b_resp;
+assign m_axi_bvalid                        = axi_lite_xbar_slv[CpuPort].b_valid;
+assign axi_lite_xbar_slv[CpuPort].b_ready  = m_axi_bready;
+// AR
+assign axi_lite_xbar_slv[CpuPort].ar_addr  = m_axi_araddr;
+assign axi_lite_xbar_slv[CpuPort].ar_prot  = m_axi_arprot;
+assign axi_lite_xbar_slv[CpuPort].ar_valid = m_axi_arvalid;
+assign m_axi_arready                       = axi_lite_xbar_slv[CpuPort].ar_ready;
+// R
+assign m_axi_rdata                         = axi_lite_xbar_slv[CpuPort].r_data;
+assign m_axi_rresp                         = axi_lite_xbar_slv[CpuPort].r_resp;
+assign m_axi_rvalid                        = axi_lite_xbar_slv[CpuPort].r_valid;
+assign axi_lite_xbar_slv[CpuPort].r_ready  = m_axi_rready;
 
 // The AXI-Lite xbar
 axi_lite_xbar_intf #(
@@ -469,17 +340,34 @@ logic        sram_req, sram_gnt, sram_we, sram_rvalid;
 logic [31:0] sram_addr, sram_wdata, sram_rdata;
 logic [3:0]  sram_be;
 
+// Lite xbar master port -> full AXI -> memory port
+AXI_BUS #(
+    .AXI_ADDR_WIDTH ( AxiAddrWidth ),
+    .AXI_DATA_WIDTH ( AxiDataWidth ),
+    .AXI_ID_WIDTH   ( AxiIdWidth   ),
+    .AXI_USER_WIDTH ( AxiUserWidth )
+) sram_axi ();
+
+axi_lite_to_axi_intf #(
+    .AXI_DATA_WIDTH ( AxiDataWidth )
+) sram_lite_to_axi (
+    .in             ( axi_lite_xbar_mst[SramPort] ),
+    .slv_aw_cache_i ( '0                          ),
+    .slv_ar_cache_i ( '0                          ),
+    .out            ( sram_axi                    )
+);
+
 axi_to_mem_intf #(
-    .ADDR_WIDTH ( AxiAddrWidth  ),
-    .DATA_WIDTH ( AxiDataWidth  ),
-    .ID_WIDTH   ( AxiIdWidthMst ),
-    .USER_WIDTH ( AxiUserWidth  ),
-    .NUM_BANKS  ( 1             )
+    .ADDR_WIDTH ( AxiAddrWidth ),
+    .DATA_WIDTH ( AxiDataWidth ),
+    .ID_WIDTH   ( AxiIdWidth   ),
+    .USER_WIDTH ( AxiUserWidth ),
+    .NUM_BANKS  ( 1            )
 ) axi_to_mem (
     .clk_i        ( i_clk                   ),
     .rst_ni       ( soc_rstn                ),
     .busy_o       (                         ),
-    .slv          ( axi_xbar_mst[SramPort]  ),
+    .slv          ( sram_axi                ),
     .mem_req_o    ( sram_req                ),
     .mem_gnt_i    ( sram_gnt                ),
     .mem_addr_o   ( sram_addr               ),
@@ -644,24 +532,24 @@ always_ff @(posedge i_clk) begin
     else           dbg_slv_rvalid <= dbg_slv_req & ~dbg_slv_we;
 end
 
-// DM SBA master port: dm master -> bridge -> xbar slave port
+// DM SBA master port: dm master -> bridge -> lite xbar slave port
 friscv_dm_sba_axi #(
     .AxiAddrWidth ( AxiAddrWidth ),
     .AxiDataWidth ( AxiDataWidth )
 ) dm_sba_axi (
-    .i_clk          ( i_clk                    ),
-    .i_rstn         ( soc_rstn                 ),
-    .dm_req_i       ( sba_req                  ),
-    .dm_addr_i      ( sba_addr                 ),
-    .dm_we_i        ( sba_we                   ),
-    .dm_wdata_i     ( sba_wdata                ),
-    .dm_be_i        ( sba_be                   ),
-    .dm_gnt_o       ( sba_gnt                  ),
-    .dm_rvalid_o    ( sba_rvalid               ),
-    .dm_err_o       ( sba_err                  ),
-    .dm_other_err_o ( sba_other_err            ),
-    .dm_rdata_o     ( sba_rdata                ),
-    .mst            ( axi_xbar_slv[DmSbaPort]  )
+    .i_clk          ( i_clk                        ),
+    .i_rstn         ( soc_rstn                     ),
+    .dm_req_i       ( sba_req                      ),
+    .dm_addr_i      ( sba_addr                     ),
+    .dm_we_i        ( sba_we                       ),
+    .dm_wdata_i     ( sba_wdata                    ),
+    .dm_be_i        ( sba_be                       ),
+    .dm_gnt_o       ( sba_gnt                      ),
+    .dm_rvalid_o    ( sba_rvalid                   ),
+    .dm_err_o       ( sba_err                      ),
+    .dm_other_err_o ( sba_other_err                ),
+    .dm_rdata_o     ( sba_rdata                    ),
+    .mst            ( axi_lite_xbar_slv[DmSbaPort] )
 );
 
 // ============================================================

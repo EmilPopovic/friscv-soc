@@ -7,8 +7,8 @@
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
 
 /*
- * Bridge between the riscv-dbg System Bus Access (SBA) master port and a full
- * AXI4 master interface.
+ * Bridge between the riscv-dbg System Bus Access (SBA) master port and an
+ * AXI4-Lite master interface.
  */
 
 `timescale 1ns / 1ps
@@ -32,12 +32,11 @@ module friscv_dm_sba_axi #(
     output logic                      dm_other_err_o,
     output logic [AxiDataWidth-1:0]   dm_rdata_o,
 
-    // AXI4 master side
-    AXI_BUS.Master                    mst
+    // AXI4-Lite master side
+    AXI_LITE.Master                   mst
 );
 
     localparam int unsigned StrbWidth = AxiDataWidth/8;
-    localparam logic [2:0]  AxiSize   = 3'(unsigned'($clog2(StrbWidth)));
 
     typedef enum logic [2:0] {
         S_IDLE,
@@ -56,35 +55,14 @@ module friscv_dm_sba_axi #(
     logic [StrbWidth-1:0]    be_q;
 
     // Constant AXI request fields
-    assign mst.aw_id     = '0;
     assign mst.aw_addr   = addr_q;
-    assign mst.aw_len    = 8'd0;
-    assign mst.aw_size   = AxiSize;
-    assign mst.aw_burst  = axi_pkg::BURST_INCR;
-    assign mst.aw_lock   = 1'b0;
-    assign mst.aw_cache  = 4'b0000;
     assign mst.aw_prot   = 3'b000;
-    assign mst.aw_qos    = 4'h0;
-    assign mst.aw_region = '0;
-    assign mst.aw_atop   = '0;
-    assign mst.aw_user   = '0;
 
     assign mst.w_data    = wdata_q;
     assign mst.w_strb    = be_q;
-    assign mst.w_last    = 1'b1;
-    assign mst.w_user    = '0;
 
-    assign mst.ar_id     = '0;
     assign mst.ar_addr   = addr_q;
-    assign mst.ar_len    = 8'd0;
-    assign mst.ar_size   = AxiSize;
-    assign mst.ar_burst  = axi_pkg::BURST_INCR;
-    assign mst.ar_lock   = 1'b0;
-    assign mst.ar_cache  = 4'b0000;
     assign mst.ar_prot   = 3'b000;
-    assign mst.ar_qos    = 4'h0;
-    assign mst.ar_region = '0;
-    assign mst.ar_user   = '0;
 
     // Read data / errors returned to the DM
     assign dm_rdata_o     = mst.r_data;
