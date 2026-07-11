@@ -19,7 +19,8 @@
 import friscv_pkg::*;
 
 module friscv_core #(
-    parameter int HART_ID = 0
+    parameter int unsigned HART_ID = 0,
+    parameter int unsigned RESET_VEC = 32'h8000_0000
 ) (
     input  logic       i_clk,
     input  logic       i_rstn,
@@ -214,7 +215,9 @@ friscv_pipeline_control control_unit (
     .halt_in          ( i_halt             )
 );
 
-friscv_if_stage if_stage (
+friscv_if_stage #(
+    .RESET_VEC ( RESET_VEC )
+) if_stage (
     .clk_in         ( i_clk             ),
     .rst_n_in       ( i_rstn            ),
 

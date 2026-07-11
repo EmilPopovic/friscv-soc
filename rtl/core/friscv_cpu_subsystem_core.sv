@@ -20,7 +20,13 @@
 
 import friscv_pkg::*;
 
-module friscv_cpu_subsystem_core (
+module friscv_cpu_subsystem_core #(
+    parameter int unsigned RAM_BASE = 32'h8000_0000,
+    parameter int unsigned ZSBL_ROM_SIZE_BYTES = 0,
+    parameter int unsigned ZSBL_BASE = 32'h20000,
+    // Calculated parameters, do not change
+    parameter int unsigned RESET_VEC = (ZSBL_ROM_SIZE_BYTES > 0) ? ZSBL_BASE : RAM_BASE
+) (
     input  logic         i_clk,
     input  logic         i_rstn,
     output logic         o_end,
@@ -53,7 +59,9 @@ assign w_mem_err = mem_if.err;
 // ============================================================
 
 friscv_core_complex #(
-    .HART_ID(0)
+    .HART_ID             ( 0                   ),
+    .RESET_VEC           ( RESET_VEC           ),
+    .ZSBL_ROM_SIZE_BYTES ( ZSBL_ROM_SIZE_BYTES )
 ) cc_0 (
     .i_clk        ( i_clk        ),
     .i_rstn       ( i_rstn       ),

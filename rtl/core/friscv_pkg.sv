@@ -47,9 +47,6 @@ package friscv_pkg;
     // THIS CONFIG IS AUTOMATICALLY GENERATED, SEE config/friscv_config.toml
     // --- Configurable parameter definitions start ---
 
-    // Set this to 0 for debugging
-    localparam int   ZSBL_ROM_SIZE_BYTES = 0;
-
     // If enabled, buffer outbound requests to improve timing
     localparam logic ENABLE_L2_BUFFER = 1;
 
@@ -101,12 +98,7 @@ package friscv_pkg;
     typedef logic [31:0]              inst_t;
     typedef logic [REG_SEL_WIDTH-1:0] reg_addr_t;
 
-    localparam addr_t ZSBL_BASE       = 32'h1000;      // RISC-V convention
     localparam addr_t END_ADDRESS     = 32'h50000000;  // FRISC convention
-    localparam addr_t DRAM_BASE       = 32'h80000000;  // RISC-V convention
-
-    // Reset to DRAM_BASE (0x80000000) by default, but if ZSBL is enabled, reset to ZSBL_BASE (0x1000)
-    localparam addr_t RESET_VEC = (ZSBL_ROM_SIZE_BYTES > 0) ? ZSBL_BASE : DRAM_BASE;  // Reset to ZSBL if enabled, else jump to RAM
 
     // Keep this in the same order as in the spec for easier reference
     typedef enum logic [11:0] {

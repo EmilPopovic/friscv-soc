@@ -49,7 +49,11 @@ logic debug_req;  // async debug request to the hart
 logic soc_rstn;
 assign soc_rstn = i_rstn & ~ndmreset;
 
-friscv_cpu_subsystem_core cpu_subsystem (
+friscv_cpu_subsystem_core #(
+    .RAM_BASE            ( 32'h8000_0000 ),
+    .ZSBL_ROM_SIZE_BYTES ( 64            ),
+    .ZSBL_BASE           ( 32'h20000     )
+) cpu_subsystem (
     .i_clk     ( i_clk     ),
     .i_rstn    ( soc_rstn  ),
     .o_end     ( o_end     ),

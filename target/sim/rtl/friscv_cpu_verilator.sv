@@ -45,7 +45,10 @@ assign mem.wait_req = stall;
 assign mem.beat_valid = beat_valid;
 assign mem.err = err;
 
-friscv_cpu_subsystem_core core (
+friscv_cpu_subsystem_core #(
+    .RAM_BASE            ( 32'h8000_0000 ),
+    .ZSBL_ROM_SIZE_BYTES ( 0             )
+) core (
     .i_clk     ( clk   ),
     .i_rstn    ( rstn  ),
     .o_end     ( halt  ),

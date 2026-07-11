@@ -18,7 +18,9 @@
 import friscv_pkg::*;
 
 module friscv_core_complex #(
-    parameter int HART_ID = 0
+    parameter int unsigned HART_ID = 0,
+    parameter int unsigned RESET_VEC = 32'h8000_0000,
+    parameter int unsigned ZSBL_ROM_SIZE_BYTES = 0
 ) (
     input  logic       i_clk,
     input  logic       i_rstn,
@@ -332,7 +334,8 @@ assign w_stall_if = w_inst_wait;
 // ============================================================
 
 friscv_core #(
-    .HART_ID(HART_ID)
+    .HART_ID   ( HART_ID   ),
+    .RESET_VEC ( RESET_VEC )
 ) cpu_0 (
     .i_clk            ( i_clk           ),
     .i_rstn           ( i_rstn          ),
@@ -426,7 +429,10 @@ end
 // ============================================================
 
 if (ZSBL_ROM_SIZE_BYTES > 0) begin : gen_zsbl_rom
-    friscv_zsbl_rom zsbl_rom (
+    friscv_zsbl_rom #(
+        .SIZE_BYTES ( ZSBL_ROM_SIZE_BYTES ),
+        .BASE_ADDR  ( RESET_VEC           )
+    ) zsbl_rom (
         .i_clk  ( i_clk       ),
         .i_addr ( w_l2_addr   ),
         .o_data ( w_zsbl_data )
