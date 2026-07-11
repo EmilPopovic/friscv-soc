@@ -79,6 +79,23 @@
               runHook postInstall
             '';
           };
+          mise = pkgs.stdenv.mkDerivation rec {
+            pname = "mise";
+            version = "2026.7.5";
+            src = pkgs.fetchurl {
+              url = "https://github.com/jdx/mise/releases/download/v${version}/mise-v${version}-linux-x64.tar.gz";
+              hash = "sha256-vpLaOvsYDccbPOb8qq8vOTgSycUOmmTJy2cGzyjttIY=";
+            };
+            nativeBuildInputs = [ pkgs.autoPatchelfHook ];
+            buildInputs = [ pkgs.stdenv.cc.cc.lib ];
+            dontConfigure = true;
+            dontBuild = true;
+            installPhase = ''
+              runHook preInstall
+              install -Dm755 bin/mise $out/bin/mise
+              runHook postInstall
+            '';
+          };
           morty = pkgs.stdenv.mkDerivation rec {
             pname = "morty";
             version = "0.9.0";
@@ -142,10 +159,10 @@
               klayout
               magic
               netgen
-              mise
               uv
               haskellPackages.sv2v
             ]) ++ [
+              mise
               yosys-full
               openroad
               riscv-toolchain

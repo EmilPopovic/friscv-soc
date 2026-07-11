@@ -12,6 +12,8 @@ jobs:
   act-run-core:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    env:
+      MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v4
 
@@ -22,6 +24,12 @@ jobs:
         with:
           path: verif/riscv-arch-test/riscv-arch-test
           key: act-repo-${{ hashFiles('verif/riscv-arch-test/Makefile') }}
+
+      - name: Cache mise tools
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/mise
+          key: mise-tools-${{ hashFiles('verif/riscv-arch-test/Makefile') }}
 
       - name: Build test ELFs
         run: nix develop --accept-flake-config --command make -C verif/riscv-arch-test all
