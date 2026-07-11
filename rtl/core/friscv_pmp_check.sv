@@ -70,7 +70,7 @@ end
 // Stage 2: priority-encode
 always_comb begin
     o_fault = 1'b0;
-    if (!ENABLE_FAKE_PMP && (i_access_r || i_access_w || i_access_x)) begin
+    if (i_access_r || i_access_w || i_access_x) begin
         o_fault = (i_mode != M_MODE);
         for (int i = PMP_ENTRIES-1; i >= 0; i--)
             if (w_match[i]) o_fault = fault_for_cfg(i_pmp_table[i].cfg);

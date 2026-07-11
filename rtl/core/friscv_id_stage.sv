@@ -660,7 +660,6 @@ endfunction
 always_ff @(posedge clk_in) begin
     if(!rst_n_in) begin
         csr <= '0;
-        pmp_table <= '0;
         r_mret_inhibit <= 1'b0;
         r_current_mode <= M_MODE;
         trap_seen      <= 1'b0;
@@ -802,8 +801,32 @@ always_ff @(posedge clk_in) begin
                 CSR_MCOUNTINHIBIT: csr.mcountinhibit <= csr_data_in & 32'h0000_0005;
                 default: ;
             endcase
+        end
 
-            // Machine Memory Protection
+        // Cycle counter
+        if (!csr.mcountinhibit[0])
+            csr.mcycle <= csr.mcycle + 1;
+
+        // Instruction retire counter
+        if (instr_ret_in && !csr.mcountinhibit[2])
+            csr.minstret <= csr.minstret + 1;
+    end
+end
+
+// ============================================================
+// Machine Memory Protection
+// ============================================================
+
+if (ENFORCE_PMP) begin : gen_pmp_table
+    logic pmp_csr_wr;
+    assign pmp_csr_wr = !trap_out &&
+                        !(ret_commit_in && (sret_active || mret_active)) &&
+                        csr_en_in && instr_ret_in && !wb_csr_ro;
+
+    always_ff @(posedge clk_in) begin
+        if (!rst_n_in) begin
+            pmp_table <= '0;
+        end else if (pmp_csr_wr) begin
             if (int'(csr_sel_in) >= int'(CSR_PMPCFG0) &&
                 int'(csr_sel_in) <  int'(CSR_PMPCFG0) + PMP_ENTRIES/4) begin
                 // Writing to pmpcfg
@@ -824,15 +847,9 @@ always_ff @(posedge clk_in) begin
                 end
             end
         end
-
-        // Cycle counter
-        if (!csr.mcountinhibit[0])
-            csr.mcycle <= csr.mcycle + 1;
-
-        // Instruction retire counter
-        if (instr_ret_in && !csr.mcountinhibit[2])
-            csr.minstret <= csr.minstret + 1;
     end
+end else begin : gen_no_pmp_table
+    assign pmp_table = '0;
 end
 
 // ============================================================
@@ -922,11 +939,11 @@ always_comb begin : csr_read
     // Machine Memory Protection
     if (int'(selected_csr) >= int'(CSR_PMPCFG0) &&
         int'(selected_csr) <  int'(CSR_PMPCFG0) + PMP_ENTRIES/4) begin
-        csr_out = pmpcfg_word(int'(selected_csr) - int'(CSR_PMPCFG0));
+        csr_out = ENFORCE_PMP ? pmpcfg_word(int'(selected_csr) - int'(CSR_PMPCFG0)) : 32'h0;
         csr_not_implemented = 1'b0;
     end else if (int'(selected_csr) >= int'(CSR_PMPADDR0) &&
                  int'(selected_csr) <  int'(CSR_PMPADDR0) + PMP_ENTRIES) begin
-        csr_out = pmp_table[int'(selected_csr) - int'(CSR_PMPADDR0)].addr;
+        csr_out = ENFORCE_PMP ? pmp_table[int'(selected_csr) - int'(CSR_PMPADDR0)].addr : 32'h0;
         csr_not_implemented = 1'b0;
     end
 end : csr_read

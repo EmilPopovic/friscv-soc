@@ -52,11 +52,10 @@ package friscv_pkg;
 
     // Memory protection and address translation
     localparam logic ENABLE_MMU = 1;
-    localparam logic ENFORCE_PMP = 1;
-    localparam logic ENABLE_FAKE_PMP = 1;
+    localparam logic ENFORCE_PMP = 0;
     localparam logic ENFORCE_PTW_PMP = 0;
-    localparam int   PMP_ENTRIES = 8;
-    localparam int   PMP_USABLE = 8;
+    localparam int   PMP_ENTRIES = 64;
+    localparam int   PMP_USABLE = 64;
     // Must be a power of 2 greater than 1
     localparam int   ITLB_ENTRIES = 2;
     localparam int   DTLB_ENTRIES = 4;
