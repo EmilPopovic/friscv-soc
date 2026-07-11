@@ -16,3 +16,11 @@ Build the full SoC simulator or load an RV32 ELF through JTAG with:
 make soc
 make jtag ELF=/path/to/program.elf
 ```
+
+Direct JTAG memory access:
+
+```bash
+obj_dir_soc/friscv_soc read <address> <size>
+obj_dir_soc/friscv_soc write <address> <byte> [byte ...]
+obj_dir_soc/friscv_soc load <program.elf>
+```

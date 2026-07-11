@@ -21,7 +21,7 @@ soc: sources.f | $(SOC_DIR)
 
 jtag: soc
 	@test -n "$(ELF)" || { echo "usage: make jtag ELF=<program.elf>" >&2; exit 1; }
-	$(SOC_BIN) "$(ELF)"
+	$(SOC_BIN) load "$(ELF)"
 
 clean:
 	rm -rf obj_dir $(SOC_DIR) sources.f
