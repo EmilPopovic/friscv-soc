@@ -289,7 +289,7 @@ end else begin : gen_no_l2_buffer
     assign l2_downstream_if.size   = l2_upstream_if.size;
     assign l2_downstream_if.wdata  = l2_upstream_if.wdata;
     assign l2_downstream_if.rw     = l2_upstream_if.rw;
-    assign l2_downstream_if.amo_op = l2_upstream_if.amo_op;
+    assign l2_downstream_if.amo_op = l2_upstream_if.valid ? l2_upstream_if.amo_op : AMO_NONE;
 end
 
 // Connect the downstream signals to the L2 backend (external bus and AMO unit)
@@ -415,7 +415,7 @@ if (ENABLE_EXTENSION_A) begin : gen_amo
         .o_mem_store_data ( w_amo_store_data )
     );
     // Keep AMO path selected across both LOAD and STORE phases
-    assign w_amo_active = (w_l2_amo_op != AMO_NONE) || (w_amo_rw != RW_IDLE) || r_amo_addr_valid;
+    assign w_amo_active = w_amo_bootstrap || (w_eff_amo != AMO_NONE) || (w_amo_rw != RW_IDLE);
 end else begin : gen_no_amo
     assign w_amo_active     = 1'b0;
     assign w_amo_rw         = RW_IDLE;

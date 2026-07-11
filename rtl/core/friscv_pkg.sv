@@ -48,7 +48,7 @@ package friscv_pkg;
     // --- Configurable parameter definitions start ---
 
     // If enabled, buffer outbound requests to improve timing
-    localparam logic ENABLE_L2_BUFFER = 1;
+    localparam logic ENABLE_L2_BUFFER = 0;
 
     // Memory protection and address translation
     localparam logic ENABLE_MMU = 1;
