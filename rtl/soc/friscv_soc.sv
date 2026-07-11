@@ -73,7 +73,6 @@ friscv_cpu_subsystem_core #(
 logic        m_axi_awvalid;
 logic        m_axi_awready;
 logic [31:0] m_axi_awaddr;
-logic [2:0]  m_axi_awprot;
 // W channel
 logic        m_axi_wvalid;
 logic        m_axi_wready;
@@ -87,7 +86,6 @@ logic [1:0]  m_axi_bresp;
 logic        m_axi_arvalid;
 logic        m_axi_arready;
 logic [31:0] m_axi_araddr;
-logic [2:0]  m_axi_arprot;
 // R channel
 logic        m_axi_rvalid;
 logic        m_axi_rready;
@@ -101,7 +99,6 @@ friscv_axi_lite_adapter m_axi (
     .m_axi_awvalid  ( m_axi_awvalid ),
     .m_axi_awready  ( m_axi_awready ),
     .m_axi_awaddr   ( m_axi_awaddr  ),
-    .m_axi_awprot   ( m_axi_awprot  ),
     .m_axi_wvalid   ( m_axi_wvalid  ),
     .m_axi_wready   ( m_axi_wready  ),
     .m_axi_wdata    ( m_axi_wdata   ),
@@ -112,7 +109,6 @@ friscv_axi_lite_adapter m_axi (
     .m_axi_arvalid  ( m_axi_arvalid ),
     .m_axi_arready  ( m_axi_arready ),
     .m_axi_araddr   ( m_axi_araddr  ),
-    .m_axi_arprot   ( m_axi_arprot  ),
     .m_axi_rvalid   ( m_axi_rvalid  ),
     .m_axi_rready   ( m_axi_rready  ),
     .m_axi_rdata    ( m_axi_rdata   ),
@@ -379,7 +375,6 @@ axi_to_mem_intf #(
     .mem_rdata_i  ( sram_rdata              )
 );
 
-// TODO temporary, replace with axi_llc later
 tc_sram #(
     .NumWords  ( SramSize/4 ),
     .DataWidth ( 32         ),

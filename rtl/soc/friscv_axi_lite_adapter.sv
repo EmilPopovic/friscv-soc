@@ -47,8 +47,7 @@ module friscv_axi_lite_adapter (
 
 typedef enum logic [2:0] {
     S_IDLE,
-    S_W_ADDR,
-    S_W_DATA,
+    S_W,
     S_W_RET,
     S_R_ADDR,
     S_R_DATA
@@ -58,9 +57,14 @@ state_e r_state, w_next_state;
 
 // Latched transaction parameters
 mem_width_e  r_size;
-logic        r_burst_en;
 logic [31:0] r_addr;
 data_t       r_wdata, r_rdata;
+
+logic r_aw_done, r_w_done;
+logic w_aw_hs, w_w_hs;
+
+assign w_aw_hs = m_axi_awvalid && m_axi_awready;
+assign w_w_hs  = m_axi_wvalid  && m_axi_wready;
 
 // Data width and alignment
 logic [DATA_WIDTH/8-1:0] base_strb;
@@ -82,35 +86,40 @@ assign w_read_completing  = m_axi_rvalid && m_axi_rready;
 assign w_write_completing = m_axi_bvalid && m_axi_bready;
 
 // Constant assignments
-assign mem_if.rdata  = w_read_completing ? m_axi_rdata : r_rdata;
-assign m_axi_awaddr  = r_addr;
-assign m_axi_awprot  = 3'b000;
+assign m_axi_awaddr = r_addr;
+assign m_axi_awprot = 3'b000;
+assign m_axi_wdata  = r_wdata;
+assign m_axi_araddr = r_addr;
+assign m_axi_arprot = 3'b000;
 
-assign m_axi_wdata   = r_wdata;
-
-assign m_axi_araddr  = r_addr;
-assign m_axi_arprot  = 3'b000;
-
+assign mem_if.rdata      = w_read_completing ? m_axi_rdata : r_rdata;
 assign mem_if.wait_req   = w_next_state != S_IDLE;
-assign mem_if.beat_valid = r_burst_en && (r_state == S_R_DATA) && m_axi_rvalid && m_axi_rready;
+assign mem_if.beat_valid = 1'b0;
 assign mem_if.err        = w_read_completing  ? |m_axi_rresp :
                            w_write_completing ? |m_axi_bresp : 1'b0;
 
 always_ff @(posedge i_clk) begin
     if (!i_rstn) begin
-        r_burst_en   <= 1'b0;
         r_state      <= S_IDLE;
-        {r_addr, r_wdata, r_rdata, r_size} <= '0;
+        r_aw_done    <= 1'b0;
+        r_w_done     <= 1'b0;
+        r_addr       <= '0;
+        r_wdata      <= '0;
+        r_rdata      <= '0;
+        r_size       <= WIDTH_I32;
     end else begin
         r_state <= w_next_state;
-
         if (r_state == S_IDLE && mem_if.rw != RW_IDLE) begin
             r_addr     <= mem_if.addr;
             r_wdata    <= mem_if.wdata;
             r_size     <= mem_if.size;
-            r_burst_en <= mem_if.burst_en;
+            r_aw_done  <= 1'b0;
+            r_w_done   <= 1'b0;
         end
-
+        if (r_state == S_W) begin
+            if (w_aw_hs) r_aw_done <= 1'b1;
+            if (w_w_hs)  r_w_done  <= 1'b1;
+        end
         if (w_read_completing) r_rdata <= m_axi_rdata;
     end
 end
@@ -125,17 +134,15 @@ always_comb begin
 
     case (r_state)
         S_IDLE: begin
-            if (mem_if.rw == RW_WRITE || mem_if.rw == RW_READ) w_next_state = (mem_if.rw == RW_WRITE) ? S_W_ADDR : S_R_ADDR;
+            if (mem_if.rw == RW_WRITE || mem_if.rw == RW_READ)
+                w_next_state = (mem_if.rw == RW_WRITE) ? S_W : S_R_ADDR;
         end
 
-        S_W_ADDR: begin
-            m_axi_awvalid = 1'b1;
-            w_next_state  = m_axi_awready ? S_W_DATA : S_W_ADDR;
-        end
-
-        S_W_DATA: begin
-            m_axi_wvalid = 1'b1;
-            if (m_axi_wready) w_next_state = S_W_RET;
+        S_W: begin
+            m_axi_awvalid = !r_aw_done;
+            m_axi_wvalid  = !r_w_done;
+            if ((r_aw_done || m_axi_awready) && (r_w_done || m_axi_wready))
+                w_next_state = S_W_RET;
         end
 
         S_W_RET: begin
@@ -150,7 +157,7 @@ always_comb begin
 
         S_R_DATA: begin
             m_axi_rready = 1'b1;
-            if (m_axi_rvalid && (!r_burst_en)) w_next_state = S_IDLE;
+            if (m_axi_rvalid) w_next_state = S_IDLE;
         end
 
         default: ;
