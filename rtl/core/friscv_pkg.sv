@@ -65,6 +65,8 @@ package friscv_pkg;
     // Extension selection
     localparam logic ENABLE_MUL = 1;
     localparam logic ENABLE_DIV = 1;
+    // Use a single-cycle combinational multiplier instead of the iterative multiplier
+    localparam logic ENABLE_FAST_MUL = 0;
     // M extension configured by choosing MUL and DIV above
     localparam logic ENABLE_EXTENSION_M = ENABLE_MUL && ENABLE_DIV;
     localparam logic ENABLE_EXTENSION_A = 1;

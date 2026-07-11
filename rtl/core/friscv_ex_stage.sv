@@ -129,7 +129,7 @@ friscv_ex_stage_branch_unit branch_unit (
 assign branch_target_out = branch_target;
 
 // ============================================================
-// Iterative multiply/divide unit
+// Multiply/divide units
 // ============================================================
 
 data_t alu_input_a;
@@ -150,7 +150,7 @@ assign div_en = ENABLE_DIV && ((instr_buff.alu_op == DIV_OP)  ||
                                (instr_buff.alu_op == DIVU_OP) ||
                                (instr_buff.alu_op == REM_OP)  ||
                                (instr_buff.alu_op == REMU_OP));
-assign muldiv_en = mul_en || div_en;
+assign muldiv_en = (mul_en && !ENABLE_FAST_MUL) || div_en;
 
 assign a_signed = (instr_buff.alu_op == MULH_OP)  ||
                   (instr_buff.alu_op == MULHSU_OP) ||
@@ -160,7 +160,7 @@ assign b_signed = (instr_buff.alu_op == MULH_OP) ||
                   (instr_buff.alu_op == DIV_OP)  ||
                   (instr_buff.alu_op == REM_OP);
 
-generate if (ENABLE_MUL || ENABLE_DIV) begin : gen_muldiv
+generate if ((ENABLE_MUL && !ENABLE_FAST_MUL) || ENABLE_DIV) begin : gen_muldiv
     logic done;
     logic started;
     logic done_hold;
@@ -200,6 +200,32 @@ generate if (ENABLE_MUL || ENABLE_DIV) begin : gen_muldiv
 end else begin : gen_no_muldiv
     assign muldiv_res = '0;
     assign muldiv_active_out = 1'b0;
+end endgenerate
+
+data_t mul_res_lo, mul_res_hi;
+
+generate if (ENABLE_MUL && ENABLE_FAST_MUL) begin : gen_fast_mul
+    logic signed [32:0] op_a, op_b;
+    logic signed [65:0] product;
+
+    always_comb begin
+        case (instr_buff.alu_op)
+            MULHU_OP: op_a = {1'b0, alu_input_a};
+            default:  op_a = {alu_input_a[31], alu_input_a};
+        endcase
+
+        case (instr_buff.alu_op)
+            MULH_OP: op_b = {alu_input_b[31], alu_input_b};
+            default: op_b = {1'b0, alu_input_b};
+        endcase
+    end
+
+    assign product = op_a * op_b;
+    assign mul_res_lo = product[31:0];
+    assign mul_res_hi = product[63:32];
+end else begin : gen_iter_mul
+    assign mul_res_lo = muldiv_res[31:0];
+    assign mul_res_hi = muldiv_res[63:32];
 end endgenerate
 
 // ============================================================
@@ -367,10 +393,10 @@ always_comb begin
         SRA_OP:    alu_data_raw = $signed(alu_input_a) >>> alu_input_b[4:0];
         SLT_OP:    alu_data_raw = {31'b0, $signed(alu_input_a) < $signed(alu_input_b)};
         SLTU_OP:   alu_data_raw = {31'b0, alu_input_a < alu_input_b};
-        MUL_OP:    alu_data_raw = muldiv_res[31:0];
-        MULH_OP:   alu_data_raw = muldiv_res[63:32];
-        MULHU_OP:  alu_data_raw = muldiv_res[63:32];
-        MULHSU_OP: alu_data_raw = muldiv_res[63:32];
+        MUL_OP:    alu_data_raw = mul_res_lo;
+        MULH_OP:   alu_data_raw = mul_res_hi;
+        MULHU_OP:  alu_data_raw = mul_res_hi;
+        MULHSU_OP: alu_data_raw = mul_res_hi;
         DIV_OP:    alu_data_raw = muldiv_res[31:0];
         DIVU_OP:   alu_data_raw = muldiv_res[31:0];
         REM_OP:    alu_data_raw = muldiv_res[63:32];
