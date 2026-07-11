@@ -40,8 +40,7 @@ module friscv_dm_sba_axi #(
 
     typedef enum logic [2:0] {
         S_IDLE,
-        S_W_ADDR,
-        S_W_DATA,
+        S_W,
         S_W_RESP,
         S_R_ADDR,
         S_R_DATA
@@ -53,6 +52,8 @@ module friscv_dm_sba_axi #(
     logic [AxiAddrWidth-1:0] addr_q;
     logic [AxiDataWidth-1:0] wdata_q;
     logic [StrbWidth-1:0]    be_q;
+    logic                    aw_done_q;
+    logic                    w_done_q;
 
     // Constant AXI request fields
     assign mst.aw_addr   = addr_q;
@@ -84,17 +85,15 @@ module friscv_dm_sba_axi #(
         unique case (state_q)
             S_IDLE: begin
                 dm_gnt_o = dm_req_i;
-                if (dm_req_i) state_d = dm_we_i ? S_W_ADDR : S_R_ADDR;
+                if (dm_req_i) state_d = dm_we_i ? S_W : S_R_ADDR;
             end
 
-            S_W_ADDR: begin
-                mst.aw_valid = 1'b1;
-                if (mst.aw_ready) state_d = S_W_DATA;
-            end
-
-            S_W_DATA: begin
-                mst.w_valid = 1'b1;
-                if (mst.w_ready) state_d = S_W_RESP;
+            S_W: begin
+                mst.aw_valid = !aw_done_q;
+                mst.w_valid  = !w_done_q;
+                if ((aw_done_q || mst.aw_ready) &&
+                    (w_done_q || mst.w_ready))
+                    state_d = S_W_RESP;
             end
 
             S_W_RESP: begin
@@ -126,16 +125,24 @@ module friscv_dm_sba_axi #(
 
     always_ff @(posedge i_clk) begin
         if (!i_rstn) begin
-            state_q <= S_IDLE;
-            addr_q  <= '0;
-            wdata_q <= '0;
-            be_q    <= '0;
+            state_q   <= S_IDLE;
+            addr_q    <= '0;
+            wdata_q   <= '0;
+            be_q      <= '0;
+            aw_done_q <= 1'b0;
+            w_done_q  <= 1'b0;
         end else begin
             state_q <= state_d;
             if (state_q == S_IDLE && dm_req_i) begin
-                addr_q  <= dm_addr_i;
-                wdata_q <= dm_wdata_i;
-                be_q    <= dm_be_i;
+                addr_q    <= dm_addr_i;
+                wdata_q   <= dm_wdata_i;
+                be_q      <= dm_be_i;
+                aw_done_q <= 1'b0;
+                w_done_q  <= 1'b0;
+            end
+            if (state_q == S_W) begin
+                if (mst.aw_valid && mst.aw_ready) aw_done_q <= 1'b1;
+                if (mst.w_valid && mst.w_ready)   w_done_q  <= 1'b1;
             end
         end
     end

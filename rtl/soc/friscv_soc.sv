@@ -226,7 +226,8 @@ assign axi_lite_xbar_slv[CpuPort].r_ready  = m_axi_rready;
 
 // The AXI-Lite xbar
 axi_lite_xbar_intf #(
-    .Cfg ( AxiLiteXbarCfg )
+    .Cfg    ( AxiLiteXbarCfg          ),
+    .rule_t ( axi_pkg::xbar_rule_32_t )
 ) axi_lite_xbar (
     .clk_i                 ( i_clk             ),
     .rst_ni                ( soc_rstn          ),
