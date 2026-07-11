@@ -135,12 +135,12 @@ assign branch_target_out = branch_target;
 data_t alu_input_a;
 data_t alu_input_b;
 
-logic [63:0] muldiv_result;
+logic [63:0] muldiv_res;
 logic        mul_en;
 logic        div_en;
 logic        muldiv_en;
-logic        operand_a_signed;
-logic        operand_b_signed;
+logic        a_signed;
+logic        b_signed;
 
 assign mul_en = ENABLE_MUL && ((instr_buff.alu_op == MUL_OP)   ||
                                (instr_buff.alu_op == MULH_OP)  ||
@@ -152,53 +152,53 @@ assign div_en = ENABLE_DIV && ((instr_buff.alu_op == DIV_OP)  ||
                                (instr_buff.alu_op == REMU_OP));
 assign muldiv_en = mul_en || div_en;
 
-assign operand_a_signed = (instr_buff.alu_op == MULH_OP)  ||
-                          (instr_buff.alu_op == MULHSU_OP) ||
-                          (instr_buff.alu_op == DIV_OP)    ||
-                          (instr_buff.alu_op == REM_OP);
-assign operand_b_signed = (instr_buff.alu_op == MULH_OP) ||
-                          (instr_buff.alu_op == DIV_OP)   ||
-                          (instr_buff.alu_op == REM_OP);
+assign a_signed = (instr_buff.alu_op == MULH_OP)  ||
+                  (instr_buff.alu_op == MULHSU_OP) ||
+                  (instr_buff.alu_op == DIV_OP)    ||
+                  (instr_buff.alu_op == REM_OP);
+assign b_signed = (instr_buff.alu_op == MULH_OP) ||
+                  (instr_buff.alu_op == DIV_OP)  ||
+                  (instr_buff.alu_op == REM_OP);
 
 generate if (ENABLE_MUL || ENABLE_DIV) begin : gen_muldiv
-    logic muldiv_done;
-    logic muldiv_started;
-    logic muldiv_done_latched;
-    logic muldiv_start_pulse;
-    logic muldiv_flush;
+    logic done;
+    logic started;
+    logic done_hold;
+    logic start;
+    logic flush;
 
-    assign muldiv_start_pulse = muldiv_en && !muldiv_started && !muldiv_done_latched;
-    assign muldiv_flush = stage_flush_in || trap_commit_in;
+    assign start = muldiv_en && !started && !done_hold;
+    assign flush = stage_flush_in || trap_commit_in;
 
     always_ff @(posedge clk_in) begin
-        if (!rst_n_in || muldiv_flush || !muldiv_en || (muldiv_done_latched && !stage_stall_in)) begin
-            muldiv_started      <= 1'b0;
-            muldiv_done_latched <= 1'b0;
+        if (!rst_n_in || flush || !muldiv_en || (done_hold && !stage_stall_in)) begin
+            started   <= 1'b0;
+            done_hold <= 1'b0;
         end else begin
-            if (muldiv_start_pulse)
-                muldiv_started <= 1'b1;
-            if (muldiv_done)
-                muldiv_done_latched <= 1'b1;
+            if (start)
+                started <= 1'b1;
+            if (done)
+                done_hold <= 1'b1;
         end
     end
 
-    friscv_muldiv i_muldiv (
-        .clk_in              ( clk_in             ),
-        .rst_n_in            ( rst_n_in           ),
-        .flush_in            ( muldiv_flush       ),
-        .start_in            ( muldiv_start_pulse ),
-        .multiply_in         ( mul_en             ),
-        .operand_a_signed_in ( operand_a_signed    ),
-        .operand_b_signed_in ( operand_b_signed    ),
-        .operand_a_in        ( alu_input_a         ),
-        .operand_b_in        ( alu_input_b         ),
-        .result_out          ( muldiv_result       ),
-        .done_out            ( muldiv_done         )
+    friscv_muldiv muldiv_unit (
+        .i_clk      ( clk_in      ),
+        .i_rstn     ( rst_n_in    ),
+        .i_flush    ( flush       ),
+        .i_start    ( start       ),
+        .i_mul      ( mul_en      ),
+        .i_a_signed ( a_signed    ),
+        .i_b_signed ( b_signed    ),
+        .i_a        ( alu_input_a ),
+        .i_b        ( alu_input_b ),
+        .o_result   ( muldiv_res  ),
+        .o_done     ( done        )
     );
 
-    assign muldiv_active_out = muldiv_en && !muldiv_done_latched;
+    assign muldiv_active_out = muldiv_en && !done_hold;
 end else begin : gen_no_muldiv
-    assign muldiv_result = '0;
+    assign muldiv_res = '0;
     assign muldiv_active_out = 1'b0;
 end endgenerate
 
@@ -367,14 +367,14 @@ always_comb begin
         SRA_OP:    alu_data_raw = $signed(alu_input_a) >>> alu_input_b[4:0];
         SLT_OP:    alu_data_raw = {31'b0, $signed(alu_input_a) < $signed(alu_input_b)};
         SLTU_OP:   alu_data_raw = {31'b0, alu_input_a < alu_input_b};
-        MUL_OP:    alu_data_raw = muldiv_result[31:0];
-        MULH_OP:   alu_data_raw = muldiv_result[63:32];
-        MULHU_OP:  alu_data_raw = muldiv_result[63:32];
-        MULHSU_OP: alu_data_raw = muldiv_result[63:32];
-        DIV_OP:    alu_data_raw = muldiv_result[31:0];
-        DIVU_OP:   alu_data_raw = muldiv_result[31:0];
-        REM_OP:    alu_data_raw = muldiv_result[63:32];
-        REMU_OP:   alu_data_raw = muldiv_result[63:32];
+        MUL_OP:    alu_data_raw = muldiv_res[31:0];
+        MULH_OP:   alu_data_raw = muldiv_res[63:32];
+        MULHU_OP:  alu_data_raw = muldiv_res[63:32];
+        MULHSU_OP: alu_data_raw = muldiv_res[63:32];
+        DIV_OP:    alu_data_raw = muldiv_res[31:0];
+        DIVU_OP:   alu_data_raw = muldiv_res[31:0];
+        REM_OP:    alu_data_raw = muldiv_res[63:32];
+        REMU_OP:   alu_data_raw = muldiv_res[63:32];
         default:   alu_data_raw = 32'h0;
     endcase
 end

@@ -9,20 +9,10 @@
 // Version info is listed in friscv_pkg.sv
 
 /*
- * This module implements non-pipelined iterative multiplication and the
- * non-restoring division algorithm. Multiplication uses the same A/M/Q
- * registers and add/subtract datapath.
- * It supports signed and unsigned multiplication and division, as well as
- * division by zero and the overflow case of INT_MIN / -1.
- * The operation is started when start_in is asserted and the operands are
- * stable. Normal operations take 32 iterations.
- * When the operation is complete, done_out is asserted for one cycle.
- *
- * result_out is {product_high, product_low} after multiplication and
- * {remainder, quotient} after division.
- *
- * Note: always register the inputs and outputs of this module to avoid bugs
- * during pipeline stalls.
+ * Iterative 32-cycle multiplier and non-restoring divider.
+ * i_start begins an operation; o_done pulses when o_result is valid.
+ * The result is {high, low} for multiplication or {remainder, quotient}
+ * for division. Inputs and outputs must be registered across pipeline stalls.
  */
 
 `timescale 1ns / 1ps
@@ -30,193 +20,191 @@
 import friscv_pkg::*;
 
 module friscv_muldiv (
-    input  logic        clk_in,
-    input  logic        rst_n_in,
-    input  logic        flush_in,
-    input  logic        start_in,
-    input  logic        multiply_in,
-    input  logic        operand_a_signed_in,
-    input  logic        operand_b_signed_in,
-    input  data_t       operand_a_in,
-    input  data_t       operand_b_in,
-    output logic [63:0] result_out,
-    output logic        done_out
+    input  logic        i_clk,
+    input  logic        i_rstn,
+    input  logic        i_flush,
+    input  logic        i_start,
+    input  logic        i_mul,
+    input  logic        i_a_signed,
+    input  logic        i_b_signed,
+    input  data_t       i_a,
+    input  data_t       i_b,
+    output logic [63:0] o_result,
+    output logic        o_done
 );
 
-    typedef enum logic [1:0] {IDLE, ACTIVE, DONE} state_e;
+    typedef enum logic [1:0] {S_IDLE, S_ACTIVE, S_DONE} state_e;
 
-    state_e      current_state, next_state;
-    logic [32:0] A, next_A;
-    data_t       M, next_M;
-    data_t       Q, next_Q;
-    logic [5:0]  counter, next_counter;
-    logic        multiply, next_multiply;
-    logic        result_sign, next_result_sign;
-    logic        remainder_sign, next_remainder_sign;
-    logic        edge_case, next_edge_case;
-    logic [63:0] next_result;
-    logic        next_done;
+    state_e      r_state, w_next_state;
+    logic [32:0] r_a, w_a;
+    data_t       r_m, w_m;
+    data_t       r_q, w_q;
+    logic [5:0]  r_cnt, w_cnt;
+    logic        r_mul, w_mul;
+    logic        r_sign, w_sign;
+    logic        r_rem_sign, w_rem_sign;
+    logic        r_special, w_special;
+    logic [63:0] w_result;
+    logic        w_done;
 
-    logic        operand_a_negative, operand_b_negative;
-    data_t       operand_a_magnitude, operand_b_magnitude;
+    logic        w_a_neg, w_b_neg;
+    data_t       w_a_abs, w_b_abs;
 
-    logic [32:0] shifted_A;
-    data_t       shifted_Q;
-    logic [32:0] arithmetic_A, arithmetic_M, arithmetic_result;
-    logic        arithmetic_subtract;
-    data_t       division_Q;
-    logic [64:0] multiplication_shift;
-    logic [63:0] unsigned_product, signed_product;
+    logic [32:0] w_shift_a;
+    data_t       w_shift_q;
+    logic [32:0] w_alu_a, w_alu_m, w_alu_res;
+    logic        w_alu_sub;
+    data_t       w_div_q;
+    logic [64:0] w_mul_shift;
+    logic [63:0] w_prod, w_signed_prod;
 
-    assign operand_a_negative = operand_a_signed_in && operand_a_in[31];
-    assign operand_b_negative = operand_b_signed_in && operand_b_in[31];
-    assign operand_a_magnitude = operand_a_negative ? (~operand_a_in + 1'b1) : operand_a_in;
-    assign operand_b_magnitude = operand_b_negative ? (~operand_b_in + 1'b1) : operand_b_in;
+    assign w_a_neg = i_a_signed && i_a[31];
+    assign w_b_neg = i_b_signed && i_b[31];
+    assign w_a_abs = w_a_neg ? (~i_a + 1'b1) : i_a;
+    assign w_b_abs = w_b_neg ? (~i_b + 1'b1) : i_b;
 
-    assign unsigned_product = {A[31:0], Q};
-    assign signed_product = result_sign ? (~unsigned_product + 1'b1) : unsigned_product;
+    assign w_prod = {r_a[31:0], r_q};
+    assign w_signed_prod = r_sign ? (~w_prod + 1'b1) : w_prod;
 
     // Both algorithms use this single add/subtract path.
     always_comb begin
-        {shifted_A, shifted_Q} = {A, Q} << 1;
+        {w_shift_a, w_shift_q} = {r_a, r_q} << 1;
 
-        arithmetic_A        = A;
-        arithmetic_M        = '0;
-        arithmetic_subtract = 1'b0;
+        w_alu_a   = r_a;
+        w_alu_m   = '0;
+        w_alu_sub = 1'b0;
 
-        if (current_state == ACTIVE) begin
-            if (multiply) begin
-                arithmetic_M = Q[0] ? {1'b0, M} : '0;
+        if (r_state == S_ACTIVE) begin
+            if (r_mul) begin
+                w_alu_m = r_q[0] ? {1'b0, r_m} : '0;
             end else begin
-                arithmetic_A        = shifted_A;
-                arithmetic_M        = {1'b0, M};
-                arithmetic_subtract = !A[32];
+                w_alu_a   = w_shift_a;
+                w_alu_m   = {1'b0, r_m};
+                w_alu_sub = !r_a[32];
             end
-        end else if (current_state == DONE && !multiply && A[32]) begin
-            arithmetic_M = {1'b0, M};
+        end else if (r_state == S_DONE && !r_mul && r_a[32]) begin
+            w_alu_m = {1'b0, r_m};
         end
 
-        arithmetic_result = arithmetic_subtract
-                          ? arithmetic_A - arithmetic_M
-                          : arithmetic_A + arithmetic_M;
+        w_alu_res = w_alu_sub ? w_alu_a - w_alu_m : w_alu_a + w_alu_m;
 
-        division_Q    = shifted_Q;
-        division_Q[0] = !arithmetic_result[32];
+        w_div_q    = w_shift_q;
+        w_div_q[0] = !w_alu_res[32];
 
-        multiplication_shift = {arithmetic_result, Q} >> 1;
+        w_mul_shift = {w_alu_res, r_q} >> 1;
     end
 
     always_comb begin
-        next_state          = current_state;
-        next_A              = A;
-        next_M              = M;
-        next_Q              = Q;
-        next_counter        = counter;
-        next_multiply       = multiply;
-        next_result_sign    = result_sign;
-        next_remainder_sign = remainder_sign;
-        next_edge_case      = edge_case;
-        next_result         = result_out;
-        next_done           = done_out;
+        w_next_state = r_state;
+        w_a          = r_a;
+        w_m          = r_m;
+        w_q          = r_q;
+        w_cnt        = r_cnt;
+        w_mul        = r_mul;
+        w_sign       = r_sign;
+        w_rem_sign   = r_rem_sign;
+        w_special    = r_special;
+        w_result     = o_result;
+        w_done       = o_done;
 
-        if (flush_in) begin
-            next_state = IDLE;
-            next_done  = 1'b0;
+        if (i_flush) begin
+            w_next_state = S_IDLE;
+            w_done       = 1'b0;
         end else begin
-            case (current_state)
-                IDLE: begin
-                    next_done = 1'b0;
+            case (r_state)
+                S_IDLE: begin
+                    w_done = 1'b0;
 
-                    if (start_in) begin
-                        next_A              = '0;
-                        next_M              = operand_b_magnitude;
-                        next_Q              = operand_a_magnitude;
-                        next_counter        = 6'd32;
-                        next_multiply       = multiply_in;
-                        next_result_sign    = operand_a_negative ^ operand_b_negative;
-                        next_remainder_sign = operand_a_negative;
+                    if (i_start) begin
+                        w_a        = '0;
+                        w_m        = w_b_abs;
+                        w_q        = w_a_abs;
+                        w_cnt      = 6'd32;
+                        w_mul      = i_mul;
+                        w_sign     = w_a_neg ^ w_b_neg;
+                        w_rem_sign = w_a_neg;
 
-                        if (multiply_in) begin
-                            next_edge_case = 1'b0;
-                            next_state     = ACTIVE;
-                        end else if (operand_b_in == '0) begin
-                            next_result    = {operand_a_in, 32'hFFFFFFFF};
-                            next_edge_case = 1'b1;
-                            next_state     = DONE;
-                        end else if (operand_a_signed_in && operand_b_signed_in &&
-                                     operand_a_in == 32'h80000000 && operand_b_in == 32'hFFFFFFFF) begin
-                            next_result    = {32'b0, 32'h80000000};
-                            next_edge_case = 1'b1;
-                            next_state     = DONE;
+                        if (i_mul) begin
+                            w_special    = 1'b0;
+                            w_next_state = S_ACTIVE;
+                        end else if (i_b == '0) begin
+                            w_result     = {i_a, 32'hFFFFFFFF};
+                            w_special    = 1'b1;
+                            w_next_state = S_DONE;
+                        end else if (i_a_signed && i_b_signed &&
+                                     i_a == 32'h80000000 && i_b == 32'hFFFFFFFF) begin
+                            w_result     = {32'b0, 32'h80000000};
+                            w_special    = 1'b1;
+                            w_next_state = S_DONE;
                         end else begin
-                            next_edge_case = 1'b0;
-                            next_state     = ACTIVE;
+                            w_special    = 1'b0;
+                            w_next_state = S_ACTIVE;
                         end
                     end
                 end
 
-                ACTIVE: begin
-                    if (counter == 0) begin
-                        next_state = DONE;
+                S_ACTIVE: begin
+                    if (r_cnt == 0) begin
+                        w_next_state = S_DONE;
                     end else begin
-                        if (multiply) begin
-                            next_A = multiplication_shift[64:32];
-                            next_Q = multiplication_shift[31:0];
+                        if (r_mul) begin
+                            w_a = w_mul_shift[64:32];
+                            w_q = w_mul_shift[31:0];
                         end else begin
-                            next_A = arithmetic_result;
-                            next_Q = division_Q;
+                            w_a = w_alu_res;
+                            w_q = w_div_q;
                         end
-                        next_counter = counter - 1'b1;
+                        w_cnt = r_cnt - 1'b1;
                     end
                 end
 
-                DONE: begin
-                    if (multiply) begin
-                        next_result = signed_product;
-                    end else if (!edge_case) begin
-                        next_result[31:0]  = result_sign ? (~Q + 1'b1) : Q;
-                        next_result[63:32] = remainder_sign
-                                           ? (~arithmetic_result[31:0] + 1'b1)
-                                           : arithmetic_result[31:0];
+                S_DONE: begin
+                    if (r_mul) begin
+                        w_result = w_signed_prod;
+                    end else if (!r_special) begin
+                        w_result[31:0]  = r_sign ? (~r_q + 1'b1) : r_q;
+                        w_result[63:32] = r_rem_sign
+                                        ? (~w_alu_res[31:0] + 1'b1)
+                                        : w_alu_res[31:0];
                     end
 
-                    next_done  = 1'b1;
-                    next_state = IDLE;
+                    w_done       = 1'b1;
+                    w_next_state = S_IDLE;
                 end
 
                 default: begin
-                    next_state = IDLE;
-                    next_done  = 1'b0;
+                    w_next_state = S_IDLE;
+                    w_done       = 1'b0;
                 end
             endcase
         end
     end
 
-    always_ff @(posedge clk_in) begin
-        if (!rst_n_in) begin
-            current_state  <= IDLE;
-            A              <= '0;
-            M              <= '0;
-            Q              <= '0;
-            counter        <= '0;
-            multiply       <= 1'b0;
-            result_sign    <= 1'b0;
-            remainder_sign <= 1'b0;
-            edge_case      <= 1'b0;
-            result_out     <= '0;
-            done_out       <= 1'b0;
+    always_ff @(posedge i_clk) begin
+        if (!i_rstn) begin
+            r_state    <= S_IDLE;
+            r_a        <= '0;
+            r_m        <= '0;
+            r_q        <= '0;
+            r_cnt      <= '0;
+            r_mul      <= 1'b0;
+            r_sign     <= 1'b0;
+            r_rem_sign <= 1'b0;
+            r_special  <= 1'b0;
+            o_result   <= '0;
+            o_done     <= 1'b0;
         end else begin
-            current_state  <= next_state;
-            A              <= next_A;
-            M              <= next_M;
-            Q              <= next_Q;
-            counter        <= next_counter;
-            multiply       <= next_multiply;
-            result_sign    <= next_result_sign;
-            remainder_sign <= next_remainder_sign;
-            edge_case      <= next_edge_case;
-            result_out     <= next_result;
-            done_out       <= next_done;
+            r_state    <= w_next_state;
+            r_a        <= w_a;
+            r_m        <= w_m;
+            r_q        <= w_q;
+            r_cnt      <= w_cnt;
+            r_mul      <= w_mul;
+            r_sign     <= w_sign;
+            r_rem_sign <= w_rem_sign;
+            r_special  <= w_special;
+            o_result   <= w_result;
+            o_done     <= w_done;
         end
     end
 
