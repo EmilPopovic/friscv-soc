@@ -2,6 +2,7 @@
 result
 result-*
 obj_dir/
+obj_dir_soc/
 .slang/local/
 .bender/
 sources.f

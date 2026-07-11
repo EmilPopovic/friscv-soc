@@ -1,50 +1,127 @@
-#include <cstdint>
-#include <cstring>
-#include <fstream>
-#include <vector>
-#include <stdexcept>
 #include "elf_loader.hpp"
 
-struct Elf32_Ehdr {
-    uint8_t  e_ident[16];
-    uint16_t e_type, e_machine;
-    uint32_t e_version, e_entry, e_phoff, e_shoff, e_flags;
-    uint16_t e_ehsize, e_phentsize, e_phnum, e_shentsize, e_shnum, e_shstrndx;
-};
+#include <elf.h>
 
-struct Elf32_Phdr {
-    uint32_t p_type, p_offset, p_vaddr, p_paddr, p_filesz, p_memsz, p_flags, p_align;
-};
+#include <algorithm>
+#include <cstring>
+#include <fstream>
+#include <iterator>
+#include <limits>
+#include <stdexcept>
 
-static constexpr uint32_t PT_LOAD = 1;
+#include "paged_mem.hpp"
 
-uint32_t load_elf(const char* path, PagedMem* mem) {
-    std::ifstream f(path, std::ios::binary);
-    if (!f) throw std::runtime_error("cannot open ELF");
-    std::vector<uint8_t> buf((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+namespace {
 
-    Elf32_Ehdr eh;
-    if (buf.size() < sizeof(eh)) throw std::runtime_error("truncated ELF");
-    std::memcpy(&eh, buf.data(), sizeof(eh));
+using File = std::vector<uint8_t>;
 
-    if (std::memcmp(eh.e_ident, "\x7f" "ELF", 4) != 0)
-        throw std::runtime_error("not an ELF");
-    if (eh.e_ident[4] != 1) throw std::runtime_error("not ELF32");
-    if (eh.e_ident[5] != 1) throw std::runtime_error("not little-endian");
+File read_file(const char* path) {
+    std::ifstream stream(path, std::ios::binary);
 
-    for (uint16_t i = 0; i < eh.e_phnum; i++) {
-        Elf32_Phdr ph;
-        std::memcpy(&ph, buf.data() + eh.e_phoff + i * eh.e_phentsize, sizeof(ph));
-        if (ph.p_type != PT_LOAD) continue;
-
-        if (ph.p_memsz != 0 &&
-            (!mem->in_range(ph.p_paddr) || !mem->in_range(ph.p_paddr + ph.p_memsz - 1)))
-            throw std::runtime_error("ELF segment outside memory range");
-
-        for (uint32_t j = 0; j < ph.p_filesz; j++)
-            mem->write_byte(ph.p_paddr + j, buf[ph.p_offset + j]);
-        for (uint32_t j = ph.p_filesz; j < ph.p_memsz; j++)
-            mem->write_byte(ph.p_paddr + j, 0);
+    if (!stream) {
+        throw std::runtime_error("cannot open ELF");
     }
-    return eh.e_entry;
+
+    return File(std::istreambuf_iterator<char>(stream),
+                std::istreambuf_iterator<char>());
+}
+
+void check_range(size_t offset, size_t size, size_t file_size) {
+    if (offset > file_size || size > file_size - offset) {
+        throw std::runtime_error("truncated ELF");
+    }
+}
+
+template <typename T>
+T read_at(const File& file, size_t offset) {
+    check_range(offset, sizeof(T), file.size());
+
+    T value = {};
+    std::memcpy(&value, file.data() + offset, sizeof(value));
+    return value;
+}
+
+void validate(const Elf32_Ehdr& header) {
+    if (std::memcmp(header.e_ident, ELFMAG, SELFMAG) != 0) {
+        throw std::runtime_error("not an ELF");
+    }
+
+    if (header.e_ident[EI_CLASS] != ELFCLASS32) {
+        throw std::runtime_error("not ELF32");
+    }
+
+    if (header.e_ident[EI_DATA] != ELFDATA2LSB) {
+        throw std::runtime_error("not little-endian");
+    }
+
+    if (header.e_phentsize < sizeof(Elf32_Phdr)) {
+        throw std::runtime_error("invalid ELF program header");
+    }
+}
+
+ElfSegment read_segment(const File& file, const Elf32_Phdr& header) {
+    if (header.p_filesz > header.p_memsz) {
+        throw std::runtime_error("invalid ELF segment size");
+    }
+
+    check_range(header.p_offset, header.p_filesz, file.size());
+
+    ElfSegment segment;
+    segment.address = header.p_paddr;
+    segment.executable = header.p_flags & PF_X;
+    segment.data.resize(header.p_memsz);
+
+    std::copy_n(file.begin() + header.p_offset, header.p_filesz,
+                segment.data.begin());
+
+    return segment;
+}
+
+bool fits(const PagedMem& memory, const ElfSegment& segment) {
+    uint64_t end = uint64_t(segment.address) + segment.data.size();
+    uint64_t limit = uint64_t(std::numeric_limits<uint32_t>::max()) + 1;
+
+    return end <= limit &&
+           memory.in_range(segment.address) &&
+           memory.in_range(uint32_t(end - 1));
+}
+
+}  // namespace
+
+ElfImage read_elf(const char* path) {
+    File file = read_file(path);
+    Elf32_Ehdr header = read_at<Elf32_Ehdr>(file, 0);
+    validate(header);
+
+    ElfImage image = {header.e_machine, header.e_entry, {}};
+    for (uint16_t i = 0; i < header.e_phnum; ++i) {
+        size_t offset = header.e_phoff + size_t(i) * header.e_phentsize;
+        Elf32_Phdr program = read_at<Elf32_Phdr>(file, offset);
+
+        if (program.p_type == PT_LOAD && program.p_memsz != 0) {
+            image.segments.push_back(read_segment(file, program));
+        }
+    }
+
+    if (image.segments.empty()) {
+        throw std::runtime_error("ELF has no loadable segments");
+    }
+
+    return image;
+}
+
+uint32_t load_elf(const char* path, PagedMem* memory) {
+    ElfImage image = read_elf(path);
+
+    for (const ElfSegment& segment : image.segments) {
+        if (!fits(*memory, segment)) {
+            throw std::runtime_error("ELF segment outside memory range");
+        }
+
+        for (size_t i = 0; i < segment.data.size(); ++i) {
+            memory->write_byte(segment.address + uint32_t(i), segment.data[i]);
+        }
+    }
+
+    return image.entry;
 }
