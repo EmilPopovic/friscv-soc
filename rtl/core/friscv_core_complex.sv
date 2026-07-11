@@ -240,7 +240,8 @@ end else begin : gen_no_mmu
         .o_amo_op     ( w_l2_req_amo_op ),
         .o_grant_inst (                 ),
         .o_grant_start(                 ),
-        .o_grant_start_inst(            )
+        .o_grant_start_inst(            ),
+        .o_grant_held (                 )
     );
 
     assign w_inst_fault  = 1'b0;

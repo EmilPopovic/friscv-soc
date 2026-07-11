@@ -82,12 +82,12 @@ amo_op_e      w_grant_amo;
 logic         w_grant_inst;
 logic         w_grant_start;
 logic         w_grant_start_inst;
+logic         w_grant_held;
 logic         w_grant_wr;
 logic         w_grant_active;
 logic         w_l1_inst_err;
 logic         w_l1_data_err;
 mmu_req_ctx_t r_req_ctx;
-logic         r_req_ctx_valid;
 mmu_req_ctx_t w_eff_req_ctx;
 mmu_req_ctx_t w_start_req_ctx;
 asid_t        w_eff_asid;
@@ -220,7 +220,8 @@ friscv_l1_arbiter l1_arbiter (
     .o_amo_op     ( w_grant_amo   ),
     .o_grant_inst ( w_grant_inst  ),
     .o_grant_start( w_grant_start ),
-    .o_grant_start_inst( w_grant_start_inst )
+    .o_grant_start_inst( w_grant_start_inst ),
+    .o_grant_held ( w_grant_held  )
 );
 
 // ============================================================
@@ -246,28 +247,15 @@ always_comb begin
 end
 
 always_comb begin
-    w_eff_req_ctx.addr     = w_grant_addr;
-    w_eff_req_ctx.satp     = i_satp;
-    w_eff_req_ctx.mode     = w_grant_inst ? i_inst_mode : i_data_mode;
-    w_eff_req_ctx.sum      = i_sum;
-    w_eff_req_ctx.mxr      = i_mxr;
-    w_eff_req_ctx.is_inst  = w_grant_inst;
-    w_eff_req_ctx.is_write = w_grant_wr || (w_grant_amo != AMO_NONE);
-    if (w_grant_active && r_req_ctx_valid) begin
-        w_eff_req_ctx = r_req_ctx;
-    end
-    w_eff_asid = w_eff_req_ctx.satp.asid;
+    w_eff_req_ctx = w_grant_held ? r_req_ctx : w_start_req_ctx;
+    w_eff_asid    = w_eff_req_ctx.satp.asid;
 end
 
 always_ff @(posedge i_clk) begin
     if (!i_rstn) begin
-        r_req_ctx       <= '0;
-        r_req_ctx_valid <= 1'b0;
+        r_req_ctx <= '0;
     end else if (w_grant_start) begin
-        r_req_ctx       <= w_start_req_ctx;
-        r_req_ctx_valid <= 1'b1;
-    end else if (!w_grant_active) begin
-        r_req_ctx_valid <= 1'b0;
+        r_req_ctx <= w_start_req_ctx;
     end
 end
 
@@ -365,7 +353,7 @@ friscv_ptw ptw (
     .o_fault_addr    ( w_ptw_fault_addr  )
 );
 
-if (ENFORCE_PMP && ENFORCE_PTW_PMP) begin
+if (ENFORCE_PMP && ENFORCE_PTW_PMP) begin : gen_ptw_pmp_check
     friscv_pmp_check pmp_chk_ptw (
         .i_pa        ( w_walk_addr     ),
         .i_access_r  ( w_walk_req      ),
@@ -375,7 +363,7 @@ if (ENFORCE_PMP && ENFORCE_PTW_PMP) begin
         .i_pmp_table ( i_pmp_table     ),
         .o_fault     ( w_ptw_pmp_fault )
     );
-end else begin
+end else begin : gen_no_ptw_pmp_check
     assign w_ptw_pmp_fault = 1'b0;
 end
 
@@ -399,7 +387,7 @@ assign w_data_write = i_data_en &&   i_data_store_like;
 logic w_grant_pmp_fault;
 assign w_grant_pmp_fault = w_grant_active && (w_eff_req_ctx.is_inst ? w_inst_pmp_fault : w_data_pmp_fault);
 
-if (ENFORCE_PMP) begin
+if (ENFORCE_PMP) begin : gen_pmp_check
     friscv_pmp_check pmp_chk_inst (
         .i_pa        ( w_inst_pa        ),
         .i_access_r  ( 1'b0             ),
@@ -419,7 +407,7 @@ if (ENFORCE_PMP) begin
         .i_pmp_table ( i_pmp_table      ),
         .o_fault     ( w_data_pmp_fault )
     );
-end else begin
+end else begin : gen_no_pmp_check
     assign w_inst_pmp_fault = 1'b0;
     assign w_data_pmp_fault = 1'b0;
 end

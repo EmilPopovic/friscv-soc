@@ -4,8 +4,8 @@
 #define RAND_WAIT_MODE_RANGE (-1)
 #define RAND_WAIT_MODE_MAX   (-2)
 
-#define MIN_RAND_WAIT (3)
-#define MAX_RAND_WAIT (8)
+#define MIN_RAND_WAIT (1)
+#define MAX_RAND_WAIT (3)
 
 #define SIZE_BYTE (0b000)
 #define SIZE_HALF (0b001)
