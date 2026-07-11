@@ -1,9 +1,0 @@
-name: nop
-
-on: [push, pull_request]
-
-jobs:
-  nop:
-    runs-on: ubuntu-latest
-    steps:
-      - run: 'true'

@@ -1,0 +1,30 @@
+name: riscv-arch-test
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  act-run-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@v16
+
+      - name: Cache riscv-arch-test checkout
+        uses: actions/cache@v4
+        with:
+          path: verif/riscv-arch-test/riscv-arch-test
+          key: act-repo-${{ hashFiles('verif/riscv-arch-test/Makefile') }}
+
+      - name: Build test ELFs
+        run: nix develop --accept-flake-config --command make -C verif/riscv-arch-test all
+
+      - name: Run arch tests on core
+        run: nix develop --accept-flake-config --command make act-run-core

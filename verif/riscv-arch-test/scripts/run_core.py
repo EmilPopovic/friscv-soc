@@ -46,3 +46,5 @@ if __name__ == "__main__":
 
     print()
     print(f"Passed {passed}/{elf_count} tests")
+    if passed != elf_count:
+        sys.exit(1)
