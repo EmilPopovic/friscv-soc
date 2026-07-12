@@ -978,8 +978,6 @@ logic csr_not_implemented;
 always_comb begin : csr_read
     csr_not_implemented = 1'b0;
     case (selected_csr)
-        CSR_ZERO:     csr_out = 32'h0;
-
         // Set in block below
         CSR_PMPCFG0:  csr_out = 32'h0;
         CSR_PMPADDR0: csr_out = 32'h0;

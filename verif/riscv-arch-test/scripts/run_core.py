@@ -6,7 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 ELFS_DIR = ROOT / "elfs"
 PROJECT_ROOT = ROOT.parent.parent
-OBJ_DIR = PROJECT_ROOT / "target" / "sim" / "obj_dir"
+OBJ_DIR = PROJECT_ROOT / "target" / "sim" / "obj_dir_core"
 EXE = OBJ_DIR / "friscv_cpu_verilator"
 
 def no_elfs():
@@ -19,7 +19,7 @@ if __name__ == "__main__":
     if not EXE.exists():
         print(f"Executable not found.")
         print("Build by running")
-        print("  make -C target/sim")
+        print("  make -C target/sim core")
         sys.exit(1)
 
     if not ELFS_DIR.exists():
