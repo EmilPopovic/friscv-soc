@@ -24,3 +24,17 @@ obj_dir_soc/friscv_soc read <address> <size>
 obj_dir_soc/friscv_soc write <address> <byte> [byte ...]
 obj_dir_soc/friscv_soc load <program.elf>
 ```
+
+Start the SoC simulation and debug server from the repository root:
+
+```bash
+make -C target/sim debug
+```
+
+GDB can then connect from another terminal:
+
+```bash
+riscv64-unknown-elf-gdb program.elf
+(gdb) target extended-remote 127.0.0.1:3333
+(gdb) load
+```

@@ -159,6 +159,7 @@
               klayout
               magic
               netgen
+              openocd
               uv
               haskellPackages.sv2v
             ]) ++ [

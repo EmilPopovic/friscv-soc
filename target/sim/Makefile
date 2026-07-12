@@ -1,12 +1,14 @@
 CORE_TOP = friscv_cpu_verilator
 CORE_DIR = obj_dir_core
 CORE_BIN = $(CORE_DIR)/friscv_core
-CORE_CPP = $(filter-out cpp/jtag.cpp cpp/tb_soc_main.cpp,$(wildcard cpp/*.cpp))
+CORE_CPP = $(filter-out cpp/jtag.cpp cpp/remote_bitbang.cpp \
+	cpp/tb_soc_main.cpp,$(wildcard cpp/*.cpp))
 
 SOC_TOP = friscv_soc
 SOC_DIR = obj_dir_soc
 SOC_BIN = $(SOC_DIR)/friscv_soc
-SOC_CPP = cpp/tb_soc_main.cpp cpp/jtag.cpp cpp/elf_loader.cpp cpp/paged_mem.cpp
+SOC_CPP = cpp/tb_soc_main.cpp cpp/jtag.cpp cpp/remote_bitbang.cpp \
+	cpp/elf_loader.cpp cpp/paged_mem.cpp
 
 sources.f: ../../Bender.yml ../../Bender.lock
 	bender script flist-plus -t rtl -t synthesis > $@
@@ -30,9 +32,16 @@ jtag: soc
 	@test -n "$(ELF)" || { echo "usage: make jtag ELF=<program.elf>" >&2; exit 1; }
 	$(SOC_BIN) load "$(ELF)"
 
+debug: soc
+	@set -eu; \
+	$(SOC_BIN) server & \
+	sim_pid=$$!; \
+	trap 'kill $$sim_pid 2>/dev/null || true; wait $$sim_pid 2>/dev/null || true' EXIT INT TERM; \
+	openocd -f openocd.cfg
+
 clean:
 	rm -rf $(CORE_DIR) $(SOC_DIR) sources.f
 
 all: core soc
 
-.PHONY: all soc jtag clean
+.PHONY: all soc jtag debug clean

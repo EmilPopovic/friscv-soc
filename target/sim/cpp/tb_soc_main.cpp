@@ -10,6 +10,7 @@
 
 #include "elf_loader.hpp"
 #include "jtag.hpp"
+#include "remote_bitbang.hpp"
 
 namespace {
 
@@ -39,6 +40,16 @@ uint8_t parse_byte(const char* text) {
     }
 
     return uint8_t(value);
+}
+
+uint16_t parse_port(const char* text) {
+    uint32_t port = parse_u32(text);
+
+    if (port == 0 || port > std::numeric_limits<uint16_t>::max()) {
+        throw std::runtime_error("invalid port");
+    }
+
+    return uint16_t(port);
 }
 
 void check_range(uint32_t address, size_t size) {
@@ -164,8 +175,13 @@ void write_command(Jtag& jtag, int argc, char** argv) {
     std::printf("wrote %zu bytes at %08x\n", data.size(), address);
 }
 
+bool server_command(int argc, char** argv) {
+    return (argc == 2 || argc == 3) && !std::strcmp(argv[1], "server");
+}
+
 bool valid_command(int argc, char** argv) {
-    return (argc == 3 && !std::strcmp(argv[1], "load")) ||
+    return server_command(argc, argv) ||
+           (argc == 3 && !std::strcmp(argv[1], "load")) ||
            (argc == 4 && !std::strcmp(argv[1], "read")) ||
            (argc >= 4 && !std::strcmp(argv[1], "write"));
 }
@@ -189,8 +205,9 @@ void print_usage(const char* program) {
                  "usage:\n"
                  "  %s load <program.elf>\n"
                  "  %s read <address> <size>\n"
-                 "  %s write <address> <byte> [byte ...]\n",
-                 program, program, program);
+                 "  %s write <address> <byte> [byte ...]\n"
+                 "  %s server [port]\n",
+                 program, program, program, program);
 }
 
 }  // namespace
@@ -218,9 +235,16 @@ int main(int argc, char** argv) {
 
         top.i_rstn = 1;
         jtag.run_cycles(20);
-        jtag.initialize();
 
-        execute_command(jtag, argc, argv);
+        if (server_command(argc, argv)) {
+            uint16_t port = argc == 3 ? parse_port(argv[2])
+                                      : RemoteBitbang::DEFAULT_PORT;
+            RemoteBitbang(top).serve(port);
+        } else {
+            jtag.initialize();
+
+            execute_command(jtag, argc, argv);
+        }
 
         top.final();
         return 0;
