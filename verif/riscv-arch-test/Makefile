@@ -36,5 +36,5 @@ all: config
 .PHONY: run-core
 run-core:
 	python3 scripts/copy_elfs.py
-	make -C $(TARGET_SIM_ROOT)
+	make -C $(TARGET_SIM_ROOT) core
 	python3 scripts/run_core.py
