@@ -14,6 +14,8 @@ class Jtag {
     void initialize();
     void reset_soc();
     void run_cycles(uint64_t count);
+    void halt();
+    void resume();
 
     std::vector<uint8_t> read_memory(uint32_t address, size_t size);
     void write_memory(uint32_t address, const std::vector<uint8_t>& data);
@@ -30,6 +32,7 @@ class Jtag {
     uint32_t dmi_read(uint8_t address);
     void dmi_write(uint8_t address, uint32_t data);
     void reset_dmi();
+    void wait_dmstatus(uint32_t mask);
 
     uint32_t sba_read(uint32_t address, uint8_t access);
     void sba_write(uint32_t address, uint32_t data, uint8_t access);

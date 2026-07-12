@@ -663,11 +663,13 @@ assign epc_out = dret_active ? csr.dpc  :
                  sret_active ? csr.sepc :
                                csr.mepc;
 
-// Trap vector, resolved to correct mode mode with vectored mode
-assign tvec_out = debug_entry
-                  ? ((trap_src == TRAP_SRC_ID && ebreak_active))
-                     ? DM_BASE + DM_HALT_OFFSET  // ebreak in D-mode
-                     : DM_BASE + DM_EXC_OFFSET   // other exception in D-mode
+// Trap vector, resolved to correct mode with vectored mode
+assign tvec_out = debug_mode_active && exception_active
+                  ? ((trap_src == TRAP_SRC_ID && ebreak_active)
+                     ? DM_BASE + DM_HALT_OFFSET
+                     : DM_BASE + DM_EXC_OFFSET)
+                  : debug_entry
+                  ? DM_BASE + DM_HALT_OFFSET
                   : trap_to_s_mode
                   ? ((csr.stvec[1:0] == 2'b01 && interrupt_active)
                      ? {csr.stvec[31:2], 2'b0} + {current_cause[29:0], 2'b0}  // vectored S-mode trap
@@ -770,8 +772,8 @@ always_ff @(posedge clk_in) begin
                 debug_mode_active <= 1'b1;
                 csr.dpc           <= trap_epc;
                 csr.dcsr.prv      <= r_current_mode;
-                csr.dcsr.cause    <= dbg_req_in      ? 3'd3 : // ebreak
-                                     ebreak_to_debug ? 3'd1 : // haltreq
+                csr.dcsr.cause    <= dbg_req_in      ? 3'd3 : // haltreq
+                                     ebreak_to_debug ? 3'd1 : // ebreak
                                                        3'd4;  // step
                 r_current_mode    <= M_MODE;
                 r_step            <= STEP_OFF;

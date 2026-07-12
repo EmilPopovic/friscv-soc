@@ -12,6 +12,7 @@ constexpr uint8_t IR_DMI = 0x11;
 constexpr uint32_t IDCODE = 0x00000db3;
 
 constexpr uint8_t DMCONTROL = 0x10;
+constexpr uint8_t DMSTATUS = 0x11;
 constexpr uint8_t SBCS = 0x38;
 constexpr uint8_t SBADDRESS0 = 0x39;
 constexpr uint8_t SBDATA0 = 0x3c;
@@ -32,6 +33,11 @@ constexpr uint32_t SBA_BUSY_ERROR = 1u << 22;
 
 constexpr uint32_t DM_ACTIVE = 1;
 constexpr uint32_t DM_RESET = 3;
+constexpr uint32_t DM_ANYHALTED = 1u << 8;
+constexpr uint32_t DM_ANYRUNNING = 1u << 10;
+constexpr uint32_t DM_ANYRESUMEACK = 1u << 16;
+constexpr uint32_t DM_RESUMEREQ = 1u << 30;
+constexpr uint32_t DM_HALTREQ = 1u << 31;
 
 constexpr unsigned IR_SIZE = 5;
 constexpr unsigned DMI_SIZE = 41;
@@ -196,6 +202,31 @@ void Jtag::dmi_write(uint8_t address, uint32_t data) {
 void Jtag::reset_dmi() {
     shift_ir(IR_DTMCS);
     shift_dr(uint64_t(1) << 16, 32);
+}
+
+void Jtag::wait_dmstatus(uint32_t mask) {
+    for (unsigned i = 0; i < 1000; ++i) {
+        if (dmi_read(DMSTATUS) & mask) {
+            return;
+        }
+
+        run_cycles(8);
+    }
+
+    throw std::runtime_error("debug module operation timed out");
+}
+
+void Jtag::halt() {
+    dmi_write(DMCONTROL, DM_ACTIVE | DM_HALTREQ);
+    wait_dmstatus(DM_ANYHALTED);
+    dmi_write(DMCONTROL, DM_ACTIVE);
+}
+
+void Jtag::resume() {
+    dmi_write(DMCONTROL, DM_ACTIVE | DM_RESUMEREQ);
+    wait_dmstatus(DM_ANYRESUMEACK);
+    dmi_write(DMCONTROL, DM_ACTIVE);
+    wait_dmstatus(DM_ANYRUNNING);
 }
 
 void Jtag::wait_sba() {
