@@ -25,11 +25,13 @@ jobs:
           path: verif/riscv-arch-test/riscv-arch-test
           key: act-repo-${{ hashFiles('verif/riscv-arch-test/Makefile') }}
 
-      - name: Cache mise tools
+      - name: Cache mise and UDB tools
         uses: actions/cache@v4
         with:
-          path: ~/.local/share/mise
-          key: mise-tools-${{ hashFiles('verif/riscv-arch-test/Makefile') }}
+          path: |
+            ~/.local/share/mise
+            ~/.cache/udb
+          key: mise-udb-tools-${{ hashFiles('verif/riscv-arch-test/Makefile') }}
 
       - name: Build test ELFs
         run: nix develop --accept-flake-config --command make -C verif/riscv-arch-test all
