@@ -26,8 +26,8 @@ void BusRouter::cycle(uint8_t size, uint32_t offset, uint32_t wdata,
     }
 
     for (const auto& mapping : address_map) {
-        if (offset >= mapping.base && offset < mapping.base + mapping.size) {
-            // Accept the transfer for the first maching device
+        if (!owner && offset >= mapping.base && offset - mapping.base < mapping.size) {
+            // Accept the transfer for the first matching device
             owner = mapping.dev;
             owner_base = mapping.base;
             mapping.dev->cycle(size, offset - mapping.base, wdata, w_en, r_en, burst_en);
@@ -35,12 +35,15 @@ void BusRouter::cycle(uint8_t size, uint32_t offset, uint32_t wdata,
             wait       = mapping.dev->wait;
             beat_valid = mapping.dev->beat_valid;
             err        = mapping.dev->err;
-            return;
         } else {
             // Update not selected devices
             mapping.dev->cycle(size, offset - mapping.base, wdata, false, false, false);
         }
     }
+
+    if (owner)
+        return;
+
     // If no device is mapped to the address, set error
     rdata      = 0;
     wait       = false;

@@ -23,13 +23,9 @@ static constexpr uint32_t MEM_SIZE      = 0x01000000u;  // 16 MB
 static constexpr uint32_t UART_BASE_ADDR = 0x10000000u;
 static constexpr uint32_t GPIO_BASE_ADDR = 0x40000000u;
 static constexpr uint32_t HALT_BASE_ADDR = 0x50000000u;
-static constexpr uint32_t CLINT_BASE_ADDR = 0x2000000u;
+static constexpr uint32_t CLINT_BASE_ADDR = 0x02000000u;
 
 static constexpr uint32_t PASS_VALUE = 0xAABBCCDDu;
-
-uint64_t mtime() {
-    return cycle_count / 10;
-}
 
 void posedge(Vfriscv_cpu_verilator* top) {
     cycle_count++;
@@ -42,11 +38,17 @@ void negedge(Vfriscv_cpu_verilator* top) {
     top->eval();
 }
 
+void drive_clint(Vfriscv_cpu_verilator* top, const ClintModel& clint) {
+    top->mtime = clint.get_mtime();
+    top->msip  = clint.get_msip();
+    top->mtip  = clint.get_mtip();
+}
+
 void cycle(Vfriscv_cpu_verilator* top, BusRouter& bus) {
     // Posedge for the core
     posedge(top);
 
-    // Evaluate memory model
+    // Evaluate bus models
     bus.cycle(top->size, top->addr, top->wdata,
               top->w_en, top->r_en, top->burst_en);
 
@@ -66,6 +68,7 @@ int main(int argc, char **argv) {
     for (int i = 1; i < argc - 1; i++) {
         if (std::strcmp(argv[i], "--elf") == 0) elf_path = argv[i+1];
     }
+
     if (!elf_path) {
         std::fprintf(stderr, "usage: %s --elf <path>\n", argv[0]);
         return 1;
@@ -135,20 +138,22 @@ int main(int argc, char **argv) {
     // Initialize into reset
     top->rstn = 0;
     top->clk = 0;
+    drive_clint(top, clint);
+    top->meip  = 0;
     top->eval();
 
-    top->msip = 0;
-    top->mtip = 0;
-    top->meip = 0;
-
     // Reset for 20 cycles
-    for (int i = 0; i < 20 && !Verilated::gotFinish(); i++) cycle(top, bus);
+    for (int i = 0; i < 20 && !Verilated::gotFinish(); i++) {
+        cycle(top, bus);
+    }
 
+    clint.reset();
     top->rstn = 1;  // Release reset
+
     // Run until halt or timeout
     while (!top->halt && cycle_count < max_cycles && !Verilated::gotFinish()) {
         cycle(top, bus);
-        top->mtime = mtime();
+        drive_clint(top, clint);
     }
 
     int exit_code = 0;
