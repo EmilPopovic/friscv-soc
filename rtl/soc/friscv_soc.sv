@@ -40,6 +40,10 @@ logic [63:0] mtime;
 logic        msip, mtip, meip;
 assign meip = 1'b0;
 
+// Debug module base address
+localparam logic [31:0] DmBaseAddr = 32'h0001_0000;
+localparam logic [31:0] DmSize     = 32'h0000_1000;
+
 logic ndmreset;   // non-debug-module reset request from the DM
 logic debug_req;  // async debug request to the hart
 
@@ -52,7 +56,8 @@ assign soc_rstn = i_rstn & ~ndmreset;
 friscv_cpu_subsystem_core #(
     .RAM_BASE            ( 32'h8000_0000 ),
     .ZSBL_ROM_SIZE_BYTES ( 64            ),
-    .ZSBL_BASE           ( 32'h20000     )
+    .ZSBL_BASE           ( 32'h20000     ),
+    .DM_BASE             ( DmBaseAddr    )
 ) cpu_subsystem (
     .i_clk     ( i_clk     ),
     .i_rstn    ( soc_rstn  ),
@@ -147,10 +152,6 @@ localparam int unsigned SramPort        = 2;
 
 localparam int unsigned SramBase    = 32'h0000_0000;  // Sram starts at 0
 localparam int unsigned SramSize    = 32'h0000_4000;  // 16 KiB RAM
-
-// Debug module base address
-localparam logic [31:0] DmBaseAddr = 32'h0001_0000;
-localparam logic [31:0] DmSize     = 32'h0000_1000;  // 4 KiB page
 
 localparam axi_pkg::xbar_cfg_t AxiLiteXbarCfg = '{
     NoSlvPorts:         NumAxiLiteSlv,

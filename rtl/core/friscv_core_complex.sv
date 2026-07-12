@@ -18,9 +18,12 @@
 import friscv_pkg::*;
 
 module friscv_core_complex #(
-    parameter int unsigned HART_ID = 0,
-    parameter int unsigned RESET_VEC = 32'h8000_0000,
-    parameter int unsigned ZSBL_ROM_SIZE_BYTES = 0
+    parameter int unsigned HART_ID             = 0,
+    parameter int unsigned RESET_VEC           = 32'h8000_0000,
+    parameter int unsigned ZSBL_ROM_SIZE_BYTES = 0,
+    parameter int unsigned DM_BASE             = 32'h0000_0000,
+    parameter int unsigned DM_HALT_OFFSET      = 32'h800,
+    parameter int unsigned DM_EXC_OFFSET       = 32'h810
 ) (
     input  logic       i_clk,
     input  logic       i_rstn,
@@ -38,7 +41,9 @@ module friscv_core_complex #(
     input  logic       i_mem_wait,
     input  logic       i_mem_err,
     output logic       o_burst_en,
-    input  logic       i_beat_valid
+    input  logic       i_beat_valid,
+
+    input  logic       i_dbg_req
 );
 
 // ============================================================
@@ -335,8 +340,11 @@ assign w_stall_if = w_inst_wait;
 // ============================================================
 
 friscv_core #(
-    .HART_ID   ( HART_ID   ),
-    .RESET_VEC ( RESET_VEC )
+    .HART_ID        ( HART_ID        ),
+    .RESET_VEC      ( RESET_VEC      ),
+    .DM_BASE        ( DM_BASE        ),
+    .DM_HALT_OFFSET ( DM_HALT_OFFSET ),
+    .DM_EXC_OFFSET  ( DM_EXC_OFFSET  )
 ) cpu_0 (
     .i_clk            ( i_clk           ),
     .i_rstn           ( i_rstn          ),
@@ -390,7 +398,9 @@ friscv_core #(
     .flush_vpn_en_out ( w_flush_vpn_en  ),
     .flush_asid_out   ( w_flush_asid    ),
     .flush_asid_en_out( w_flush_asid_en ),
-    .pmp_table_out    ( w_pmp_table     )
+    .pmp_table_out    ( w_pmp_table     ),
+
+    .dbg_req_in       ( i_dbg_req       )
 );
 
 // ============================================================

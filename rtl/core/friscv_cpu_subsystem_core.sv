@@ -21,9 +21,12 @@
 import friscv_pkg::*;
 
 module friscv_cpu_subsystem_core #(
-    parameter int unsigned RAM_BASE = 32'h8000_0000,
+    parameter int unsigned RAM_BASE           = 32'h8000_0000,
     parameter int unsigned ZSBL_ROM_SIZE_BYTES = 0,
-    parameter int unsigned ZSBL_BASE = 32'h20000,
+    parameter int unsigned ZSBL_BASE           = 32'h20000,
+    parameter int unsigned DM_BASE             = 32'h0000_0000,
+    parameter int unsigned DM_HALT_OFFSET      = 32'h800,
+    parameter int unsigned DM_EXC_OFFSET       = 32'h810,
     // Calculated parameters, do not change
     parameter int unsigned RESET_VEC = (ZSBL_ROM_SIZE_BYTES > 0) ? ZSBL_BASE : RAM_BASE
 ) (
@@ -61,7 +64,10 @@ assign w_mem_err = mem_if.err;
 friscv_core_complex #(
     .HART_ID             ( 0                   ),
     .RESET_VEC           ( RESET_VEC           ),
-    .ZSBL_ROM_SIZE_BYTES ( ZSBL_ROM_SIZE_BYTES )
+    .ZSBL_ROM_SIZE_BYTES ( ZSBL_ROM_SIZE_BYTES ),
+    .DM_BASE             ( DM_BASE             ),
+    .DM_HALT_OFFSET      ( DM_HALT_OFFSET      ),
+    .DM_EXC_OFFSET       ( DM_EXC_OFFSET       )
 ) cc_0 (
     .i_clk        ( i_clk        ),
     .i_rstn       ( i_rstn       ),
@@ -78,7 +84,8 @@ friscv_core_complex #(
     .i_mem_wait   ( w_wait       ),
     .i_mem_err    ( w_mem_err    ),
     .o_burst_en   ( w_burst_en   ),
-    .i_beat_valid ( w_beat_valid )
+    .i_beat_valid ( w_beat_valid ),
+    .i_dbg_req    ( i_dbg_req    )
 );
 
 // ============================================================

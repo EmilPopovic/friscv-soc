@@ -35,11 +35,16 @@
 import friscv_pkg::*;
 
 module friscv_id_stage #(
-    parameter int HART_ID = 0
+    parameter int unsigned HART_ID = 0,
+    parameter int unsigned DM_BASE = 32'h0000_0000,
+    parameter int unsigned DM_HALT_OFFSET = 32'h800,
+    parameter int unsigned DM_EXC_OFFSET  = 32'h810
 ) (
     input  logic      clk_in,
     input  logic      rst_n_in,
-    
+    output logic      halt_out,
+    input  logic      dbg_req_in,
+
     input  logic      branch_ok_in,
 
     // Interrupt pending inputs
@@ -81,8 +86,6 @@ module friscv_id_stage #(
 
     output logic      jal_ok_out,
     output addr_t     jal_target_out,
-
-    output logic      halt_out,
 
     // Inputs from IF stage
     input  addr_t     pc_in,
@@ -155,7 +158,8 @@ assign pc_out = pc_in_buff;
 assign pc_plus_4_out = pc_plus_4_buff;
 
 // Current privilege mode of the hart.
-mode_e r_current_mode = M_MODE;
+mode_e r_current_mode;
+logic  debug_mode_active;
 
 // ============================================================
 // Input capture
@@ -173,7 +177,7 @@ always_ff @(posedge clk_in) begin
         inst_pmp_fault_buff <= 1'b0;
         pc_mode_buff     <= M_MODE;
 
-        for (int i = 0; i < REGISTER_NUM; i++) begin
+        for (int unsigned i = 0; i < REGISTER_NUM; i++) begin
             regfile[i] <= '0;
         end
 
@@ -248,6 +252,12 @@ typedef struct packed {
     addr_t mtvec;
     data_t mcounteren;
 
+    // Core Debug Registers
+    dcsr_t dcsr;
+    addr_t dpc;
+    data_t dscratch0;
+    data_t dscratch1;
+
     // Machine Trap Handling
     data_t mscratch;
     addr_t mepc;
@@ -266,8 +276,16 @@ typedef struct packed {
     data_t mcountinhibit;
 } csr_file_t;
 
-// Initialize CSRs to 0
-csr_file_t csr = '0;
+csr_file_t csr;
+
+logic dcsr_ebreak_eff;
+always_comb case (r_current_mode)
+    M_MODE:  dcsr_ebreak_eff = csr.dcsr.ebreakm;
+    H_MODE:  dcsr_ebreak_eff = csr.dcsr.ebreakm;
+    S_MODE:  dcsr_ebreak_eff = csr.dcsr.ebreaks;
+    U_MODE:  dcsr_ebreak_eff = csr.dcsr.ebreaku;
+    default: dcsr_ebreak_eff = csr.dcsr.ebreaku;
+endcase
 
 pmp_table_t pmp_table;
 assign pmp_table_out = pmp_table;
@@ -342,13 +360,29 @@ end
 always_comb begin
     ctr_access_illegal = 1'b0;
     if (selected_is_ctr) begin
-        case (r_current_mode)
-            M_MODE:  ctr_access_illegal = 1'b0;
-            S_MODE:  ctr_access_illegal = !csr.mcounteren[selected_ctr_bit];
-            default: ctr_access_illegal = !csr.mcounteren[selected_ctr_bit] || !csr.scounteren[selected_ctr_bit];
-        endcase
+        ctr_access_illegal = r_current_mode == M_MODE ? 1'b0 :
+                             r_current_mode == S_MODE ?
+                               !csr.mcounteren[selected_ctr_bit] :
+                               !csr.mcounteren[selected_ctr_bit] || !csr.scounteren[selected_ctr_bit];
     end
 end
+
+// ============================================================
+// Single step debug logic
+// ============================================================
+
+typedef enum logic [1:0] {
+    STEP_OFF,
+    STEP_ARMED,
+    STEP_FIRE
+} step_e;
+
+step_e r_step;
+
+// An instruction leaves ID this cycle
+logic id_dispatch;
+assign id_dispatch = instr_valid_buff && !stage_stall_in && !flush_in
+                     && !trap_out && !trap_pending_out;
 
 // ============================================================
 // Trap logic
@@ -363,7 +397,7 @@ logic r_mret_inhibit;
 // This is to prevent a taken interrupt killing valid instructions, or ret being skipped.
 // A previous interrupt must safely exit before taking the next interrupt.
 logic interrupt_safe;
-assign interrupt_safe = !r_mret_inhibit && !branch_ok_in && (|pc_in_buff);
+assign interrupt_safe = !r_mret_inhibit && !branch_ok_in && (|pc_in_buff) && !debug_mode_active;
 
 // A synchronous exception is safe only if the buffer holds a valid instruciton,
 // and a redirect is not being processed that would kill the trapping instruction anyway (branch_ok_in).
@@ -385,6 +419,7 @@ assign stip_eff = csr.stip || stip_hw;
 // This interrupt will be taken as soon as it is safe to do so.
 logic m_interrupt_active;
 assign m_interrupt_active = interrupt_safe &&
+                            r_step == STEP_OFF &&
                             (csr.mstatus.mie || r_current_mode != M_MODE) &&
                             ((msip_in && csr.mie[3]) ||
                              (mtip_in && csr.mie[7]) ||
@@ -394,6 +429,7 @@ assign m_interrupt_active = interrupt_safe &&
 // This interrupt will be taken as soon as it is safe to do so and there are no M-mode interrupts.
 logic s_interrupt_active;
 assign s_interrupt_active = interrupt_safe &&
+                            r_step == STEP_OFF &&
                             (r_current_mode != M_MODE) &&
                             (csr.mstatus.sie || r_current_mode == U_MODE) &&
                             ((csr.ssip && csr.mie[1] && csr.mideleg[1]) ||
@@ -429,21 +465,29 @@ logic ecall_active, ebreak_active;
 logic target_misaligned;
 addr_t misaligned_target;
 
+logic is_mem_trap;
+assign is_mem_trap = mem_trap_in != MEM_TRAP_NONE;
+
+logic is_ex_trap;
+assign is_ex_trap = ex_trap_in != EX_TRAP_NONE;
+
+logic exception_other;
+assign exception_other = is_if_trap || is_ex_trap || is_mem_trap;
+
+// Enter debug on ebreak if it is safe to redirect, the current mode allows it (dcsr.ebreakm/s/u),
+// not currently in debug mode, and no exception from an older instruction is being taken.
+logic ebreak_to_debug;
+assign ebreak_to_debug = exception_safe && ebreak_active && dcsr_ebreak_eff
+                         && !debug_mode_active && !exception_other;
 
 // The exception is originating from ID if it is ecall, ebreak, illegal instruction, or jump target misaligned.
 logic illegal_inst;
 logic is_id_trap;
 assign is_id_trap = exception_safe &&
                     (ecall_active  ||
-                     ebreak_active ||
+                     (ebreak_active && !ebreak_to_debug) ||
                      illegal_inst  ||
                      target_misaligned);
-
-logic is_mem_trap;
-assign is_mem_trap = mem_trap_in != MEM_TRAP_NONE;
-
-logic is_ex_trap;
-assign is_ex_trap = ex_trap_in != EX_TRAP_NONE;
 
 // Select where the exception is originating from to determine which exception has priority.
 typedef enum logic [2:0] {
@@ -454,6 +498,12 @@ typedef enum logic [2:0] {
     TRAP_SRC_IF
 } trap_src_e;
 
+// The IF exception is special - it is generated by the instruction currently in
+// the ID stage, not IF. It indicates that the instruction access or page faulted.
+// That is why IF exceptions have priority over ID exceptions.
+// Example: a fetch of an illegal instruction page faulted. The first fault of this
+// instruction is in IF (page fault), and it being illegal as raised by ID is secondary,
+// thus IF exceptions have priority over ID exceptions.
 trap_src_e trap_src;
 assign trap_src =
     is_mem_trap ? TRAP_SRC_MEM :
@@ -466,13 +516,20 @@ assign trap_src =
 logic exception_active;
 assign exception_active = is_if_trap || is_id_trap || is_ex_trap || is_mem_trap;
 
+logic debug_halt_entry;
+assign debug_halt_entry = !debug_mode_active && interrupt_safe &&
+                          (dbg_req_in || (r_step == STEP_FIRE));
+
+logic debug_entry;
+assign debug_entry = ebreak_to_debug || (debug_halt_entry && !exception_active);
+
 // Trap RAW hazard - a CSR write in EX or MEM might update mtvec/mstatus/mepc before the
 // trap fires. Suppress the effective trap (flush + CSR state write) until the pipeline
 // is clear. trap_pending_out lets pipeline_control stall so the instruction is not lost
 // from ir_buff while waiting.
 logic trap_raw, trap_csr_hazard;
 logic trap_gpr_hazard;
-assign trap_raw         = interrupt_active || exception_active;
+assign trap_raw         = interrupt_active || exception_active || debug_entry;
 assign trap_csr_hazard  = trap_raw && (ex_csr_en_in || mem_csr_en_in || wb_csr_en_in);
 assign trap_gpr_hazard  = trap_raw &&
                           ((ex_rd_sel_in  != 5'd0) ||
@@ -500,12 +557,13 @@ assign ex_trap_commit_out  = trap_out && (trap_src == TRAP_SRC_EX || trap_src ==
 assign mem_trap_commit_out = trap_out && (trap_src == TRAP_SRC_MEM);
 
 // MRET and SRET are detected outside the main decoder to avoid a combinatorial loop and improve timing.
-logic mret_active, sret_active;
+logic mret_active, sret_active, dret_active;
 assign mret_active = (ir_buff.r.opcode == SYSTEM) && (ir_buff.r.funct3 == 3'b000) && (ir_buff.b[31:20] == 12'b001100000010);
 assign sret_active = (ir_buff.r.opcode == SYSTEM) && (ir_buff.r.funct3 == 3'b000) && (ir_buff.b[31:20] == 12'b000100000010);
+assign dret_active = (ir_buff.r.opcode == SYSTEM) && (ir_buff.r.funct3 == 3'b000) && (ir_buff.b[31:20] == 12'b011110110010);
 
 // Signal to the control logic that a return instruction is being taken.
-assign ret_out = (mret_active || sret_active) && !illegal_inst;
+assign ret_out = (mret_active || sret_active || dret_active) && !illegal_inst;
 
 // Generate Cause Code ========================================
 
@@ -565,11 +623,12 @@ logic is_delegated;
 mode_e trap_mode;
 always_comb begin
     case (trap_src)
-        TRAP_SRC_IF:  trap_mode = pc_mode_buff;
-        TRAP_SRC_ID:  trap_mode = r_current_mode;
-        TRAP_SRC_EX:  trap_mode = ex_trap_mode_in;
-        TRAP_SRC_MEM: trap_mode = mem_trap_mode_in;
-        default:      trap_mode = r_current_mode;
+        TRAP_SRC_IF:   trap_mode = pc_mode_buff;
+        TRAP_SRC_ID:   trap_mode = r_current_mode;
+        TRAP_SRC_EX:   trap_mode = ex_trap_mode_in;
+        TRAP_SRC_MEM:  trap_mode = mem_trap_mode_in;
+        TRAP_SRC_NONE: trap_mode = r_current_mode;
+        default:       trap_mode = r_current_mode;
     endcase
 end
 
@@ -600,16 +659,22 @@ always_comb begin
 end
 
 // Return address used by mret/sret
-assign epc_out = sret_active ? csr.sepc : csr.mepc;
+assign epc_out = dret_active ? csr.dpc  :
+                 sret_active ? csr.sepc :
+                               csr.mepc;
 
 // Trap vector, resolved to correct mode mode with vectored mode
-assign tvec_out = trap_to_s_mode
+assign tvec_out = debug_entry
+                  ? ((trap_src == TRAP_SRC_ID && ebreak_active))
+                     ? DM_BASE + DM_HALT_OFFSET  // ebreak in D-mode
+                     : DM_BASE + DM_EXC_OFFSET   // other exception in D-mode
+                  : trap_to_s_mode
                   ? ((csr.stvec[1:0] == 2'b01 && interrupt_active)
-                     ? {csr.stvec[31:2], 2'b0} + {current_cause[29:0], 2'b0}
-                     : {csr.stvec[31:2], 2'b0})
+                     ? {csr.stvec[31:2], 2'b0} + {current_cause[29:0], 2'b0}  // vectored S-mode trap
+                     : {csr.stvec[31:2], 2'b0})                               // direct S-mode trap
                   : ((csr.mtvec[1:0] == 2'b01 && interrupt_active)
-                     ? {csr.mtvec[31:2], 2'b0} + {current_cause[29:0], 2'b0}
-                     : {csr.mtvec[31:2], 2'b0});
+                     ? {csr.mtvec[31:2], 2'b0} + {current_cause[29:0], 2'b0}  // vectored M-mode trap
+                     : {csr.mtvec[31:2], 2'b0});                              // direct M-mode trap
 
 // ============================================================
 // Trap EPC and TVAL resolution
@@ -618,11 +683,12 @@ assign tvec_out = trap_to_s_mode
 addr_t trap_epc;
 always_comb begin
     case (trap_src)
-        TRAP_SRC_IF:  trap_epc = pc_in_buff;
-        TRAP_SRC_ID:  trap_epc = pc_in_buff;
-        TRAP_SRC_EX:  trap_epc = ex_trap_pc_in;
-        TRAP_SRC_MEM: trap_epc = mem_trap_pc_in;
-        default:      trap_epc = pc_in_buff;
+        TRAP_SRC_IF:   trap_epc = pc_in_buff;
+        TRAP_SRC_ID:   trap_epc = pc_in_buff;
+        TRAP_SRC_EX:   trap_epc = ex_trap_pc_in;
+        TRAP_SRC_MEM:  trap_epc = mem_trap_pc_in;
+        TRAP_SRC_NONE: trap_epc = pc_in_buff;
+        default:       trap_epc = pc_in_buff;
     endcase
 end
 
@@ -639,7 +705,8 @@ always_comb begin
                 MEM_TRAP_STORE_ACCESS: trap_tval = '0;
                 default:               trap_tval = mem_trap_va_in;
             endcase
-        default: trap_tval = '0;
+        TRAP_SRC_NONE: trap_tval = '0;
+        default:       trap_tval = '0;
     endcase
 end
 
@@ -660,11 +727,16 @@ endfunction
 always_ff @(posedge clk_in) begin
     if(!rst_n_in) begin
         csr <= '0;
-        r_mret_inhibit <= 1'b0;
-        r_current_mode <= M_MODE;
-        trap_seen      <= 1'b0;
-        if_trap_inhibit <= 1'b0;
+        csr.dcsr.debugver <= 4;  // Debug specification version 1.0 implemented
+        csr.dcsr.prv      <= M_MODE;
+
+        r_mret_inhibit      <= 1'b0;
+        r_current_mode      <= M_MODE;
+        debug_mode_active   <= 1'b0;
+        trap_seen           <= 1'b0;
+        if_trap_inhibit     <= 1'b0;
         r_in_ebreak_handler <= 1'b0;
+        r_step              <= STEP_OFF;
     end else begin
         if (!trap_raw)
             trap_seen <= 1'b0;
@@ -677,12 +749,34 @@ always_ff @(posedge clk_in) begin
         else if (!stage_stall_in && !(inst_fault_in || inst_err_in || inst_pmp_fault_in))
             if_trap_inhibit <= 1'b0;
 
+        case (r_step)
+            STEP_ARMED: if (id_dispatch || trap_out) r_step <= STEP_FIRE;
+            STEP_OFF, STEP_FIRE: ;
+            default: ;
+        endcase
+
         if (trap_out) begin
             trap_seen <= 1'b1;
             r_mret_inhibit <= 1'b0;
+
             if (trap_src == TRAP_SRC_ID && ebreak_active)
                 r_in_ebreak_handler <= 1'b1;
-            if (trap_to_s_mode) begin
+
+            if (debug_mode_active) begin
+                // Exception in D-mode redirects only
+                // No mepc/mcause/etc update
+
+            end else if (debug_entry) begin
+                debug_mode_active <= 1'b1;
+                csr.dpc           <= trap_epc;
+                csr.dcsr.prv      <= r_current_mode;
+                csr.dcsr.cause    <= dbg_req_in      ? 3'd3 : // ebreak
+                                     ebreak_to_debug ? 3'd1 : // haltreq
+                                                       3'd4;  // step
+                r_current_mode    <= M_MODE;
+                r_step            <= STEP_OFF;
+
+            end else if (trap_to_s_mode) begin
                 r_current_mode   <= S_MODE;
                 csr.sepc         <= trap_epc;
                 csr.mstatus.spie <= csr.mstatus.sie;
@@ -709,6 +803,12 @@ always_ff @(posedge clk_in) begin
                 else if (msip_in && csr.mie[3])          csr.mcause <= {1'b1, 31'd3};
                 else if (exception_active)               csr.mcause <= 32'(exception_cause_code);
             end
+
+        end else if (ret_commit_in && dret_active) begin
+            r_mret_inhibit    <= 1'b1;
+            debug_mode_active <= 1'b0;
+            r_current_mode    <= csr.dcsr.prv;
+            r_step            <= csr.dcsr.step ? STEP_ARMED : STEP_OFF;
 
         end else if (ret_commit_in && sret_active) begin
             r_mret_inhibit   <= 1'b1;
@@ -799,17 +899,32 @@ always_ff @(posedge clk_in) begin
 
                 // Machine Counter Setup
                 CSR_MCOUNTINHIBIT: csr.mcountinhibit <= csr_data_in & 32'h0000_0005;
+
+                // Core Debug Registers
+                CSR_DCSR: begin
+                    csr.dcsr.ebreakm   <= csr_data_in[15];
+                    csr.dcsr.ebreaks   <= csr_data_in[13];
+                    csr.dcsr.ebreaku   <= csr_data_in[12];
+                    csr.dcsr.stopcount <= csr_data_in[10];
+                    csr.dcsr.step      <= csr_data_in[2];
+                    csr.dcsr.prv       <= (csr_data_in[1:0] == 2'b10) 
+                                          ? M_MODE : mode_e'(csr_data_in[1:0]);
+                end
+                CSR_DPC:       csr.dpc       <= csr_data_in & ~32'h3;
+                CSR_DSCRATCH0: csr.dscratch0 <= csr_data_in;
+                CSR_DSCRATCH1: csr.dscratch1 <= csr_data_in;
+
                 default: ;
             endcase
         end
 
-        // Cycle counter
-        if (!csr.mcountinhibit[0])
-            csr.mcycle <= csr.mcycle + 1;
-
-        // Instruction retire counter
-        if (instr_ret_in && !csr.mcountinhibit[2])
-            csr.minstret <= csr.minstret + 1;
+        // Update counters if not in debug mode with stopcount set
+        if (!(debug_mode_active && csr.dcsr.stopcount)) begin
+            // Cycle counter
+            if (!csr.mcountinhibit[0]) csr.mcycle <= csr.mcycle + 1;
+            // Instruction retire counter
+            if (instr_ret_in && !csr.mcountinhibit[2]) csr.minstret <= csr.minstret + 1;
+        end
     end
 end
 
@@ -863,6 +978,12 @@ logic csr_not_implemented;
 always_comb begin : csr_read
     csr_not_implemented = 1'b0;
     case (selected_csr)
+        CSR_ZERO:     csr_out = 32'h0;
+
+        // Set in block below
+        CSR_PMPCFG0:  csr_out = 32'h0;
+        CSR_PMPADDR0: csr_out = 32'h0;
+
         // Machine Information Registers
         CSR_MVENDORID:     csr_out = 32'h0;
         CSR_MARCHID:       csr_out = 32'h0;
@@ -929,6 +1050,12 @@ always_comb begin : csr_read
 
         // Supervisor Protection and Translation
         CSR_SATP:          csr_out = csr.satp;
+
+        // Core Debug Registers
+        CSR_DCSR:      begin csr_out = csr.dcsr;      csr_not_implemented = !debug_mode_active; end
+        CSR_DPC:       begin csr_out = csr.dpc;       csr_not_implemented = !debug_mode_active; end
+        CSR_DSCRATCH0: begin csr_out = csr.dscratch0; csr_not_implemented = !debug_mode_active; end
+        CSR_DSCRATCH1: begin csr_out = csr.dscratch1; csr_not_implemented = !debug_mode_active; end
 
         default: begin
             csr_out             = 32'h0;
@@ -1038,7 +1165,8 @@ assign satp_out = csr.satp;
 assign sum_out  = csr.mstatus.sum;
 assign mxr_out  = csr.mstatus.mxr;
 assign mode_out = r_current_mode;
-assign data_mode_out = (r_current_mode == M_MODE && csr.mstatus.mprv) ? csr.mstatus.mpp : r_current_mode;
+assign data_mode_out = (!debug_mode_active && r_current_mode == M_MODE && csr.mstatus.mprv)
+                       ? csr.mstatus.mpp : r_current_mode;
 
 // ============================================================
 // Instruction decoding
@@ -1066,7 +1194,7 @@ always_comb begin
             instr_ex_out.b_bus_sel = IMM;
             instr_ex_out.alu_op = ADD_OP;
             instr_ex_out.mem_instr_sel = MEM_INSTR_LOAD;
-            instr_ex_out.load_store_width = ir_buff.r.funct3;
+            instr_ex_out.load_store_width = mem_width_e'(ir_buff.r.funct3);
             instr_ex_out.wb_data_sel = WB_DATA_SEL_MEM;
 
             if (ir_buff.r.funct3 == 3'b011 || ir_buff.r.funct3 == 3'b110 || ir_buff.r.funct3 == 3'b111)
@@ -1104,7 +1232,7 @@ always_comb begin
             instr_ex_out.b_bus_sel = IMM;
             instr_ex_out.alu_op = ADD_OP;
             instr_ex_out.mem_instr_sel = MEM_INSTR_STORE;
-            instr_ex_out.load_store_width = ir_buff.r.funct3;
+            instr_ex_out.load_store_width = mem_width_e'(ir_buff.r.funct3);
 
             if (ir_buff.r.funct3 == 3'b011 || ir_buff.r.funct3 >= 3'b100) illegal_inst = 1'b1;
 
@@ -1207,6 +1335,7 @@ always_comb begin
                     if      (ir_buff.r.funct7 == 7'b0000000) instr_ex_out.alu_op = AND_OP;   // AND
                     else if (ir_buff.r.funct7 == 7'b0000001 && ENABLE_DIV) instr_ex_out.alu_op = REMU_OP;   // REMU
                     else illegal_inst = 1'b1;
+                default: illegal_inst = 1'b1;
             endcase
 
             // Check if funct7 of SLL/SLT/SLTU/XOR/OR/AND is legal.
@@ -1252,6 +1381,7 @@ always_comb begin
                         default:    illegal_inst = 1'b1;
                     endcase
                 end
+                default: illegal_inst = 1'b1;
             endcase
         end
         
@@ -1357,6 +1487,8 @@ always_comb begin
                             12'b000100000010:                        // SRET
                                 if (r_current_mode < S_MODE) illegal_inst = 1'b1;
                                 else instr_ex_out.sret_en = 1'b1;
+                            12'b011110110010:                        // DRET
+                                if (!debug_mode_active) illegal_inst = 1'b1;
                             12'b000100000101: begin                  // WFI
                                 // WFI executes as J pc (loops on itself) until an interrupt is taken
                                 // where the handler breaks from the WFI loop by modifying epc.
@@ -1423,6 +1555,11 @@ always_comb begin
                 endcase
             end
         end
+
+        STORE_FP, LOAD_FP,
+        CUSTOM_0, CUSTOM_1,
+        MADD, MSUB, NMSUB, NMADD,
+        OP_FP, OP_V, OP_VE: illegal_inst = 1'b1;
 
         default: illegal_inst = 1'b1;
     endcase

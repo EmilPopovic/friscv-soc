@@ -19,8 +19,11 @@
 import friscv_pkg::*;
 
 module friscv_core #(
-    parameter int unsigned HART_ID = 0,
-    parameter int unsigned RESET_VEC = 32'h8000_0000
+    parameter int unsigned HART_ID        = 0,
+    parameter int unsigned RESET_VEC      = 32'h8000_0000,
+    parameter int unsigned DM_BASE        = 32'h0000_0000,
+    parameter int unsigned DM_HALT_OFFSET = 32'h800,
+    parameter int unsigned DM_EXC_OFFSET  = 32'h810
 ) (
     input  logic       i_clk,
     input  logic       i_rstn,
@@ -74,7 +77,9 @@ module friscv_core #(
     output logic       flush_vpn_en_out,
     output asid_t      flush_asid_out,
     output logic       flush_asid_en_out,
-    output pmp_table_t pmp_table_out
+    output pmp_table_t pmp_table_out,
+
+    input  logic       dbg_req_in
 );
 
 logic flush_if, flush_id;
@@ -246,11 +251,15 @@ friscv_if_stage #(
 );
 
 friscv_id_stage #(
-    .HART_ID(HART_ID)
+    .HART_ID        ( HART_ID        ),
+    .DM_BASE        ( DM_BASE        ),
+    .DM_HALT_OFFSET ( DM_HALT_OFFSET ),
+    .DM_EXC_OFFSET  ( DM_EXC_OFFSET  )
 ) id_stage (
     .clk_in           ( i_clk            ), 
     .rst_n_in         ( i_rstn           ),
     .halt_out         ( o_halt           ),
+    .dbg_req_in       ( dbg_req_in       ),
 
     .branch_ok_in     ( branch_ok        ),
     

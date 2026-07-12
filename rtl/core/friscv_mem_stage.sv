@@ -189,6 +189,7 @@ assign r_misaligned_access_fault = r_mem_atomic_like;
 logic w_mem_misaligned;
 always_comb begin
     case (load_store_width_in)
+        WIDTH_I8, WIDTH_U8:   w_mem_misaligned = 1'b0;
         WIDTH_I16, WIDTH_U16: w_mem_misaligned = alu_data_in[0];
         WIDTH_I32:            w_mem_misaligned = alu_data_in[1:0] != 2'b00;
         default:              w_mem_misaligned = 1'b0;
@@ -402,9 +403,10 @@ always_comb begin
     if (d_mem_en_out) begin
         // The downstream memory system expects WIDTH_I8/16/32, so convert U encodings into I.
         case (pipe_buff.load_store_width)
-            WIDTH_U8:  d_mem_size_out = WIDTH_I8;
-            WIDTH_U16: d_mem_size_out = WIDTH_I16;
-            default:   d_mem_size_out = pipe_buff.load_store_width;
+            WIDTH_I8, WIDTH_U8:   d_mem_size_out = WIDTH_I8;
+            WIDTH_I16, WIDTH_U16: d_mem_size_out = WIDTH_I16;
+            WIDTH_I32:            d_mem_size_out = WIDTH_I32;
+            default:              d_mem_size_out = WIDTH_I32;
         endcase
         // Clear low bits for misaligned accesses, which will trap anyway,
         // but ensures the memory system never sees an unexpected address.
@@ -430,37 +432,26 @@ end
 
 always_comb begin
     case (pipe_buff.load_store_width)
-        WIDTH_I8: begin
-            case (pipe_buff.alu_data[1:0])
-                2'b00: load_data = {{24{d_mem_data_in[ 7]}}, d_mem_data_in[ 7: 0]};
-                2'b01: load_data = {{24{d_mem_data_in[15]}}, d_mem_data_in[15: 8]};
-                2'b10: load_data = {{24{d_mem_data_in[23]}}, d_mem_data_in[23:16]};
-                2'b11: load_data = {{24{d_mem_data_in[31]}}, d_mem_data_in[31:24]};
-            endcase
-        end
-        WIDTH_U8: begin
-            case (pipe_buff.alu_data[1:0])
-                2'b00: load_data = {24'h0, d_mem_data_in[ 7: 0]};
-                2'b01: load_data = {24'h0, d_mem_data_in[15: 8]};
-                2'b10: load_data = {24'h0, d_mem_data_in[23:16]};
-                2'b11: load_data = {24'h0, d_mem_data_in[31:24]};
-            endcase
-        end
-        WIDTH_I16: begin
-            if (pipe_buff.alu_data[1])
-                load_data = {{16{d_mem_data_in[31]}}, d_mem_data_in[31:16]};
-            else
-                load_data = {{16{d_mem_data_in[15]}}, d_mem_data_in[15:0]};
-        end
-        WIDTH_U16: begin
-            if (pipe_buff.alu_data[1])
-                load_data = {16'h0, d_mem_data_in[31:16]};
-            else
-                load_data = {16'h0, d_mem_data_in[15:0]};
-        end
-        default: begin
-            load_data = d_mem_data_in;
-        end
+        WIDTH_I8: unique case (pipe_buff.alu_data[1:0])
+            2'b00: load_data = {{24{d_mem_data_in[ 7]}}, d_mem_data_in[ 7: 0]};
+            2'b01: load_data = {{24{d_mem_data_in[15]}}, d_mem_data_in[15: 8]};
+            2'b10: load_data = {{24{d_mem_data_in[23]}}, d_mem_data_in[23:16]};
+            2'b11: load_data = {{24{d_mem_data_in[31]}}, d_mem_data_in[31:24]};
+        endcase
+        WIDTH_U8: unique case (pipe_buff.alu_data[1:0])
+            2'b00: load_data = {24'h0, d_mem_data_in[ 7: 0]};
+            2'b01: load_data = {24'h0, d_mem_data_in[15: 8]};
+            2'b10: load_data = {24'h0, d_mem_data_in[23:16]};
+            2'b11: load_data = {24'h0, d_mem_data_in[31:24]};
+        endcase
+        WIDTH_I16:
+            if (pipe_buff.alu_data[1]) load_data = {{16{d_mem_data_in[31]}}, d_mem_data_in[31:16]};
+            else                       load_data = {{16{d_mem_data_in[15]}}, d_mem_data_in[15:0]};
+        WIDTH_U16:
+            if (pipe_buff.alu_data[1]) load_data = {16'h0, d_mem_data_in[31:16]};
+            else                       load_data = {16'h0, d_mem_data_in[15:0]};
+        WIDTH_I32: load_data = d_mem_data_in;
+        default:   load_data = d_mem_data_in;
     endcase
 end
 

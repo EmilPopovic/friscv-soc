@@ -85,7 +85,6 @@ logic counter_csr_hazard;
 logic mem_stall, hazard_stall, trap_pending_stall;
 
 function automatic logic is_serializing_csr(csr_addr_e csr_sel);
-begin
     case (csr_sel)
         // satp changes the address translation context globally, so younger
         // instructions must wait for the committed update.
@@ -96,18 +95,15 @@ begin
         CSR_SATP: is_serializing_csr = 1'b1;
         default:  is_serializing_csr = 1'b0;
     endcase
-end
 endfunction
 
 function automatic logic is_counter_csr(csr_addr_e csr_sel);
-begin
     case (csr_sel)
         CSR_CYCLE, CSR_CYCLEH,
         CSR_TIME, CSR_TIMEH,
         CSR_INSTRET, CSR_INSTRETH: is_counter_csr = 1'b1;
         default:                   is_counter_csr = 1'b0;
     endcase
-end
 endfunction
 
 // Early JAL/JALR must be suppressed when

@@ -156,6 +156,12 @@ package friscv_pkg;
         CSR_PMPCFG0   = 12'h3A0,
         CSR_PMPADDR0  = 12'h3B0,
 
+        // Core Debug Registers
+        CSR_DCSR      = 12'h7B0,
+        CSR_DPC       = 12'h7B1,
+        CSR_DSCRATCH0 = 12'h7B2,
+        CSR_DSCRATCH1 = 12'h7B3,
+
         // Machine Counter/Timers
         CSR_MCYCLE    = 12'hB00,
         CSR_MINSTRET  = 12'hB02,
@@ -231,11 +237,11 @@ package friscv_pkg;
     } mstatus_t;
 
     // Parametrization of the MMU for 32-bit and 64-bit modes
-    localparam int SATP_MODE_W = (XLEN == 32) ? 1 : 4;
-    localparam int SATP_ASID_W = (XLEN == 32) ? 9 : 16;
-    localparam int PTE_LEVEL_W = (XLEN == 32) ? 1 : 3;
-    localparam     VPN_WIDTH   = (XLEN == 32) ? 20 : 27;
-    localparam     PPN_WIDTH   = (XLEN == 32) ? 20 : 44;
+    localparam int unsigned SATP_MODE_W = (XLEN == 32) ? 1 : 4;
+    localparam int unsigned SATP_ASID_W = (XLEN == 32) ? 9 : 16;
+    localparam int unsigned PTE_LEVEL_W = (XLEN == 32) ? 1 : 3;
+    localparam VPN_WIDTH   = (XLEN == 32) ? 20 : 27;
+    localparam PPN_WIDTH   = (XLEN == 32) ? 20 : 44;
 
     // Never use bare widths in the code, always use these typedefs to ensure correct generation in both modes
     typedef logic [SATP_MODE_W-1:0] satp_mode_t;
@@ -354,7 +360,7 @@ package friscv_pkg;
         logic [6:0] funct7;
         reg_addr_t  rs2;
         reg_addr_t  rs1;
-        mem_width_e funct3;
+        logic [2:0] funct3;
         reg_addr_t  rd;
         opcode_e    opcode;
     } r_type_t;
@@ -364,6 +370,30 @@ package friscv_pkg;
         inst_t   b;
         r_type_t r;
     } instr_op_t;
+
+    typedef struct packed {
+        logic [3:0] debugver;        // [31:28] Debug Version, supported 1.0
+        logic       reserved_27;     // [27] Read-only 0
+        logic [2:0] extcause;        // [26:24]
+        logic [3:0] reserved_23_20;  // [23:20] Read-only 0
+        logic       cetrig;          // [19] Critical error trigger, read-only 0
+        logic       pelp;            // [18] No landing pad, read-only 0
+        logic       ebreakvs;        // [17] No VS, read-only 0
+        logic       ebreakvu;        // [16] No VU, read-only 0
+        logic       ebreakm;         // [15] ebreak enters debug mode in M-mode
+        logic       reserved_14;     // [14] Read-only 0
+        logic       ebreaks;         // [13] ebreak enters debug mode in S-mode
+        logic       ebreaku;         // [12] ebreak enters debug mode in U-mode
+        logic       stepie;          // [11] Step interrupt enable, read-only 0
+        logic       stopcount;       // [10] Stop counting in debug mode
+        logic       stoptime;        // [9]  Stop time in debug mode, read-only 0
+        logic [2:0] cause;           // [8:6] Why debug mode was entered
+        logic       v;               // [5]  Previous virtualization, read-only 0
+        logic       mprven;          // [4]  mprv takes effect in debug mode, read-only 0
+        logic       nmip;            // [3]  Non-maskable interrupt pending
+        logic       step;            // [2]  Step mode
+        mode_e      prv;             // [1:0]
+    } dcsr_t;
 
     // Types of redirects
     typedef enum logic [1:0] {

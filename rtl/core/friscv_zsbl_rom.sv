@@ -48,7 +48,7 @@ always_comb begin
     mem[5] = 32'h0000_100f;  // 
     mem[6] = 32'h0003_8067;  // 
 
-    for (int i = ZSBL_PROG_WORDS; i < (SIZE_BYTES/4); i++) begin
+    for (int unsigned i = ZSBL_PROG_WORDS; i < (SIZE_BYTES/4); i++) begin
         mem[i] = 32'h0000_0000;
     end
 end

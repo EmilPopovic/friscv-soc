@@ -390,7 +390,7 @@ always_comb begin
         XOR_OP:    alu_data_raw = alu_input_a ^ alu_input_b;
         SLL_OP:    alu_data_raw = alu_input_a << alu_input_b[4:0];
         SRL_OP:    alu_data_raw = alu_input_a >> alu_input_b[4:0];
-        SRA_OP:    alu_data_raw = $signed(alu_input_a) >>> alu_input_b[4:0];
+        SRA_OP:    alu_data_raw = data_t'($signed(alu_input_a) >>> alu_input_b[4:0]);
         SLT_OP:    alu_data_raw = {31'b0, $signed(alu_input_a) < $signed(alu_input_b)};
         SLTU_OP:   alu_data_raw = {31'b0, alu_input_a < alu_input_b};
         MUL_OP:    alu_data_raw = mul_res_lo;
@@ -417,19 +417,19 @@ assign alu_data_out = alu_data_raw;
 
 always_comb begin
     case (instr_buff.load_store_width)
-        3'b000: begin   // Byte (8b)
-            case (alu_data_out[1:0]) 
-                2'b00: store_data_out = {24'h0, rs2_buff[7:0]};
-                2'b01: store_data_out = {16'h0, rs2_buff[7:0],  8'h0};
-                2'b10: store_data_out = { 8'h0, rs2_buff[7:0], 16'h0};
-                2'b11: store_data_out = {rs2_buff[7:0], 24'h0};
-            endcase
-        end
-        3'b001: begin   // Half (16b)
+        WIDTH_U8,
+        WIDTH_I8: case (alu_data_out[1:0])      // Byte (8b)
+            2'b00:   store_data_out = {24'h0, rs2_buff[7:0]};
+            2'b01:   store_data_out = {16'h0, rs2_buff[7:0],  8'h0};
+            2'b10:   store_data_out = { 8'h0, rs2_buff[7:0], 16'h0};
+            2'b11:   store_data_out = {rs2_buff[7:0], 24'h0};
+            default: store_data_out = 32'h0;
+        endcase
+        WIDTH_U16,
+        WIDTH_I16:                              // Half (16b)
             if (alu_data_out[1]) store_data_out = {rs2_buff[15:0], 16'h0};
             else                 store_data_out = {16'h0, rs2_buff[15:0]};
-        end
-        3'b010:  store_data_out = rs2_buff; // Word (32b)
+        WIDTH_I32:  store_data_out = rs2_buff;  // Word (32b)
         default: store_data_out = 32'h0;
     endcase
 end

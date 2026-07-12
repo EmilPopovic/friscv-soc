@@ -82,7 +82,7 @@ module friscv_dm_sba_axi #(
         mst.ar_valid = 1'b0;
         mst.r_ready  = 1'b0;
 
-        unique case (state_q)
+        case (state_q)
             S_IDLE: begin
                 dm_gnt_o = dm_req_i;
                 if (dm_req_i) state_d = dm_we_i ? S_W : S_R_ADDR;

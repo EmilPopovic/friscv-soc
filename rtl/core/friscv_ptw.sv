@@ -119,17 +119,15 @@ end : capture_inputs
 // Determine mode geometry
 // ============================================================
 
-logic [2:0] r_max_level, w_max_level;
+logic [2:0] w_max_level;
 logic       r_is_wide_vpn, w_is_wide_vpn;  // 1: 10-bit VPN fields (SV32), 0: 9-bit (SV39+)
 logic       r_is_wide_pte, w_is_wide_pte;  // 1: 8-byte PTEs (SV39+), 0: 4-byte (SV32)
 
 always_ff @(posedge i_clk) begin : geometry_capture
     if (!i_rstn) begin
-        r_max_level   <= 3'b1;
         r_is_wide_vpn <= 1'b0;
         r_is_wide_pte <= 1'b0;
     end else if (w_start_walk) begin
-        r_max_level   <= w_max_level;
         r_is_wide_vpn <= w_is_wide_vpn;
         r_is_wide_pte <= w_is_wide_pte;
     end
@@ -201,10 +199,10 @@ logic [2:0] w_eff_level;
 logic       w_eff_wide_vpn;
 logic       w_eff_wide_pte;
 
-assign w_eff_ppn      = w_start_walk ? ppn_t'(i_satp.ppn) : r_pte.ppn;
-assign w_eff_va       = w_start_walk ? i_req_va           : r_req_va;
-assign w_eff_wide_vpn = w_start_walk ? w_is_wide_vpn      : r_is_wide_vpn;
-assign w_eff_wide_pte = w_start_walk ? w_is_wide_pte      : r_is_wide_pte;
+assign w_eff_ppn      = w_start_walk ? i_satp.ppn    : r_pte.ppn;
+assign w_eff_va       = w_start_walk ? i_req_va      : r_req_va;
+assign w_eff_wide_vpn = w_start_walk ? w_is_wide_vpn : r_is_wide_vpn;
+assign w_eff_wide_pte = w_start_walk ? w_is_wide_pte : r_is_wide_pte;
 
 always_comb begin : eff_level_select
     if (w_start_walk)
@@ -229,7 +227,7 @@ always_comb begin : vpn_extract
             default: w_vpn_idx = w_eff_va[21:12];  // VPN[0]
         endcase
     end else begin  // SV39/48/57: 9-bit VPN fields
-        w_vpn_idx = {1'b0, w_eff_va[12 + 9*w_eff_level[2:0] +: 9]};
+        w_vpn_idx = {1'b0, w_eff_va[12 + 9*int'(w_eff_level[2:0]) +: 9]};
     end
 end : vpn_extract
 

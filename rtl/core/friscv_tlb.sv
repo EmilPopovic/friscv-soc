@@ -29,7 +29,7 @@
 import friscv_pkg::*;
 
 module friscv_tlb #(
-    parameter ENTRY_COUNT = 32
+    parameter int ENTRY_COUNT = 32
 ) (
     input  logic       i_clk,
     input  logic       i_rstn,
