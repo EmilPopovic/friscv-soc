@@ -29,10 +29,10 @@ module friscv_soc (
     input  logic  i_jtag_tdi,
     output logic  o_jtag_tdo,
 
-    // GPIO A
-    input  logic [31:0] i_gpio_a,
-    output logic [31:0] o_gpio_a,
-    output logic [31:0] o_gpio_a_oe
+    // PA0
+    input  logic i_pa0,
+    output logic o_pa0,
+    output logic o_pa0_oe
 );
 
 // ============================================================
@@ -614,6 +614,9 @@ apb_uart_wrap #(
 // ============================================================
 
 logic [31:0] gpio_a_irq;
+logic [31:0] gpio_a_in;
+logic [31:0] gpio_a_out;
+logic [31:0] gpio_a_oe;
 
 gpio #(
     .reg_req_t   ( reg_bus_req_t ),
@@ -625,10 +628,15 @@ gpio #(
     .reg_req_i     ( reg_dev_req[GpioAPort] ),
     .reg_rsp_o     ( reg_dev_rsp[GpioAPort] ),
     .intr_gpio_o   ( gpio_a_irq             ),
-    .cio_gpio_i    ( i_gpio_a               ),
-    .cio_gpio_o    ( o_gpio_a               ),
-    .cio_gpio_en_o ( o_gpio_a_oe            )
+    .cio_gpio_i    ( gpio_a_in              ),
+    .cio_gpio_o    ( gpio_a_out             ),
+    .cio_gpio_en_o ( gpio_a_oe              )
 );
+
+// PA0
+assign gpio_a_in[0] = i_pa0;
+assign o_pa0        = gpio_a_out[0];
+assign o_pa0_oe     = gpio_a_oe[0];
 
 // ============================================================
 // PLIC

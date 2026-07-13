@@ -2,6 +2,7 @@
 import sys
 import subprocess
 from pathlib import Path
+from colored import red, green
 
 ROOT = Path(__file__).resolve().parent.parent
 ELFS_DIR = ROOT / "elfs"
@@ -39,10 +40,10 @@ if __name__ == "__main__":
             capture_output=True, text=True, check=False,
         )
         if ("PASS" in result.stderr):
-            print(f"[PASS] {elf.stem}")
+            print(f"{green('PASS')} {elf.stem}")
             passed += 1
         else:
-            print(f"[FAIL] {elf.stem}")
+            print(f"{red('FAIL')} {elf.stem}")
 
     print()
     print(f"Passed {passed}/{elf_count} tests")

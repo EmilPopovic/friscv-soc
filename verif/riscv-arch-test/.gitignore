@@ -1,2 +1,3 @@
 elfs/
 riscv-arch-test/
+__pycache__/

@@ -8,7 +8,8 @@
             "cppStandard": "gnu++17",
             "includePath": [
                 "${workspaceFolder}/target/sim/cpp",
-                "${workspaceFolder}/target/sim/obj_dir_*",
+                "${workspaceFolder}/target/sim/obj_dir_core",
+                "${workspaceFolder}/target/sim/obj_dir_soc",
                 "${env:VERILATOR_ROOT}/include",
                 "${env:VERILATOR_ROOT}/include/vltstd",
                 "/usr/share/verilator/include",

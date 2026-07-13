@@ -3,8 +3,8 @@
   "build": "sources.f",
   "index": [
     {
-      "dirs": ["rtl", "target/sim/rtl", "verif"],
-      "excludeDirs": ["build", "node_modules", "obj_dir", ".bender"]
+      "dirs": ["rtl", "target/sim/rtl", "verif", ".bender/git/checkouts"],
+      "excludeDirs": ["build", "node_modules", "obj_dir", "riscv-arch-test"]
     }
   ]
 }
