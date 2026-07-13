@@ -23,6 +23,7 @@ $(SOC_DIR):
 
 soc: sources.f | $(SOC_DIR)
 	verilator --cc --exe --build -j 0 --top-module $(SOC_TOP) -Wno-fatal \
+		+define+ASSERTS_OFF \
 		--Mdir $(SOC_DIR) -f sources.f $(SOC_CPP) -o $(SOC_TOP)
 
 jtag: soc

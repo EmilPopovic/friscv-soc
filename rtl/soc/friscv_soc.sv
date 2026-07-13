@@ -27,7 +27,12 @@ module friscv_soc (
     input  logic  i_jtag_tck,
     input  logic  i_jtag_tms,
     input  logic  i_jtag_tdi,
-    output logic  o_jtag_tdo
+    output logic  o_jtag_tdo,
+
+    // GPIO A
+    input  logic [31:0] i_gpio_a,
+    output logic [31:0] o_gpio_a,
+    output logic [31:0] o_gpio_a_oe
 );
 
 // ============================================================
@@ -145,7 +150,7 @@ localparam int unsigned CpuPort         = 0;
 localparam int unsigned DmSbaPort       = 1;
 
 localparam int unsigned NumAxiLiteMst   = 3;
-localparam int unsigned NumAxiLiteRules = 5;
+localparam int unsigned NumAxiLiteRules = 6;
 localparam int unsigned ClintPort       = 0;
 localparam int unsigned RegsPort        = 1;
 localparam int unsigned SramPort        = 2;
@@ -174,8 +179,9 @@ localparam axi_pkg::xbar_cfg_t AxiLiteXbarCfg = '{
 localparam axi_pkg::xbar_rule_32_t [NumAxiLiteRules-1:0] AxiLiteAddrMap = '{
     '{ idx: ClintPort, start_addr: 32'h0200_0000, end_addr: 32'h0201_0000 },        // CLINT
     '{ idx: RegsPort,  start_addr: 32'h1000_0000, end_addr: 32'h1000_1000 },        // UART0
+    '{ idx: RegsPort,  start_addr: 32'h2000_0000, end_addr: 32'h2000_0040 },        // GPIO A
     '{ idx: RegsPort,  start_addr: DmBaseAddr,    end_addr: DmBaseAddr + DmSize },  // Debug module
-    '{ idx: RegsPort,  start_addr: 32'h4000_0000, end_addr: 32'h4000_1000 },        // Scratch
+    '{ idx: RegsPort,  start_addr: 32'h4000_0000, end_addr: 32'h4000_0004 },        // Scratch
     '{ idx: SramPort,  start_addr: SramBase,      end_addr: SramBase + SramSize }   // SRAM
 };
 
@@ -269,19 +275,21 @@ axi_lite_to_reg #(
     .reg_rsp_i      ( regs_reg_rsp  )
 );
 
-localparam int unsigned NoRegPorts   = 3;
+localparam int unsigned NoRegPorts   = 4;
 localparam int unsigned DmPort       = 0;
 localparam int unsigned Uart0Port    = 1;
 localparam int unsigned ScratchPort  = 2;
+localparam int unsigned GpioAPort    = 3;
 
 reg_bus_req_t [NoRegPorts-1:0] reg_dev_req;
 reg_bus_rsp_t [NoRegPorts-1:0] reg_dev_rsp;
 
-localparam int unsigned NoRegRules = 3;
+localparam int unsigned NoRegRules = 4;
 localparam axi_pkg::xbar_rule_32_t [NoRegRules-1:0] RegAddrMap = '{
     '{ idx: DmPort,      start_addr: DmBaseAddr,    end_addr: DmBaseAddr + DmSize },
     '{ idx: Uart0Port,   start_addr: 32'h1000_0000, end_addr: 32'h1000_1000 },
-    '{ idx: ScratchPort, start_addr: 32'h4000_0000, end_addr: 32'h4000_1000 }
+    '{ idx: GpioAPort,   start_addr: 32'h2000_0000, end_addr: 32'h2000_0040 },
+    '{ idx: ScratchPort, start_addr: 32'h4000_0000, end_addr: 32'h4000_0004 }
 };
 
 logic [$clog2(NoRegPorts)-1:0] reg_select;
@@ -594,6 +602,27 @@ apb_uart_wrap #(
     .out2_no   (               ),
     .rts_no    (               ),
     .dtr_no    (               )
+);
+
+// ============================================================
+// GPIO Port A
+// ============================================================
+
+logic [31:0] gpio_a_irq;
+
+gpio #(
+    .reg_req_t   ( reg_bus_req_t ),
+    .reg_rsp_t   ( reg_bus_rsp_t ),
+    .GpioAsyncOn ( 1             )
+) gpio_a (
+    .clk_i         ( i_clk                  ),
+    .rst_ni        ( soc_rstn               ),
+    .reg_req_i     ( reg_dev_req[GpioAPort] ),
+    .reg_rsp_o     ( reg_dev_rsp[GpioAPort] ),
+    .intr_gpio_o   ( gpio_a_irq             ),
+    .cio_gpio_i    ( i_gpio_a               ),
+    .cio_gpio_o    ( o_gpio_a               ),
+    .cio_gpio_en_o ( o_gpio_a_oe            )
 );
 
 // ============================================================

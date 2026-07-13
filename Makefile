@@ -4,3 +4,7 @@ sources.f: Bender.yml Bender.lock
 .PHONY: act-run-core
 act-run-core:
 	make -C verif/riscv-arch-test run-core
+
+.PHONY: report-area
+report-area:
+	make -C target/asic area
