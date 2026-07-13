@@ -13,7 +13,7 @@
  * This is used to meet timing requirements, as it decouples the core from the external bus logic,
  * but introduces two cycles of latency for memory operations.
  *
- * Configurable using the ENABLE_L2_BUFFER parameter in friscv_pkg.sv.
+ * Configurable using the ENABLE_L2_BUFFER parameter of friscv_core_complex.
  */
 
 `timescale 1ns / 1ps

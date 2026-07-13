@@ -23,7 +23,37 @@ module friscv_core_complex #(
     parameter int unsigned ZSBL_ROM_SIZE_BYTES = 0,
     parameter int unsigned DM_BASE             = 32'h0000_0000,
     parameter int unsigned DM_HALT_OFFSET      = 32'h800,
-    parameter int unsigned DM_EXC_OFFSET       = 32'h810
+    parameter int unsigned DM_EXC_OFFSET       = 32'h810,
+
+    // If enabled, buffer outbound requests to improve timing
+    parameter logic ENABLE_L2_BUFFER = 0,
+
+    // Memory protection and address translation
+    parameter logic ENABLE_MMU      = 1,
+    parameter logic ENFORCE_PMP     = 0,
+    parameter logic ENFORCE_PTW_PMP = 0,
+    parameter int   PMP_ENTRIES     = 64,
+    parameter int   PMP_USABLE      = 64,
+    // Must be a power of 2 greater than 1
+    parameter int   ITLB_ENTRIES = 2,
+    parameter int   DTLB_ENTRIES = 4,
+    // If not enabled, any sfence.vma will flush all TLB entries
+    parameter logic ENABLE_FINE_TLB_FLUSH = 0,
+
+    // Extension selection
+    parameter logic ENABLE_MUL = 1,
+    parameter logic ENABLE_DIV = 1,
+    // Use a single-cycle combinational multiplier instead of the iterative multiplier
+    parameter logic ENABLE_FAST_MUL = 0,
+    parameter logic ENABLE_EXTENSION_A = 1,
+    parameter logic ENABLE_EXTENSION_ZIFENCEI = 1,
+
+    // If enabled, a write to END_ADDRESS will stall the core until reset
+    parameter logic ENABLE_HALT_ON_END_ADDRESS = 1,
+    // If enabled, entering an EBREAK instruction will halt the core until reset
+    parameter logic ENABLE_HALT_ON_ENTER_EBREAK = 0,
+    // If enabled, the first MRET or SRET after entering an EBREAK handler will halt the core until reset
+    parameter logic ENABLE_HALT_ON_RET_FROM_EBREAK = 0
 ) (
     input  logic       i_clk,
     input  logic       i_rstn,
@@ -155,13 +185,20 @@ assign o_mem_wdata = w_amo_active ? w_amo_store_data : w_l2_wdata;
 logic  w_inst_fault, w_load_fault, w_store_fault;
 addr_t w_fault_addr;
 
-pmp_table_t w_pmp_table;
+pmp_entry_t [PMP_ENTRIES-1:0] w_pmp_table;
 logic w_inst_pmp_fault, w_data_pmp_fault;
 
 // The MMU contains an arbiter.
 // If the MMU is disabled, a bare arbiter is instantiated instead.
 if (ENABLE_MMU) begin : gen_mmu
-    friscv_mmu mmu (
+    friscv_mmu #(
+        .ENFORCE_PMP           ( ENFORCE_PMP           ),
+        .ENFORCE_PTW_PMP       ( ENFORCE_PTW_PMP       ),
+        .PMP_ENTRIES           ( PMP_ENTRIES           ),
+        .ITLB_ENTRIES          ( ITLB_ENTRIES          ),
+        .DTLB_ENTRIES          ( DTLB_ENTRIES          ),
+        .ENABLE_FINE_TLB_FLUSH ( ENABLE_FINE_TLB_FLUSH )
+    ) mmu (
         .i_clk           ( i_clk           ),
         .i_rstn          ( i_rstn          ),
 
@@ -345,7 +382,19 @@ friscv_core #(
     .RESET_VEC      ( RESET_VEC      ),
     .DM_BASE        ( DM_BASE        ),
     .DM_HALT_OFFSET ( DM_HALT_OFFSET ),
-    .DM_EXC_OFFSET  ( DM_EXC_OFFSET  )
+    .DM_EXC_OFFSET  ( DM_EXC_OFFSET  ),
+
+    .ENABLE_MMU                     ( ENABLE_MMU                     ),
+    .ENFORCE_PMP                    ( ENFORCE_PMP                    ),
+    .PMP_ENTRIES                    ( PMP_ENTRIES                    ),
+    .PMP_USABLE                     ( PMP_USABLE                     ),
+    .ENABLE_MUL                     ( ENABLE_MUL                     ),
+    .ENABLE_DIV                     ( ENABLE_DIV                     ),
+    .ENABLE_FAST_MUL                ( ENABLE_FAST_MUL                ),
+    .ENABLE_EXTENSION_A             ( ENABLE_EXTENSION_A             ),
+    .ENABLE_EXTENSION_ZIFENCEI      ( ENABLE_EXTENSION_ZIFENCEI      ),
+    .ENABLE_HALT_ON_ENTER_EBREAK    ( ENABLE_HALT_ON_ENTER_EBREAK    ),
+    .ENABLE_HALT_ON_RET_FROM_EBREAK ( ENABLE_HALT_ON_RET_FROM_EBREAK )
 ) cpu_0 (
     .i_clk            ( i_clk           ),
     .i_rstn           ( i_rstn          ),

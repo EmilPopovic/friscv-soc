@@ -23,7 +23,26 @@ module friscv_core #(
     parameter int unsigned RESET_VEC      = 32'h8000_0000,
     parameter int unsigned DM_BASE        = 32'h0000_0000,
     parameter int unsigned DM_HALT_OFFSET = 32'h800,
-    parameter int unsigned DM_EXC_OFFSET  = 32'h810
+    parameter int unsigned DM_EXC_OFFSET  = 32'h810,
+
+    // Memory protection and address translation
+    parameter logic ENABLE_MMU  = 1,
+    parameter logic ENFORCE_PMP = 0,
+    parameter int   PMP_ENTRIES = 64,
+    parameter int   PMP_USABLE  = 64,
+
+    // Extension selection
+    parameter logic ENABLE_MUL = 1,
+    parameter logic ENABLE_DIV = 1,
+    // Use a single-cycle combinational multiplier instead of the iterative multiplier
+    parameter logic ENABLE_FAST_MUL = 0,
+    parameter logic ENABLE_EXTENSION_A = 1,
+    parameter logic ENABLE_EXTENSION_ZIFENCEI = 1,
+
+    // If enabled, entering an EBREAK instruction will halt the core until reset
+    parameter logic ENABLE_HALT_ON_ENTER_EBREAK = 0,
+    // If enabled, the first MRET or SRET after entering an EBREAK handler will halt the core until reset
+    parameter logic ENABLE_HALT_ON_RET_FROM_EBREAK = 0
 ) (
     input  logic       i_clk,
     input  logic       i_rstn,
@@ -78,7 +97,7 @@ module friscv_core #(
     output logic       flush_vpn_en_out,
     output asid_t      flush_asid_out,
     output logic       flush_asid_en_out,
-    output pmp_table_t pmp_table_out,
+    output pmp_entry_t [PMP_ENTRIES-1:0] pmp_table_out,
 
     input  logic       dbg_req_in
 );
@@ -255,7 +274,17 @@ friscv_id_stage #(
     .HART_ID        ( HART_ID        ),
     .DM_BASE        ( DM_BASE        ),
     .DM_HALT_OFFSET ( DM_HALT_OFFSET ),
-    .DM_EXC_OFFSET  ( DM_EXC_OFFSET  )
+    .DM_EXC_OFFSET  ( DM_EXC_OFFSET  ),
+
+    .ENABLE_MUL                     ( ENABLE_MUL                     ),
+    .ENABLE_DIV                     ( ENABLE_DIV                     ),
+    .ENABLE_EXTENSION_A             ( ENABLE_EXTENSION_A             ),
+    .ENABLE_EXTENSION_ZIFENCEI      ( ENABLE_EXTENSION_ZIFENCEI      ),
+    .ENFORCE_PMP                    ( ENFORCE_PMP                    ),
+    .PMP_ENTRIES                    ( PMP_ENTRIES                    ),
+    .PMP_USABLE                     ( PMP_USABLE                     ),
+    .ENABLE_HALT_ON_ENTER_EBREAK    ( ENABLE_HALT_ON_ENTER_EBREAK    ),
+    .ENABLE_HALT_ON_RET_FROM_EBREAK ( ENABLE_HALT_ON_RET_FROM_EBREAK )
 ) id_stage (
     .clk_in           ( i_clk            ), 
     .rst_n_in         ( i_rstn           ),
@@ -355,7 +384,11 @@ friscv_id_stage #(
     .pmp_table_out    ( pmp_table_out    )
 );
 
-friscv_ex_stage ex_stage (
+friscv_ex_stage #(
+    .ENABLE_MUL      ( ENABLE_MUL      ),
+    .ENABLE_DIV      ( ENABLE_DIV      ),
+    .ENABLE_FAST_MUL ( ENABLE_FAST_MUL )
+) ex_stage (
     .clk_in               ( i_clk                   ),
     .rst_n_in             ( i_rstn                  ),
 

@@ -29,7 +29,9 @@
 import friscv_pkg::*;
 
 module friscv_tlb #(
-    parameter int ENTRY_COUNT = 32
+    parameter int   ENTRY_COUNT = 32,
+    // If not enabled, any sfence.vma will flush all TLB entries
+    parameter logic ENABLE_FINE_TLB_FLUSH = 0
 ) (
     input  logic       i_clk,
     input  logic       i_rstn,

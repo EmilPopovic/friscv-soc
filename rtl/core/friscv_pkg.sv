@@ -36,52 +36,11 @@ v 2.3.0     Borna Janezic, Emil Popovic 2026_06, new gpio, qspi, prepare for pub
  * This package defines common types, parameters and constants used throughout the FRISC-V design.
  * It should be imported in all modules to ensure consistent definitions.
  * Do not put any module definitions in this package, only types and parameters.
- *
- * Configurable parameters are between "Configurable parameter definitions start" and "Configurable parameter definitions end" comments.
  */
 
 `timescale 1ns / 1ps
 
 package friscv_pkg;
-
-    // THIS CONFIG IS AUTOMATICALLY GENERATED, SEE config/friscv_config.toml
-    // --- Configurable parameter definitions start ---
-
-    // If enabled, buffer outbound requests to improve timing
-    localparam logic ENABLE_L2_BUFFER = 0;
-
-    // Memory protection and address translation
-    localparam logic ENABLE_MMU = 1;
-    localparam logic ENFORCE_PMP = 0;
-    localparam logic ENFORCE_PTW_PMP = 0;
-    localparam int   PMP_ENTRIES = 64;
-    localparam int   PMP_USABLE = 64;
-    // Must be a power of 2 greater than 1
-    localparam int   ITLB_ENTRIES = 2;
-    localparam int   DTLB_ENTRIES = 4;
-    // If not enabled, any sfence.vma will flush all TLB entries
-    localparam logic ENABLE_FINE_TLB_FLUSH = 0;
-
-    // Extension selection
-    localparam logic ENABLE_MUL = 1;
-    localparam logic ENABLE_DIV = 1;
-    // Use a single-cycle combinational multiplier instead of the iterative multiplier
-    localparam logic ENABLE_FAST_MUL = 0;
-    // M extension configured by choosing MUL and DIV above
-    localparam logic ENABLE_EXTENSION_M = ENABLE_MUL && ENABLE_DIV;
-    localparam logic ENABLE_EXTENSION_A = 1;
-    localparam logic ENABLE_EXTENSION_ZIFENCEI = 1;
-
-    // If enabled, a write to END_ADDRESS will stall the core until reset
-    localparam logic ENABLE_HALT_ON_END_ADDRESS = 1;
-    // If enabled, entering an EBREAK instruction will halt the core until reset
-    localparam logic ENABLE_HALT_ON_ENTER_EBREAK = 0;
-    // If enabled, the first MRET or SRET after entering an EBREAK handler will halt the core until reset
-    localparam logic ENABLE_HALT_ON_RET_FROM_EBREAK = 0;
-
-    // --- Configurable parameter definitions end ---
-
-    // Architectural parameters - do not modify without a very good reason
 
     // Do not change to 64 yet, the core is still not parametrized everywhere correctly
     localparam int unsigned XLEN = 32;
@@ -201,8 +160,6 @@ package friscv_pkg;
         pmp_cfg_t cfg;
         addr_t    addr;
     } pmp_entry_t;
-
-    typedef pmp_entry_t [PMP_ENTRIES-1:0] pmp_table_t;
 
     // Do not change mappings, these are per-spec and directly used in decode
     typedef enum logic [1:0] {
@@ -392,7 +349,7 @@ package friscv_pkg;
         logic       mprven;          // [4]  mprv takes effect in debug mode, read-only 0
         logic       nmip;            // [3]  Non-maskable interrupt pending
         logic       step;            // [2]  Step mode
-        mode_e      prv;             // [1:0]
+        mode_e      prv;             // [1:0] Privilege before entering debug mode
     } dcsr_t;
 
     // Types of redirects

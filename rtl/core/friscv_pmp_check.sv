@@ -19,14 +19,16 @@
 
 import friscv_pkg::*;
 
-module friscv_pmp_check (
-    input  addr_t      i_pa,
-    input  logic       i_access_r,
-    input  logic       i_access_w,
-    input  logic       i_access_x,
-    input  mode_e      i_mode,
-    input  pmp_table_t i_pmp_table,
-    output logic       o_fault
+module friscv_pmp_check #(
+    parameter int PMP_ENTRIES = 64
+) (
+    input  addr_t                        i_pa,
+    input  logic                         i_access_r,
+    input  logic                         i_access_w,
+    input  logic                         i_access_x,
+    input  mode_e                        i_mode,
+    input  pmp_entry_t [PMP_ENTRIES-1:0] i_pmp_table,
+    output logic                         o_fault
 );
 
 // The two lowest bits are not used for PMP matching

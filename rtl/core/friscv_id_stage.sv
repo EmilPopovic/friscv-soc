@@ -38,7 +38,23 @@ module friscv_id_stage #(
     parameter int unsigned HART_ID = 0,
     parameter int unsigned DM_BASE = 32'h0000_0000,
     parameter int unsigned DM_HALT_OFFSET = 32'h800,
-    parameter int unsigned DM_EXC_OFFSET  = 32'h810
+    parameter int unsigned DM_EXC_OFFSET  = 32'h810,
+
+    // Extension selection
+    parameter logic ENABLE_MUL = 1,
+    parameter logic ENABLE_DIV = 1,
+    parameter logic ENABLE_EXTENSION_A = 1,
+    parameter logic ENABLE_EXTENSION_ZIFENCEI = 1,
+
+    // Memory protection
+    parameter logic ENFORCE_PMP = 0,
+    parameter int   PMP_ENTRIES = 64,
+    parameter int   PMP_USABLE  = 64,
+
+    // If enabled, entering an EBREAK instruction will halt the core until reset
+    parameter logic ENABLE_HALT_ON_ENTER_EBREAK = 0,
+    // If enabled, the first MRET or SRET after entering an EBREAK handler will halt the core until reset
+    parameter logic ENABLE_HALT_ON_RET_FROM_EBREAK = 0
 ) (
     input  logic      clk_in,
     input  logic      rst_n_in,
@@ -136,8 +152,11 @@ module friscv_id_stage #(
     output logic      mxr_out,
     output mode_e     mode_out,
     output mode_e     data_mode_out,
-    output pmp_table_t pmp_table_out
+    output pmp_entry_t [PMP_ENTRIES-1:0] pmp_table_out
 );
+
+// M extension configured by choosing MUL and DIV
+localparam logic ENABLE_EXTENSION_M = ENABLE_MUL && ENABLE_DIV;
 
 data_t regfile [REGISTER_NUM];
 
@@ -288,7 +307,7 @@ always_comb case (r_current_mode)
     default: dcsr_ebreak_eff = csr.dcsr.ebreaku;
 endcase
 
-pmp_table_t pmp_table;
+pmp_entry_t [PMP_ENTRIES-1:0] pmp_table;
 assign pmp_table_out = pmp_table;
 
 // Pack a pmp_cfg_t struct into its 8-bit pmpcfg byte

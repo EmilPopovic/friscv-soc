@@ -27,6 +27,37 @@ module friscv_cpu_subsystem_core #(
     parameter int unsigned DM_BASE             = 32'h0000_0000,
     parameter int unsigned DM_HALT_OFFSET      = 32'h800,
     parameter int unsigned DM_EXC_OFFSET       = 32'h810,
+
+    // If enabled, buffer outbound requests to improve timing
+    parameter logic ENABLE_L2_BUFFER = 0,
+
+    // Memory protection and address translation
+    parameter logic ENABLE_MMU      = 1,
+    parameter logic ENFORCE_PMP     = 0,
+    parameter logic ENFORCE_PTW_PMP = 0,
+    parameter int   PMP_ENTRIES     = 64,
+    parameter int   PMP_USABLE      = 64,
+    // Must be a power of 2 greater than 1
+    parameter int   ITLB_ENTRIES = 2,
+    parameter int   DTLB_ENTRIES = 4,
+    // If not enabled, any sfence.vma will flush all TLB entries
+    parameter logic ENABLE_FINE_TLB_FLUSH = 0,
+
+    // Extension selection
+    parameter logic ENABLE_MUL = 1,
+    parameter logic ENABLE_DIV = 1,
+    // Use a single-cycle combinational multiplier instead of the iterative multiplier
+    parameter logic ENABLE_FAST_MUL = 0,
+    parameter logic ENABLE_EXTENSION_A = 1,
+    parameter logic ENABLE_EXTENSION_ZIFENCEI = 1,
+
+    // If enabled, a write to END_ADDRESS will stall the core until reset
+    parameter logic ENABLE_HALT_ON_END_ADDRESS = 1,
+    // If enabled, entering an EBREAK instruction will halt the core until reset
+    parameter logic ENABLE_HALT_ON_ENTER_EBREAK = 0,
+    // If enabled, the first MRET or SRET after entering an EBREAK handler will halt the core until reset
+    parameter logic ENABLE_HALT_ON_RET_FROM_EBREAK = 0,
+
     // Calculated parameters, do not change
     parameter int unsigned RESET_VEC = (ZSBL_ROM_SIZE_BYTES > 0) ? ZSBL_BASE : RAM_BASE
 ) (
@@ -68,7 +99,25 @@ friscv_core_complex #(
     .ZSBL_ROM_SIZE_BYTES ( ZSBL_ROM_SIZE_BYTES ),
     .DM_BASE             ( DM_BASE             ),
     .DM_HALT_OFFSET      ( DM_HALT_OFFSET      ),
-    .DM_EXC_OFFSET       ( DM_EXC_OFFSET       )
+    .DM_EXC_OFFSET       ( DM_EXC_OFFSET       ),
+
+    .ENABLE_L2_BUFFER               ( ENABLE_L2_BUFFER               ),
+    .ENABLE_MMU                     ( ENABLE_MMU                     ),
+    .ENFORCE_PMP                    ( ENFORCE_PMP                    ),
+    .ENFORCE_PTW_PMP                ( ENFORCE_PTW_PMP                ),
+    .PMP_ENTRIES                    ( PMP_ENTRIES                    ),
+    .PMP_USABLE                     ( PMP_USABLE                     ),
+    .ITLB_ENTRIES                   ( ITLB_ENTRIES                   ),
+    .DTLB_ENTRIES                   ( DTLB_ENTRIES                   ),
+    .ENABLE_FINE_TLB_FLUSH          ( ENABLE_FINE_TLB_FLUSH          ),
+    .ENABLE_MUL                     ( ENABLE_MUL                     ),
+    .ENABLE_DIV                     ( ENABLE_DIV                     ),
+    .ENABLE_FAST_MUL                ( ENABLE_FAST_MUL                ),
+    .ENABLE_EXTENSION_A             ( ENABLE_EXTENSION_A             ),
+    .ENABLE_EXTENSION_ZIFENCEI      ( ENABLE_EXTENSION_ZIFENCEI      ),
+    .ENABLE_HALT_ON_END_ADDRESS     ( ENABLE_HALT_ON_END_ADDRESS     ),
+    .ENABLE_HALT_ON_ENTER_EBREAK    ( ENABLE_HALT_ON_ENTER_EBREAK    ),
+    .ENABLE_HALT_ON_RET_FROM_EBREAK ( ENABLE_HALT_ON_RET_FROM_EBREAK )
 ) cc_0 (
     .i_clk        ( i_clk        ),
     .i_rstn       ( i_rstn       ),
