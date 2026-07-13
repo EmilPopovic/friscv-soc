@@ -22,3 +22,16 @@ make act-run-core
 
 That target automatically builds the testbench binary and
 verilates the current design.
+
+## SoC-level
+
+Run the same certification suite against the full SoC from the repository
+root:
+
+```bash
+make act-run-soc
+```
+
+This target generates the SoC ELFs, builds the simulator with 512 KiB of SRAM
+at `0x80000000`, and runs all tests. ELF segments are preloaded directly into
+the simulated SRAM to keep the regression fast.

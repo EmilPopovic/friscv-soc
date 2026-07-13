@@ -13,7 +13,10 @@
 
 `timescale 1ns/1ps
 
-module friscv_soc (
+module friscv_soc #(
+    parameter int unsigned SramBase = 32'h0000_0000,
+    parameter int unsigned SramSize = 32'h0000_4000
+) (
     input  logic  i_clk,
     input  logic  i_rstn,
 
@@ -154,9 +157,6 @@ localparam int unsigned NumAxiLiteRules = 7;
 localparam int unsigned ClintPort       = 0;
 localparam int unsigned RegsPort        = 1;
 localparam int unsigned SramPort        = 2;
-
-localparam int unsigned SramBase    = 32'h0000_0000;  // Sram starts at 0
-localparam int unsigned SramSize    = 32'h0000_4000;  // 16 KiB RAM
 
 localparam axi_pkg::xbar_cfg_t AxiLiteXbarCfg = '{
     NoSlvPorts:         NumAxiLiteSlv,

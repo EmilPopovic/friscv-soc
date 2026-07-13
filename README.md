@@ -63,7 +63,7 @@ To change the tool set, edit the `packages` list in `flake.nix`, then
 - [Core-level simulation](docs/CORE_SIM.md) - the C++/Verilator testbench in
   `target/sim/` that drives a bare FRISC-V CPU subsystem over a virtual bus.
 - [Architecture certification tests](docs/RISCV_ARCH_TEST.md) — running the
-  official `riscv-arch-test` suite against the core.
+  official `riscv-arch-test` suite against the core or full SoC.
 
 ## Repository layout
 

@@ -11,14 +11,26 @@
 #include "elf_loader.hpp"
 #include "jtag.hpp"
 #include "remote_bitbang.hpp"
+#include "soc_memory.hpp"
 
 namespace {
 
+#ifndef FRISCV_SOC_SRAM_BASE
+#define FRISCV_SOC_SRAM_BASE 0
+#endif
+
+#ifndef FRISCV_SOC_SRAM_SIZE_BYTES
+#define FRISCV_SOC_SRAM_SIZE_BYTES 0x4000
+#endif
+
 constexpr uint32_t SCRATCH_ADDRESS = 0x40000000;
 constexpr uint32_t PARKED = 1;
-constexpr uint32_t SRAM_SIZE = 0x4000;
+constexpr uint32_t PASS_VALUE = 0xaabbccdd;
+constexpr uint32_t SRAM_BASE = FRISCV_SOC_SRAM_BASE;
+constexpr uint32_t SRAM_SIZE = FRISCV_SOC_SRAM_SIZE_BYTES;
 constexpr uint16_t RISCV_MACHINE = 243;
 constexpr uint64_t RUN_CYCLES = 2000;
+constexpr uint64_t TEST_CYCLES = 10000000;
 
 uint32_t parse_u32(const char* text) {
     char* end = nullptr;
@@ -104,9 +116,10 @@ void validate(const ElfImage& image) {
     bool entry_ok = false;
 
     for (const ElfSegment& segment : image.segments) {
+        uint64_t start = segment.address;
         uint64_t end = uint64_t(segment.address) + segment.data.size();
 
-        if (end > SRAM_SIZE) {
+        if (start < SRAM_BASE || end > uint64_t(SRAM_BASE) + SRAM_SIZE) {
             throw std::runtime_error("ELF segment is outside SRAM");
         }
 
@@ -121,17 +134,51 @@ void validate(const ElfImage& image) {
     }
 }
 
-void load_command(Jtag& jtag, const char* path) {
+ElfImage prepare_image(Jtag& jtag, const char* path) {
     ElfImage image = read_elf(path);
     validate(image);
     park(jtag);
+
+    return image;
+}
+
+void start_image(Jtag& jtag, uint32_t entry) {
+    jtag.write_memory(SCRATCH_ADDRESS, word_bytes(entry));
+}
+
+void load_image(Jtag& jtag, const char* path) {
+    ElfImage image = prepare_image(jtag, path);
 
     for (const ElfSegment& segment : image.segments) {
         jtag.write_memory(segment.address, segment.data);
     }
 
-    jtag.write_memory(SCRATCH_ADDRESS, word_bytes(image.entry));
+    start_image(jtag, image.entry);
+}
+
+void load_command(Jtag& jtag, const char* path) {
+    load_image(jtag, path);
     jtag.run_cycles(RUN_CYCLES);
+}
+
+int test_command(Vfriscv_soc& top, Jtag& jtag, const char* path) {
+    ElfImage image = prepare_image(jtag, path);
+    preload_sram(top, image, SRAM_BASE);
+    start_image(jtag, image.entry);
+
+    for (uint64_t cycle = 0; cycle < TEST_CYCLES && !top.o_end; ++cycle) {
+        jtag.run_cycles(1);
+    }
+
+    uint32_t result = read_word(jtag, SCRATCH_ADDRESS);
+
+    if (top.o_end && result == PASS_VALUE) {
+        std::fprintf(stderr, "PASS\n");
+        return 0;
+    }
+
+    std::fprintf(stderr, "FAIL (scratch=0x%08x)\n", result);
+    return 1;
 }
 
 void print_memory(uint32_t address, const std::vector<uint8_t>& data) {
@@ -182,32 +229,39 @@ bool server_command(int argc, char** argv) {
 bool valid_command(int argc, char** argv) {
     return server_command(argc, argv) ||
            (argc == 3 && !std::strcmp(argv[1], "load")) ||
+           (argc == 3 && !std::strcmp(argv[1], "test")) ||
            (argc == 4 && !std::strcmp(argv[1], "read")) ||
            (argc >= 4 && !std::strcmp(argv[1], "write"));
 }
 
-void execute_command(Jtag& jtag, int argc, char** argv) {
+int execute_command(Vfriscv_soc& top, Jtag& jtag, int argc, char** argv) {
     if (!std::strcmp(argv[1], "load")) {
         load_command(jtag, argv[2]);
-        return;
+        return 0;
+    }
+
+    if (!std::strcmp(argv[1], "test")) {
+        return test_command(top, jtag, argv[2]);
     }
 
     if (!std::strcmp(argv[1], "read")) {
         read_command(jtag, argv[2], argv[3]);
-        return;
+        return 0;
     }
 
     write_command(jtag, argc, argv);
+    return 0;
 }
 
 void print_usage(const char* program) {
     std::fprintf(stderr,
                  "usage:\n"
                  "  %s load <program.elf>\n"
+                 "  %s test <program.elf>\n"
                  "  %s read <address> <size>\n"
                  "  %s write <address> <byte> [byte ...]\n"
                  "  %s server [port]\n",
-                 program, program, program, program);
+                 program, program, program, program, program);
 }
 
 }  // namespace
@@ -236,18 +290,19 @@ int main(int argc, char** argv) {
         top.i_rstn = 1;
         jtag.run_cycles(20);
 
+        int result = 0;
+
         if (server_command(argc, argv)) {
             uint16_t port = argc == 3 ? parse_port(argv[2])
                                       : RemoteBitbang::DEFAULT_PORT;
             RemoteBitbang(top).serve(port);
         } else {
             jtag.initialize();
-
-            execute_command(jtag, argc, argv);
+            result = execute_command(top, jtag, argc, argv);
         }
 
         top.final();
-        return 0;
+        return result;
     } catch (const std::exception& error) {
         std::fprintf(stderr, "JTAG simulation failed: %s\n", error.what());
         return 1;
