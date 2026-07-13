@@ -5,8 +5,6 @@
 // you may not use this file except in compliance with the License, or,
 // at your option, the Apache License version 2.0.
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
-//
-// Version info is listed in friscv_pkg.sv
 
 /*
  * This module implements the top-level FRISC-V CPU subsystem, connecting the core to external interfaces.
@@ -49,7 +47,6 @@ module friscv_cpu_subsystem_core #(
     // Use a single-cycle combinational multiplier instead of the iterative multiplier
     parameter logic ENABLE_FAST_MUL = 0,
     parameter logic ENABLE_EXTENSION_A = 1,
-    parameter logic ENABLE_EXTENSION_ZIFENCEI = 1,
 
     // If enabled, a write to END_ADDRESS will stall the core until reset
     parameter logic ENABLE_HALT_ON_END_ADDRESS = 1,
@@ -114,7 +111,6 @@ friscv_core_complex #(
     .ENABLE_DIV                     ( ENABLE_DIV                     ),
     .ENABLE_FAST_MUL                ( ENABLE_FAST_MUL                ),
     .ENABLE_EXTENSION_A             ( ENABLE_EXTENSION_A             ),
-    .ENABLE_EXTENSION_ZIFENCEI      ( ENABLE_EXTENSION_ZIFENCEI      ),
     .ENABLE_HALT_ON_END_ADDRESS     ( ENABLE_HALT_ON_END_ADDRESS     ),
     .ENABLE_HALT_ON_ENTER_EBREAK    ( ENABLE_HALT_ON_ENTER_EBREAK    ),
     .ENABLE_HALT_ON_RET_FROM_EBREAK ( ENABLE_HALT_ON_RET_FROM_EBREAK )

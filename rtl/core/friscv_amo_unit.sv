@@ -5,8 +5,6 @@
 // you may not use this file except in compliance with the License, or,
 // at your option, the Apache License version 2.0.
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
-//
-// Version info is listed in friscv_pkg.sv
 
 /*
  * This module implements the AMO unit of the FRISC-V core, which handles atomic memory operations.

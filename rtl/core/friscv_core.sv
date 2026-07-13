@@ -5,8 +5,6 @@
 // you may not use this file except in compliance with the License, or,
 // at your option, the Apache License version 2.0.
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
-//
-// Version info is listed in friscv_pkg.sv
 
 /*
  * This module implements the FRISC-V core datapath, connecting all pipeline stages.
@@ -37,7 +35,6 @@ module friscv_core #(
     // Use a single-cycle combinational multiplier instead of the iterative multiplier
     parameter logic ENABLE_FAST_MUL = 0,
     parameter logic ENABLE_EXTENSION_A = 1,
-    parameter logic ENABLE_EXTENSION_ZIFENCEI = 1,
 
     // If enabled, entering an EBREAK instruction will halt the core until reset
     parameter logic ENABLE_HALT_ON_ENTER_EBREAK = 0,
@@ -279,7 +276,6 @@ friscv_id_stage #(
     .ENABLE_MUL                     ( ENABLE_MUL                     ),
     .ENABLE_DIV                     ( ENABLE_DIV                     ),
     .ENABLE_EXTENSION_A             ( ENABLE_EXTENSION_A             ),
-    .ENABLE_EXTENSION_ZIFENCEI      ( ENABLE_EXTENSION_ZIFENCEI      ),
     .ENFORCE_PMP                    ( ENFORCE_PMP                    ),
     .PMP_ENTRIES                    ( PMP_ENTRIES                    ),
     .PMP_USABLE                     ( PMP_USABLE                     ),
