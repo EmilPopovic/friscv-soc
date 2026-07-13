@@ -153,16 +153,18 @@ localparam int unsigned CpuPort         = 0;
 localparam int unsigned DmSbaPort       = 1;
 
 localparam int unsigned NumAxiLiteMst   = 3;
-localparam int unsigned NumAxiLiteRules = 7;
+localparam int unsigned NumAxiLiteRules = 2;
 localparam int unsigned ClintPort       = 0;
 localparam int unsigned RegsPort        = 1;
 localparam int unsigned SramPort        = 2;
 
+localparam int unsigned LiteMstIdxW = $clog2(NumAxiLiteMst);
+
 localparam axi_pkg::xbar_cfg_t AxiLiteXbarCfg = '{
     NoSlvPorts:         NumAxiLiteSlv,
     NoMstPorts:         NumAxiLiteMst,
-    MaxMstTrans:        4,
-    MaxSlvTrans:        4,
+    MaxMstTrans:        1,
+    MaxSlvTrans:        1,
     FallThrough:        1'b0,
     LatencyMode:        axi_pkg::NO_LATENCY,
     AxiIdWidthSlvPorts: 0,
@@ -175,15 +177,11 @@ localparam axi_pkg::xbar_cfg_t AxiLiteXbarCfg = '{
 
 // Address decode
 // idx is the target master-port index
-// Order of rules does not matter.
+// To keep the address decoder small, all transfers that are not for the CLINT or SRAM are
+// sent to the peripheral regs port.
 localparam axi_pkg::xbar_rule_32_t [NumAxiLiteRules-1:0] AxiLiteAddrMap = '{
-    '{ idx: ClintPort, start_addr: 32'h0200_0000, end_addr: 32'h0201_0000 },        // CLINT
-    '{ idx: RegsPort,  start_addr: 32'h0C00_0000, end_addr: 32'h0C20_2000 },        // PLIC
-    '{ idx: RegsPort,  start_addr: 32'h1000_0000, end_addr: 32'h1000_1000 },        // UART0
-    '{ idx: RegsPort,  start_addr: 32'h2000_0000, end_addr: 32'h2000_0040 },        // GPIO A
-    '{ idx: RegsPort,  start_addr: DmBaseAddr,    end_addr: DmBaseAddr + DmSize },  // Debug module
-    '{ idx: RegsPort,  start_addr: 32'h4000_0000, end_addr: 32'h4000_0004 },        // Scratch
-    '{ idx: SramPort,  start_addr: SramBase,      end_addr: SramBase + SramSize }   // SRAM
+    '{ idx: ClintPort, start_addr: 32'h0200_0000, end_addr: 32'h0201_0000 },     // CLINT
+    '{ idx: SramPort,  start_addr: SramBase,      end_addr: SramBase + SramSize } // SRAM
 };
 
 // Struct types for the reg/apb
@@ -237,14 +235,14 @@ axi_lite_xbar_intf #(
     .Cfg    ( AxiLiteXbarCfg          ),
     .rule_t ( axi_pkg::xbar_rule_32_t )
 ) axi_lite_xbar (
-    .clk_i                 ( i_clk             ),
-    .rst_ni                ( soc_rstn          ),
-    .test_i                ( 1'b0              ),
-    .slv_ports             ( axi_lite_xbar_slv ),
-    .mst_ports             ( axi_lite_xbar_mst ),
-    .addr_map_i            ( AxiLiteAddrMap    ),
-    .en_default_mst_port_i ( '0                ),
-    .default_mst_port_i    ( '0                )
+    .clk_i                 ( i_clk                                   ),
+    .rst_ni                ( soc_rstn                                ),
+    .test_i                ( 1'b0                                    ),
+    .slv_ports             ( axi_lite_xbar_slv                       ),
+    .mst_ports             ( axi_lite_xbar_mst                       ),
+    .addr_map_i            ( AxiLiteAddrMap                          ),
+    .en_default_mst_port_i ( '1                                      ),
+    .default_mst_port_i    ( {NumAxiLiteSlv{LiteMstIdxW'(RegsPort)}} )  // Send everything else to regs
 );
 
 // ============================================================
@@ -276,12 +274,13 @@ axi_lite_to_reg #(
     .reg_rsp_i      ( regs_reg_rsp  )
 );
 
-localparam int unsigned NoRegPorts   = 5;
+localparam int unsigned NoRegPorts   = 6;
 localparam int unsigned DmPort       = 0;
 localparam int unsigned Uart0Port    = 1;
 localparam int unsigned ScratchPort  = 2;
 localparam int unsigned GpioAPort    = 3;
 localparam int unsigned PlicPort     = 4;
+localparam int unsigned ErrPort      = 5;
 
 reg_bus_req_t [NoRegPorts-1:0] reg_dev_req;
 reg_bus_rsp_t [NoRegPorts-1:0] reg_dev_rsp;
@@ -308,8 +307,12 @@ addr_decode #(
     .dec_valid_o      (                   ),
     .dec_error_o      (                   ),
     .en_default_idx_i ( 1'b1              ),
-    .default_idx_i    ( 3'(DmPort)        )
+    .default_idx_i    ( 3'(ErrPort)       )
 );
+
+assign reg_dev_rsp[ErrPort].rdata = '0;
+assign reg_dev_rsp[ErrPort].error = 1'b1;
+assign reg_dev_rsp[ErrPort].ready = 1'b1;
 
 reg_demux #(
     .NoPorts ( NoRegPorts    ),
@@ -326,7 +329,7 @@ reg_demux #(
 );
 
 // ============================================================
-// Scratch register (32-bit reg aliased in its 4K window)
+// Scratch register
 // ============================================================
 
 logic [31:0] scratch_q;

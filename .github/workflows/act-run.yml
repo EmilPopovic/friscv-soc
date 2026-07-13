@@ -34,7 +34,12 @@ jobs:
           key: mise-udb-tools-${{ hashFiles('verif/riscv-arch-test/Makefile') }}
 
       - name: Build test ELFs
-        run: nix develop --accept-flake-config --command make -C verif/riscv-arch-test all
+        run: |
+          nix develop --accept-flake-config --command make -C verif/riscv-arch-test all
+          nix develop --accept-flake-config --command make -C verif/riscv-arch-test all-soc
 
       - name: Run arch tests on core
         run: nix develop --accept-flake-config --command make act-run-core
+
+      - name: Run arch tests on SoC
+        run: nix develop --accept-flake-config --command make act-run-soc

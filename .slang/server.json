@@ -4,7 +4,7 @@
   "index": [
     {
       "dirs": ["rtl", "target/sim/rtl", "verif", ".bender/git/checkouts"],
-      "excludeDirs": ["build", "node_modules", "obj_dir", "riscv-arch-test"]
+      "excludeDirs": ["build", "node_modules", "obj_dir", "riscv-arch-test", ".bender"]
     }
   ]
 }
