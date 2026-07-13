@@ -42,8 +42,7 @@ module friscv_soc (
 friscv_mem_if mem_if();
 
 logic [63:0] mtime;
-logic        msip, mtip, meip;
-assign meip = 1'b0;
+logic        msip, mtip, meip, seip;
 
 // Debug module base address
 localparam logic [31:0] DmBaseAddr = 32'h0001_0000;
@@ -70,6 +69,7 @@ friscv_cpu_subsystem_core #(
     .i_msip    ( msip      ),
     .i_mtip    ( mtip      ),
     .i_meip    ( meip      ),
+    .i_seip    ( seip      ),
     .i_mtime   ( mtime     ),
     .mem_if    ( mem_if    ),
     .i_dbg_req ( debug_req )
@@ -150,7 +150,7 @@ localparam int unsigned CpuPort         = 0;
 localparam int unsigned DmSbaPort       = 1;
 
 localparam int unsigned NumAxiLiteMst   = 3;
-localparam int unsigned NumAxiLiteRules = 6;
+localparam int unsigned NumAxiLiteRules = 7;
 localparam int unsigned ClintPort       = 0;
 localparam int unsigned RegsPort        = 1;
 localparam int unsigned SramPort        = 2;
@@ -178,6 +178,7 @@ localparam axi_pkg::xbar_cfg_t AxiLiteXbarCfg = '{
 // Order of rules does not matter.
 localparam axi_pkg::xbar_rule_32_t [NumAxiLiteRules-1:0] AxiLiteAddrMap = '{
     '{ idx: ClintPort, start_addr: 32'h0200_0000, end_addr: 32'h0201_0000 },        // CLINT
+    '{ idx: RegsPort,  start_addr: 32'h0C00_0000, end_addr: 32'h0C20_2000 },        // PLIC
     '{ idx: RegsPort,  start_addr: 32'h1000_0000, end_addr: 32'h1000_1000 },        // UART0
     '{ idx: RegsPort,  start_addr: 32'h2000_0000, end_addr: 32'h2000_0040 },        // GPIO A
     '{ idx: RegsPort,  start_addr: DmBaseAddr,    end_addr: DmBaseAddr + DmSize },  // Debug module
@@ -275,18 +276,20 @@ axi_lite_to_reg #(
     .reg_rsp_i      ( regs_reg_rsp  )
 );
 
-localparam int unsigned NoRegPorts   = 4;
+localparam int unsigned NoRegPorts   = 5;
 localparam int unsigned DmPort       = 0;
 localparam int unsigned Uart0Port    = 1;
 localparam int unsigned ScratchPort  = 2;
 localparam int unsigned GpioAPort    = 3;
+localparam int unsigned PlicPort     = 4;
 
 reg_bus_req_t [NoRegPorts-1:0] reg_dev_req;
 reg_bus_rsp_t [NoRegPorts-1:0] reg_dev_rsp;
 
-localparam int unsigned NoRegRules = 4;
+localparam int unsigned NoRegRules = 5;
 localparam axi_pkg::xbar_rule_32_t [NoRegRules-1:0] RegAddrMap = '{
     '{ idx: DmPort,      start_addr: DmBaseAddr,    end_addr: DmBaseAddr + DmSize },
+    '{ idx: PlicPort,    start_addr: 32'h0C00_0000, end_addr: 32'h0C20_2000 },
     '{ idx: Uart0Port,   start_addr: 32'h1000_0000, end_addr: 32'h1000_1000 },
     '{ idx: GpioAPort,   start_addr: 32'h2000_0000, end_addr: 32'h2000_0040 },
     '{ idx: ScratchPort, start_addr: 32'h4000_0000, end_addr: 32'h4000_0004 }
@@ -305,7 +308,7 @@ addr_decode #(
     .dec_valid_o      (                   ),
     .dec_error_o      (                   ),
     .en_default_idx_i ( 1'b1              ),
-    .default_idx_i    ( 2'(DmPort)        )
+    .default_idx_i    ( 3'(DmPort)        )
 );
 
 reg_demux #(
@@ -582,6 +585,8 @@ reg_to_apb #(
     .apb_rsp_i ( uart0_apb_rsp          )
 );
 
+logic uart0_irq;
+
 // APB -> 16550 UART
 apb_uart_wrap #(
     .apb_req_t ( apb_req_t  ),
@@ -591,7 +596,7 @@ apb_uart_wrap #(
     .rst_ni    ( soc_rstn      ),
     .apb_req_i ( uart0_apb_req ),
     .apb_rsp_o ( uart0_apb_rsp ),
-    .intr_o    (               ),
+    .intr_o    ( uart0_irq     ),
     .sin_i     ( i_uart_rx     ),
     .sout_o    ( o_uart_tx     ),
     .cts_ni    ( 1'b0          ),
@@ -623,6 +628,43 @@ gpio #(
     .cio_gpio_i    ( i_gpio_a               ),
     .cio_gpio_o    ( o_gpio_a               ),
     .cio_gpio_en_o ( o_gpio_a_oe            )
+);
+
+// ============================================================
+// PLIC
+// ============================================================
+
+localparam int unsigned NIrqSources = 8;
+logic [NIrqSources-1:0] plic_irq_sources;
+assign plic_irq_sources[0] = 1'b0;  // reserved
+assign plic_irq_sources[1] = uart0_irq;
+assign plic_irq_sources[2] = 1'b0;
+assign plic_irq_sources[3] = 1'b0;
+assign plic_irq_sources[4] = gpio_a_irq[19];
+assign plic_irq_sources[5] = gpio_a_irq[20];
+assign plic_irq_sources[6] = gpio_a_irq[21];
+assign plic_irq_sources[7] = gpio_a_irq[22];
+
+// Two targets, context 0 is hart 0 M-mode (MEIP), context 1 is hart 0 S-mode (SEIP)
+localparam int unsigned NIrqTargets = 2;
+logic [NIrqTargets-1:0] plic_irq_targets;
+assign meip = plic_irq_targets[0];
+assign seip = plic_irq_targets[1];
+
+plic_top #(
+    .N_SOURCE  ( NIrqSources   ),
+    .N_TARGET  ( NIrqTargets   ),
+    .MAX_PRIO  ( 1             ),
+    .reg_req_t ( reg_bus_req_t ),
+    .reg_rsp_t ( reg_bus_rsp_t )
+) plic (
+    .clk_i         ( i_clk                 ),
+    .rst_ni        ( soc_rstn              ),
+    .req_i         ( reg_dev_req[PlicPort] ),
+    .resp_o        ( reg_dev_rsp[PlicPort] ),
+    .le_i          ( '0                    ),  // All level-held
+    .irq_sources_i ( plic_irq_sources      ),
+    .eip_targets_o ( plic_irq_targets      )
 );
 
 // ============================================================

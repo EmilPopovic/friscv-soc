@@ -1,8 +1,8 @@
 package:
   name: friscv-tapeout
   authors:
-    - "Emil Popovic"
-    - "Matej Jurasic"
+    - "Emil Popović"
+    - "Matej Jurasić"
 
 dependencies:
   axi:                   { git: "https://github.com/pulp-platform/axi.git",                   version: 0.38.0 }
@@ -14,7 +14,21 @@ dependencies:
   riscv-dbg:             { git: "https://github.com/pulp-platform/riscv-dbg.git",             version: 0.10.0 }
   opentitan_peripherals: { git: "https://github.com/pulp-platform/opentitan_peripherals.git", version: 0.4.0  }
 
+vendor_package:
+  - name: rv_plic
+    target_dir: "rtl/vendored/pulp_rv_plic"
+    upstream:
+      git: "https://github.com/pulp-platform/rv_plic.git"
+      rev: "5b5c5a4c1c15c3d7bb833071d344b2c2bc5f599d"
+    patch_dir: "rtl/vendored/patches/pulp_rv_plic"
+
 sources:
+  # Vendor RTL files
+  - rtl/vendored/pulp_rv_plic/rtl/rv_plic_gateway.sv
+  - rtl/vendored/pulp_rv_plic/rtl/rv_plic_target.sv
+  - rtl/vendored/pulp_rv_plic/rtl/plic_regmap.sv
+  - rtl/vendored/pulp_rv_plic/rtl/plic_top.sv
+
   # Core RTL files
   # Keep in compile order
   - rtl/core/friscv_pkg.sv

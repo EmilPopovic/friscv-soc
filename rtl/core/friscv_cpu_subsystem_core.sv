@@ -37,6 +37,7 @@ module friscv_cpu_subsystem_core #(
     input  logic         i_msip,
     input  logic         i_mtip,
     input  logic         i_meip,
+    input  logic         i_seip,
 
     input  mtime_t       i_mtime,
 
@@ -75,6 +76,7 @@ friscv_core_complex #(
     .i_msip       ( i_msip       ),
     .i_mtip       ( i_mtip       ),
     .i_meip       ( i_meip       ),
+    .i_seip       ( i_seip       ),
     .i_mtime      ( i_mtime      ),
     .o_mem_size   ( w_size       ),
     .o_mem_addr   ( w_addr       ),

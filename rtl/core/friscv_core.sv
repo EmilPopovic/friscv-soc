@@ -35,6 +35,7 @@ module friscv_core #(
     input  logic       i_msip,
     input  logic       i_mtip,
     input  logic       i_meip,
+    input  logic       i_seip,
 
     // CLINT time
     input  mtime_t     i_mtime,
@@ -267,6 +268,7 @@ friscv_id_stage #(
     .msip_in          ( i_msip           ),
     .mtip_in          ( i_mtip           ),
     .meip_in          ( i_meip           ),
+    .seip_in          ( i_seip           ),
 
     // CLINT time
     .mtime_in         ( i_mtime          ),

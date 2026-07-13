@@ -51,6 +51,7 @@ module friscv_id_stage #(
     input  logic      msip_in,
     input  logic      mtip_in,
     input  logic      meip_in,
+    input  logic      seip_in,
 
     // CLINT time
     input  mtime_t    mtime_in,
@@ -415,6 +416,9 @@ logic stip_eff;
 assign stip_hw  = csr.menvcfgh[31] && (mtime_in >= {csr.stimecmph, csr.stimecmp});
 assign stip_eff = csr.stip || stip_hw;
 
+logic seip_eff;
+assign seip_eff = csr.seip || seip_in;
+
 // m_interrupt_active if an interrupt to M-mode is pending and not masked or delegated.
 // This interrupt will be taken as soon as it is safe to do so.
 logic m_interrupt_active;
@@ -434,7 +438,7 @@ assign s_interrupt_active = interrupt_safe &&
                             (csr.mstatus.sie || r_current_mode == U_MODE) &&
                             ((csr.ssip && csr.mie[1] && csr.mideleg[1]) ||
                              (stip_eff && csr.mie[5] && csr.mideleg[5]) ||
-                             (csr.seip && csr.mie[9] && csr.mideleg[9]));
+                             (seip_eff && csr.mie[9] && csr.mideleg[9]));
 
 // An interrupt is active (pending or being taken) if either an M-mode or S-mode interrupt is active.
 // All required gating is done by m_interrupt_active and s_interrupt_active.
@@ -648,7 +652,7 @@ always_comb begin
         current_cause = 32'd7;
     else if (msip_in && csr.mie[3])
         current_cause = 32'd3;
-    else if (csr.seip && csr.mie[9] && csr.mideleg[9])
+    else if (seip_eff && csr.mie[9] && csr.mideleg[9])
         current_cause = 32'd9;
     else if (stip_eff && csr.mie[5] && csr.mideleg[5])
         current_cause = 32'd5;
@@ -786,7 +790,7 @@ always_ff @(posedge clk_in) begin
                 csr.mstatus.spp  <= (trap_mode == S_MODE) ? 1'b1 : 1'b0;
                 csr.stval        <= trap_tval;
 
-                if      (csr.seip && csr.mie[9] && csr.mideleg[9]) csr.scause <= {1'b1, 31'd9};
+                if      (seip_eff && csr.mie[9] && csr.mideleg[9]) csr.scause <= {1'b1, 31'd9};
                 else if (stip_eff && csr.mie[5] && csr.mideleg[5]) csr.scause <= {1'b1, 31'd5};
                 else if (csr.ssip && csr.mie[1] && csr.mideleg[1]) csr.scause <= {1'b1, 31'd1};
                 else if (exception_active)                         csr.scause <= 32'(exception_cause_code);
@@ -1011,7 +1015,7 @@ always_comb begin : csr_read
         CSR_MEPC:          csr_out = csr.mepc;
         CSR_MCAUSE:        csr_out = csr.mcause;
         CSR_MTVAL:         csr_out = csr.mtval;
-        CSR_MIP:           csr_out = {20'b0, meip_in, 1'b0, csr.seip, 1'b0, mtip_in, 1'b0, stip_eff, 1'b0, msip_in, 1'b0, csr.ssip, 1'b0};
+        CSR_MIP:           csr_out = {20'b0, meip_in, 1'b0, seip_eff, 1'b0, mtip_in, 1'b0, stip_eff, 1'b0, msip_in, 1'b0, csr.ssip, 1'b0};
 
         // Machine Counter/Timers
         CSR_MCYCLE:        csr_out = csr.mcycle[31:0];
@@ -1042,7 +1046,7 @@ always_comb begin : csr_read
         CSR_SCAUSE:        csr_out = csr.scause;
         CSR_STVAL:         csr_out = csr.stval;
         // S-mode visible interrupt pending bits only
-        CSR_SIP:           csr_out = {22'b0, csr.seip, 3'b0, stip_eff, 3'b0, csr.ssip, 1'b0};
+        CSR_SIP:           csr_out = {22'b0, seip_eff, 3'b0, stip_eff, 3'b0, csr.ssip, 1'b0};
 
         // Supervisor Timer (Sstc)
         CSR_STIMECMP:      csr_out = csr.stimecmp;

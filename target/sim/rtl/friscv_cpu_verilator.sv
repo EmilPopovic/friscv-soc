@@ -55,6 +55,7 @@ friscv_cpu_subsystem_core #(
     .i_msip    ( msip  ),
     .i_mtip    ( mtip  ),
     .i_meip    ( meip  ),
+    .i_seip    ( 1'b0  ),
     .i_mtime   ( mtime ),
     .mem_if    ( mem   ),
     .i_dbg_req ( 1'b0  )

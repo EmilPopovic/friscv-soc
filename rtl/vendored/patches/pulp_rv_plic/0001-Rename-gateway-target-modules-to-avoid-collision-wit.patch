@@ -1,0 +1,69 @@
+From 3bafa6965373033124b46294e7eda14d93a8321e Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Emil=20Popovi=C4=87?= <mail@emilpopovic.me>
+Date: Mon, 13 Jul 2026 14:20:56 +0200
+Subject: [PATCH 1/2] Rename gateway/target modules to avoid collision with
+ opentitan_peripherals
+
+opentitan_peripherals ships its own rv_plic_gateway/rv_plic_target with
+incompatible ports; both packages end up in the same Bender flist.
+---
+ rtl/plic_top.sv        | 4 ++--
+ rtl/rv_plic_gateway.sv | 4 +++-
+ rtl/rv_plic_target.sv  | 4 +++-
+ 3 files changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/rtl/plic_top.sv b/rtl/plic_top.sv
+index 2a32102..fc191e8 100644
+--- a/rtl/plic_top.sv
++++ b/rtl/plic_top.sv
+@@ -58,7 +58,7 @@ module plic_top #(
+   end
+ 
+   // Gateways
+-  rv_plic_gateway #(
++  plic_gateway #(
+     .N_SOURCE (N_SOURCE)
+   ) i_rv_plic_gateway (
+     .clk_i,
+@@ -72,7 +72,7 @@ module plic_top #(
+ 
+   // Target interrupt notification
+   for (genvar i = 0 ; i < N_TARGET; i++) begin : gen_target
+-    rv_plic_target #(
++    plic_target #(
+       .N_SOURCE  ( N_SOURCE ),
+       .MAX_PRIO  ( MAX_PRIO ),
+       .ALGORITHM ( "SEQUENTIAL" )
+diff --git a/rtl/rv_plic_gateway.sv b/rtl/rv_plic_gateway.sv
+index c68f78c..93fd96e 100644
+--- a/rtl/rv_plic_gateway.sv
++++ b/rtl/rv_plic_gateway.sv
+@@ -4,7 +4,9 @@
+ //
+ // RISC-V Platform-Level Interrupt Gateways module
+ 
+-module rv_plic_gateway #(
++// Renamed from rv_plic_gateway: the opentitan_peripherals dependency ships a
++// different module with the same name, and both end up in the Bender flist.
++module plic_gateway #(
+   parameter int N_SOURCE = 32
+ ) (
+   input clk_i,
+diff --git a/rtl/rv_plic_target.sv b/rtl/rv_plic_target.sv
+index 26bd69c..d06b39d 100644
+--- a/rtl/rv_plic_target.sv
++++ b/rtl/rv_plic_target.sv
+@@ -7,7 +7,9 @@
+ // This module basically doing IE & IP based on priority and threshold.
+ // Keep in mind that increasing MAX_PRIO affects logic size a lot.
+ 
+-module rv_plic_target #(
++// Renamed from rv_plic_target: the opentitan_peripherals dependency ships a
++// different module with the same name, and both end up in the Bender flist.
++module plic_target #(
+   parameter int N_SOURCE = 32,
+   parameter int MAX_PRIO = 7,
+   parameter     ALGORITHM = "SEQUENTIAL", // SEQUENTIAL | MATRIX
+-- 
+2.53.0
+

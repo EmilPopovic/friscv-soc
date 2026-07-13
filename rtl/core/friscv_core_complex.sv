@@ -31,6 +31,7 @@ module friscv_core_complex #(
     input  logic       i_msip,
     input  logic       i_mtip,
     input  logic       i_meip,
+    input  logic       i_seip,
     input  mtime_t     i_mtime,
 
     output mem_width_e o_mem_size,
@@ -356,6 +357,7 @@ friscv_core #(
     .i_msip           ( i_msip          ),
     .i_mtip           ( i_mtip          ),
     .i_meip           ( i_meip          ),
+    .i_seip           ( i_seip          ),
 
     // CLINT time
     .i_mtime          ( i_mtime         ),
