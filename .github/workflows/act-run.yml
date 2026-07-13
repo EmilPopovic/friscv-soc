@@ -15,31 +15,40 @@ jobs:
     env:
       MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: DeterminateSystems/nix-installer-action@v16
+      - uses: DeterminateSystems/nix-installer-action@v22
 
-      - name: Cache riscv-arch-test checkout
-        uses: actions/cache@v4
+      - uses: DeterminateSystems/magic-nix-cache-action@v14
         with:
-          path: verif/riscv-arch-test/riscv-arch-test
-          key: act-repo-${{ hashFiles('verif/riscv-arch-test/Makefile') }}
+          use-flakehub: false
+          use-gha-cache: true
 
-      - name: Cache mise and UDB tools
-        uses: actions/cache@v4
+      - name: Checkout riscv-arch-test
+        run: make -C verif/riscv-arch-test clone
+
+      - name: Cache ACT tools
+        uses: actions/cache@v5
         with:
           path: |
             ~/.local/share/mise
+            ~/.cache/uv
             ~/.cache/udb
-          key: mise-udb-tools-${{ hashFiles('verif/riscv-arch-test/Makefile') }}
+          key: >-
+            ${{ runner.os }}-act-tools-${{
+              hashFiles(
+                'verif/riscv-arch-test/riscv-arch-test/.mise.toml',
+                'verif/riscv-arch-test/riscv-arch-test/uv.lock',
+                'verif/riscv-arch-test/riscv-arch-test/framework/src/act/data/Gemfile.lock'
+              )
+            }}
+          restore-keys: ${{ runner.os }}-act-tools-
 
       - name: Build test ELFs
-        run: |
-          nix develop --accept-flake-config --command make -C verif/riscv-arch-test all
-          nix develop --accept-flake-config --command make -C verif/riscv-arch-test all-soc
+        run: nix develop --accept-flake-config .#act --command make -C verif/riscv-arch-test all
 
       - name: Run arch tests on core
-        run: nix develop --accept-flake-config --command make act-run-core
+        run: nix develop --accept-flake-config .#act --command make act-run-core
 
       - name: Run arch tests on SoC
-        run: nix develop --accept-flake-config --command make act-run-soc
+        run: nix develop --accept-flake-config .#act --command make act-run-soc

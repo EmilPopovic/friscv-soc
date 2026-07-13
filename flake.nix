@@ -172,6 +172,19 @@
               svase
             ];
           };
+
+          act = pkgs.mkShell {
+            name = "friscv-act";
+            packages = (with pkgs; [
+              bender
+              python3
+              verilator
+            ]) ++ [
+              mise
+              riscv-toolchain
+              sail-riscv
+            ];
+          };
         });
     };
 }

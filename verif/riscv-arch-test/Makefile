@@ -21,8 +21,10 @@ TARGET_SIM_ROOT ?= $(shell pwd)/../../target/sim
 .PHONY: clone
 clone:
 	@if [ ! -d $(ACT_ROOT)/.git ]; then \
-		git clone ${ACT_REPO} $(ACT_ROOT); \
-		cd $(ACT_ROOT) && git checkout $(ACT_REF); \
+		git init $(ACT_ROOT); \
+		git -C $(ACT_ROOT) remote add origin $(ACT_REPO); \
+		git -C $(ACT_ROOT) fetch --depth 1 origin $(ACT_REF); \
+		git -C $(ACT_ROOT) checkout --detach FETCH_HEAD; \
 	fi
 
 .PHONY: distclean
@@ -37,7 +39,10 @@ config: clone
 	cp $(ACT_SOC_SRC)/* $(ACT_SOC_DST)/
 
 .PHONY: all
-all: config
+all: all-core all-soc
+
+.PHONY: all-core
+all-core: config
 	rm -rf elfs/
 	rm -rf $(ACT_FULL_WORK)/build $(ACT_FULL_WORK)/elfs
 	UV_LINK_MODE=$(UV_LINK_MODE) CONFIG_FILES=$(ACT_FULL_CONFIG) EXCLUDE_EXTENSIONS=$(ACT_EXCLUDE_EXTENSIONS) $(MAKE) -C $(ACT_ROOT) --jobs $(JOBS)
@@ -52,12 +57,11 @@ all-soc: config
 
 .PHONY: run-core
 run-core:
-	python3 scripts/copy_elfs.py core
 	make -C $(TARGET_SIM_ROOT) core
 	python3 scripts/run.py core
 
 .PHONY: run-soc
-run-soc: all-soc
+run-soc:
 	make -C $(TARGET_SIM_ROOT) soc \
 		SOC_DIR=$(ACT_SOC_SIM_DIR) \
 		SOC_SRAM_BASE=$(ACT_SOC_SRAM_BASE) \
