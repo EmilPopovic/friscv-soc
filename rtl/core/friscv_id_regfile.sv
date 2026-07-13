@@ -8,7 +8,7 @@
 
 /*
  * This module implements the general-purpose register file for the RISC-V core.
- * Provides three asynchronous read ports and one synchronous write port.
+ * Provides two asynchronous read ports and one synchronous write port.
  * Resets to 0.
  */
 
@@ -22,20 +22,17 @@ module friscv_id_regfile (
 
     input  reg_addr_t rs1_sel_in,
     input  reg_addr_t rs2_sel_in,
-    input  reg_addr_t jump_base_sel_in,
     input  reg_addr_t rd_sel_in,
     input  data_t     rd_data_in,
 
     output data_t     rs1_data_out,
-    output data_t     rs2_data_out,
-    output addr_t     jump_base_out
+    output data_t     rs2_data_out
 );
 
 data_t regfile [REGISTER_NUM];
 
 assign rs1_data_out  = regfile[rs1_sel_in];
 assign rs2_data_out  = regfile[rs2_sel_in];
-assign jump_base_out = regfile[jump_base_sel_in];
 
 always @(posedge clk_in) begin
     if (!rst_n_in) for (int unsigned i = 0; i < REGISTER_NUM; i++) regfile[i] <= '0;

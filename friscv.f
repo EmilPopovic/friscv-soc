@@ -6,6 +6,8 @@ rtl/core/friscv_cpu_subsystem_core.sv
 rtl/core/friscv_muldiv.sv
 rtl/core/friscv_ex_stage_branch_unit.sv
 rtl/core/friscv_ex_stage.sv
+rtl/core/friscv_csr_file.sv
+rtl/core/friscv_trap_controller.sv
 rtl/core/friscv_id_regfile.sv
 rtl/core/friscv_id_decoder.sv
 rtl/core/friscv_id_stage.sv
