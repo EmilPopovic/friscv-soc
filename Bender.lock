@@ -17,8 +17,8 @@ packages:
     - obi_peripherals
     - register_interface
   axi:
-    revision: 2f395b176bee1c769c80f060a4345fda965bb04b
-    version: 0.38.0
+    revision: a8c53cee2520d328d390c507c88818e8ac144c8c
+    version: 0.39.10
     source:
       Git: https://github.com/pulp-platform/axi.git
     dependencies:
@@ -39,6 +39,16 @@ packages:
     source:
       Git: https://github.com/pulp-platform/common_verification.git
     dependencies: []
+  hyperbus:
+    revision: 2a14bd8f9a985b488ee23d240764f52f129f7729
+    version: 0.0.9
+    source:
+      Git: https://github.com/pulp-platform/hyperbus.git
+    dependencies:
+    - axi
+    - common_cells
+    - register_interface
+    - tech_cells_generic
   obi:
     revision: 0155fc34e900c7c884e081c0a1114a247937ff69
     version: 0.1.7
