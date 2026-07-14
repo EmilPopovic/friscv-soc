@@ -157,6 +157,7 @@ localparam axi_pkg::xbar_cfg_t AxiLiteXbarCfg = '{
     MaxSlvTrans:        1,
     FallThrough:        1'b0,
     LatencyMode:        axi_pkg::NO_LATENCY,
+    PipelineStages:     0,
     AxiIdWidthSlvPorts: 0,
     AxiIdUsedSlvPorts:  0,
     UniqueIds:          1'b0,
