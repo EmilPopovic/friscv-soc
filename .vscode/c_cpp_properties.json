@@ -10,6 +10,7 @@
                 "${workspaceFolder}/target/sim/cpp",
                 "${workspaceFolder}/target/sim/obj_dir_core",
                 "${workspaceFolder}/target/sim/obj_dir_soc",
+                "${workspaceFolder}/target/sim/obj_dir_soc_act",
                 "${env:VERILATOR_ROOT}/include",
                 "${env:VERILATOR_ROOT}/include/vltstd",
                 "/usr/share/verilator/include",

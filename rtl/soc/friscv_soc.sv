@@ -111,19 +111,21 @@ friscv_cpu_subsystem_core #(
 // ============================================================
 
 friscv_mem_if dm_if ();
-friscv_mem_if mem_if ();
+friscv_mem_if ext_if ();
 friscv_mem_if soc_if ();
 
 friscv_mem_hub #(
-    .MEM_BASE( SramBase ),
-    .MEM_SIZE( SramSize )
- ) friscv_mem_hub (
+    .MEM_BASE  ( MemBase  ),
+    .MEM_SIZE  ( MemSize  ),
+    .SRAM_BASE ( SramBase ),
+    .SRAM_SIZE ( SramSize )
+) friscv_mem_hub (
     .i_clk    ( i_clk    ),
     .i_rstn   ( soc_rstn ),
     .s_cpu_if ( cpu_if   ),
     .s_dm_if  ( dm_if    ),
-    .m_mem_if ( mem_if   ),
-    .m_soc_if ( soc_if   )
+    .m_ext_if ( ext_if   ),
+    .m_sys_if ( soc_if   )
 );
 
 // ============================================================
@@ -322,7 +324,7 @@ assign reg_dev_rsp[ScratchPort].error = 1'b0;
 assign reg_dev_rsp[ScratchPort].ready = 1'b1;
 
 // ============================================================
-// SRAM
+// External memory interface
 // ============================================================
 
 AXI_BUS #(
@@ -338,58 +340,11 @@ friscv_axi4_full_adapter_intf #(
 ) m_mem (
     .clk_i          ( i_clk    ),
     .rst_ni         ( soc_rstn ),
-    .mem_slv        ( mem_if   ),
+    .mem_slv        ( ext_if   ),
     .mst            ( mem_axi  )
 );
 
-logic        sram_req, sram_gnt, sram_we, sram_rvalid;
-logic [31:0] sram_addr, sram_wdata, sram_rdata;
-logic [3:0]  sram_be;
-
-axi_to_mem_intf #(
-    .ADDR_WIDTH ( AxiAddrWidth ),
-    .DATA_WIDTH ( AxiDataWidth ),
-    .ID_WIDTH   ( AxiIdWidth   ),
-    .USER_WIDTH ( AxiUserWidth ),
-    .NUM_BANKS  ( 1            )
-) axi_to_mem (
-    .clk_i        ( i_clk       ),
-    .rst_ni       ( soc_rstn    ),
-    .busy_o       (             ),
-    .slv          ( mem_axi     ),
-    .mem_req_o    ( sram_req    ),
-    .mem_gnt_i    ( sram_gnt    ),
-    .mem_addr_o   ( sram_addr   ),
-    .mem_wdata_o  ( sram_wdata  ),
-    .mem_strb_o   ( sram_be     ),
-    .mem_atop_o   (             ),
-    .mem_we_o     ( sram_we     ),
-    .mem_rvalid_i ( sram_rvalid ),
-    .mem_rdata_i  ( sram_rdata  )
-);
-
-tc_sram #(
-    .NumWords  ( SramSize/4 ),
-    .DataWidth ( 32         ),
-    .ByteWidth ( 8          ),
-    .NumPorts  ( 1          ),
-    .Latency   ( 1          )
-) sram (
-    .clk_i   ( i_clk                           ),
-    .rst_ni  ( i_rstn                          ),
-    .req_i   ( sram_req                        ),
-    .we_i    ( sram_we                         ),
-    .addr_i  ( sram_addr[$clog2(SramSize)-1:2] ),
-    .wdata_i ( sram_wdata                      ),
-    .be_i    ( sram_be                         ),
-    .rdata_o ( sram_rdata                      )
-);
-
-assign sram_gnt = 1'b1;
-always_ff @(posedge i_clk) begin
-    if (!soc_rstn) sram_rvalid <= 1'b0;
-    else           sram_rvalid <= sram_req;
-end
+// TODO connect external memory interface here
 
 // ============================================================
 // Debugger
@@ -521,20 +476,20 @@ always_ff @(posedge i_clk) begin
 end
 
 // DM SBA master port: dm master -> bridge -> mem hub DM port
-friscv_dm_sba_mem dm_sba_mem (
-    .i_clk          ( i_clk         ),
-    .i_rstn         ( soc_rstn      ),
-    .dm_req_i       ( sba_req       ),
-    .dm_addr_i      ( sba_addr      ),
-    .dm_we_i        ( sba_we        ),
-    .dm_wdata_i     ( sba_wdata     ),
-    .dm_be_i        ( sba_be        ),
-    .dm_gnt_o       ( sba_gnt       ),
-    .dm_rvalid_o    ( sba_rvalid    ),
-    .dm_err_o       ( sba_err       ),
-    .dm_other_err_o ( sba_other_err ),
-    .dm_rdata_o     ( sba_rdata     ),
-    .mem_if         ( dm_if         )
+friscv_from_mem dm_sba_mem (
+    .i_clk       ( i_clk         ),
+    .i_rstn      ( soc_rstn      ),
+    .req_i       ( sba_req       ),
+    .addr_i      ( sba_addr      ),
+    .we_i        ( sba_we        ),
+    .wdata_i     ( sba_wdata     ),
+    .be_i        ( sba_be        ),
+    .gnt_o       ( sba_gnt       ),
+    .rvalid_o    ( sba_rvalid    ),
+    .err_o       ( sba_err       ),
+    .other_err_o ( sba_other_err ),
+    .rdata_o     ( sba_rdata     ),
+    .mem_if      ( dm_if         )
 );
 
 // ============================================================

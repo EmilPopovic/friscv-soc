@@ -8,7 +8,7 @@
 namespace {
 
 void write_byte(Vfriscv_soc& top, uint32_t offset, uint8_t data) {
-    auto& sram = top.rootp->friscv_soc__DOT__sram__DOT__sram;
+    auto& sram = top.rootp->friscv_soc__DOT__friscv_mem_hub__DOT__sram__DOT__sram;
     uint32_t& word = sram[offset / 4];
     unsigned shift = (offset & 3) * 8;
 

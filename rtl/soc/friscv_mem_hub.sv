@@ -11,16 +11,18 @@
 import friscv_pkg::*;
 
 module friscv_mem_hub #(
-    parameter int unsigned MEM_BASE = 32'h8000_0000,
-    parameter int unsigned MEM_SIZE = 32'h0100_0000
+    parameter int unsigned MEM_BASE  = 32'h8000_0000,
+    parameter int unsigned MEM_SIZE  = 32'h8000_0000,
+    parameter int unsigned SRAM_BASE = 32'h0000_0000,
+    parameter int unsigned SRAM_SIZE = 32'h0100_0000
 ) (
     input  logic         i_clk,
     input  logic         i_rstn,
 
     friscv_mem_if.slave  s_cpu_if,  // To CPU
     friscv_mem_if.slave  s_dm_if,   // To DM
-    friscv_mem_if.master m_mem_if,  // To downstream
-    friscv_mem_if.master m_soc_if   // To SoC
+    friscv_mem_if.master m_ext_if,  // To downstream
+    friscv_mem_if.master m_sys_if   // To SoC
 );
 
 friscv_mem_if granted_if ();
@@ -181,27 +183,91 @@ assign s_cpu_if.beat_valid  = 1'b0;
 assign s_dm_if.beat_valid   = 1'b0;
 
 // ============================================================
-// Demux to SoC and memory
+// Demux to SoC, external and SRAM
 // ============================================================
 
-logic w_sel_mem;
-assign w_sel_mem = (granted_if.addr - addr_t'(MEM_BASE)) < addr_t'(MEM_SIZE);
+friscv_mem_if sram_if ();
 
-assign m_mem_if.addr     = granted_if.addr;
-assign m_mem_if.size     = granted_if.size;
-assign m_mem_if.wdata    = granted_if.wdata;
-assign m_mem_if.rw       = w_sel_mem ? granted_if.rw : RW_IDLE;
-assign m_mem_if.burst_en = 1'b0;
+logic w_match_ext, w_match_sram;
+assign w_match_ext  = (granted_if.addr - addr_t'( MEM_BASE)) < addr_t'( MEM_SIZE);
+assign w_match_sram = (granted_if.addr - addr_t'(SRAM_BASE)) < addr_t'(SRAM_SIZE);
 
-assign m_soc_if.addr     = granted_if.addr;
-assign m_soc_if.size     = granted_if.size;
-assign m_soc_if.wdata    = granted_if.wdata;
-assign m_soc_if.rw       = w_sel_mem ? RW_IDLE : granted_if.rw;
-assign m_soc_if.burst_en = 1'b0;
+logic w_sel_ext, w_sel_sram, w_sel_sys;
+assign w_sel_ext = w_match_ext && !w_sel_sram;
+assign w_sel_sram = w_match_sram; 
+assign w_sel_sys  = !w_sel_ext && !w_sel_sram;
 
-assign granted_if.rdata      = w_sel_mem ? m_mem_if.rdata      : m_soc_if.rdata;
-assign granted_if.wait_req   = w_sel_mem ? m_mem_if.wait_req   : m_soc_if.wait_req;
-assign granted_if.err        = w_sel_mem ? m_mem_if.err        : m_soc_if.err;
-assign granted_if.beat_valid = w_sel_mem ? m_mem_if.beat_valid : m_soc_if.beat_valid;
+assign m_ext_if.addr     = granted_if.addr;
+assign m_ext_if.size     = granted_if.size;
+assign m_ext_if.wdata    = granted_if.wdata;
+assign m_ext_if.rw       = w_sel_ext ? granted_if.rw : RW_IDLE;
+assign m_ext_if.burst_en = 1'b0;
+
+assign m_sys_if.addr     = granted_if.addr;
+assign m_sys_if.size     = granted_if.size;
+assign m_sys_if.wdata    = granted_if.wdata;
+assign m_sys_if.rw       = w_sel_sys ? granted_if.rw : RW_IDLE;
+assign m_sys_if.burst_en = 1'b0;
+
+assign sram_if.addr      = granted_if.addr;
+assign sram_if.size      = granted_if.size;
+assign sram_if.wdata     = granted_if.wdata;
+assign sram_if.rw        = w_sel_sram ? granted_if.rw : RW_IDLE;
+assign sram_if.burst_en  = 1'b0;
+
+assign granted_if.rdata      = w_sel_ext ? m_ext_if.rdata      : w_sel_sram ? sram_if.rdata      : m_sys_if.rdata;
+assign granted_if.wait_req   = w_sel_ext ? m_ext_if.wait_req   : w_sel_sram ? sram_if.wait_req   : m_sys_if.wait_req;
+assign granted_if.err        = w_sel_ext ? m_ext_if.err        : w_sel_sram ? sram_if.err        : m_sys_if.err;
+assign granted_if.beat_valid = w_sel_ext ? m_ext_if.beat_valid : w_sel_sram ? sram_if.beat_valid : m_sys_if.beat_valid;
+
+// ============================================================
+// SRAM block
+// ============================================================
+
+logic        sram_req, sram_gnt, sram_we, sram_rvalid;
+logic [31:0] sram_addr, sram_wdata, sram_rdata;
+logic [3:0]  sram_be;
+
+friscv_to_mem #(
+    .REGISTER_REQ ( 0 )
+) sram_mem_if (
+    .i_clk       ( i_clk       ),
+    .i_rstn      ( i_rstn      ),
+    .req_o       ( sram_req    ),
+    .addr_o      ( sram_addr   ),
+    .we_o        ( sram_we     ),
+    .wdata_o     ( sram_wdata  ),
+    .be_o        ( sram_be     ),
+    .gnt_i       ( sram_gnt    ),
+    .rvalid_i    ( sram_rvalid ),
+    .err_i       ( 1'b0        ),
+    .other_err_i ( 1'b0        ),
+    .rdata_i     ( sram_rdata  ),
+    .mem_if      ( sram_if     )
+);
+
+tc_sram #(
+    .NumWords  ( SRAM_SIZE/4 ),
+    .DataWidth ( 32          ),
+    .ByteWidth ( 8           ),
+    .NumPorts  ( 1           ),
+    .Latency   ( 1           )
+) sram (
+    .clk_i   ( i_clk                            ),
+    .rst_ni  ( i_rstn                           ),
+    .req_i   ( sram_req                         ),
+    .we_i    ( sram_we                          ),
+    .addr_i  ( sram_addr[$clog2(SRAM_SIZE)-1:2] ),
+    .wdata_i ( sram_wdata                       ),
+    .be_i    ( sram_be                          ),
+    .rdata_o ( sram_rdata                       )
+);
+
+assign sram_gnt = 1'b1;
+always_ff @(posedge i_clk) begin
+    if (!i_rstn) sram_rvalid <= 1'b0;
+    else         sram_rvalid <= sram_req;
+end
+
 
 endmodule
