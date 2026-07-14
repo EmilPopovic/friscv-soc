@@ -15,10 +15,13 @@
 
 module friscv_soc #(
     parameter int unsigned SramBase = 32'h0000_0000,
-    parameter int unsigned SramSize = 32'h0000_4000
+    parameter int unsigned SramSize = 32'h0000_4000,
+    parameter int unsigned NumPads  = 22
 ) (
     input  logic  i_clk,
     input  logic  i_rstn,
+
+    output logic  o_clk_out,
 
     output logic  o_end,
 
@@ -33,10 +36,33 @@ module friscv_soc #(
     output logic  o_jtag_tdo,
 
     // PA0
-    input  logic i_pa0,
-    output logic o_pa0,
-    output logic o_pa0_oe
+    input  logic  i_pa0,
+    output logic  o_pa0,
+    output logic  o_pa0_oe,
+
+    // PA1
+    input  logic  i_pa1,
+    output logic  o_pa1,
+    output logic  o_pa1_oe,
+
+    // PA2
+    input  logic  i_pa2,
+    output logic  o_pa2,
+    output logic  o_pa2_oe,
+
+    // Muxed pins
+    input  logic [NumPads-1:0] pad_in_i,
+    output logic [NumPads-1:0] pad_out_o,
+    output logic [NumPads-1:0] pad_oe_o
 );
+
+// Provide clock divided by 16 to the outside
+logic [3:0] clk_cnt;
+always_ff @(posedge i_clk or negedge i_rstn) begin
+    if (!i_rstn) clk_cnt <= '0;
+    else         clk_cnt <= clk_cnt + 1;
+end
+assign o_clk_out = clk_cnt[3];
 
 // ============================================================
 // CPU subsystem
@@ -274,23 +300,25 @@ axi_lite_to_reg #(
     .reg_rsp_i      ( regs_reg_rsp  )
 );
 
-localparam int unsigned NoRegPorts   = 6;
+localparam int unsigned NoRegPorts   = 7;
 localparam int unsigned DmPort       = 0;
 localparam int unsigned Uart0Port    = 1;
 localparam int unsigned ScratchPort  = 2;
 localparam int unsigned GpioAPort    = 3;
 localparam int unsigned PlicPort     = 4;
-localparam int unsigned ErrPort      = 5;
+localparam int unsigned PinmuxPort   = 5;
+localparam int unsigned ErrPort      = 6;
 
 reg_bus_req_t [NoRegPorts-1:0] reg_dev_req;
 reg_bus_rsp_t [NoRegPorts-1:0] reg_dev_rsp;
 
-localparam int unsigned NoRegRules = 5;
+localparam int unsigned NoRegRules = 6;
 localparam axi_pkg::xbar_rule_32_t [NoRegRules-1:0] RegAddrMap = '{
     '{ idx: DmPort,      start_addr: DmBaseAddr,    end_addr: DmBaseAddr + DmSize },
     '{ idx: PlicPort,    start_addr: 32'h0C00_0000, end_addr: 32'h0C20_2000 },
     '{ idx: Uart0Port,   start_addr: 32'h1000_0000, end_addr: 32'h1000_1000 },
     '{ idx: GpioAPort,   start_addr: 32'h2000_0000, end_addr: 32'h2000_0040 },
+    '{ idx: PinmuxPort,  start_addr: 32'h3000_0000, end_addr: 32'h3000_0040 },
     '{ idx: ScratchPort, start_addr: 32'h4000_0000, end_addr: 32'h4000_0004 }
 };
 
@@ -613,6 +641,61 @@ apb_uart_wrap #(
 );
 
 // ============================================================
+// Pin mux
+// ============================================================
+
+/*
+Pin#  Function 0  Function 1
+3     PA3         -
+4     PA4         -
+5     PA5         -
+6     PA6         -
+7     PA7         -
+8     PA8         -
+9     PA9         -
+10    PA10        -
+11    PA11        -
+12    PA12        -
+13    PA13        -
+14    PA14        -
+15    PA15        -
+16    PA16        -
+17    PA17        -
+18    PA18        -
+19    PA19        -
+20    PA20        -
+21    PA21        -
+22    PA22        -
+23    PA23        -
+24    PA24        -
+*/
+
+localparam int unsigned NumAfs = 2;
+
+logic [NumPads-1:0][NumAfs-1:0] to_func;
+logic [NumPads-1:0][NumAfs-1:0] from_func;
+logic [NumPads-1:0][NumAfs-1:0] oe_func;
+
+friscv_pinmux #(
+    .NumPads  ( NumPads       ),
+    .NumAfs   ( NumAfs        ),
+    .AfInIdle ( '0            ),  // Idle level presented to non-selected AFs, all 0
+    .reg_req_t( reg_bus_req_t ),
+    .reg_rsp_t( reg_bus_rsp_t )
+ ) pinmux (
+    .clk_i      ( i_clk                   ),
+    .rst_ni     ( i_rstn                  ),
+    .reg_req_i  ( reg_dev_req[PinmuxPort] ),
+    .reg_rsp_o  ( reg_dev_rsp[PinmuxPort] ),
+    .pad_in_i   ( pad_in_i                ),
+    .pad_out_o  ( pad_out_o               ),
+    .pad_oe_o   ( pad_oe_o                ),
+    .func_out_i ( from_func               ),  // peripheral -> pinmux
+    .func_in_o  ( to_func                 ),  // peripheral <- pinmux
+    .func_oe_i  ( oe_func                 )
+);
+
+// ============================================================
 // GPIO Port A
 // ============================================================
 
@@ -620,6 +703,14 @@ logic [31:0] gpio_a_irq;
 logic [31:0] gpio_a_in;
 logic [31:0] gpio_a_out;
 logic [31:0] gpio_a_oe;
+
+for (genvar p = 3; p <= 24; p++) begin : gpio_a_muxed
+    assign from_func[p-3][0] = gpio_a_out[p];
+    assign from_func[p-3][1] = 1'b0;  // no alternate function
+    assign oe_func  [p-3][0] = gpio_a_oe[p];
+    assign oe_func  [p-3][1] = 1'b0;  // no alternate function
+    assign gpio_a_in[p]      = to_func[p-3][0];
+end
 
 gpio #(
     .reg_req_t   ( reg_bus_req_t ),
@@ -641,6 +732,16 @@ assign gpio_a_in[0] = i_pa0;
 assign o_pa0        = gpio_a_out[0];
 assign o_pa0_oe     = gpio_a_oe[0];
 
+// PA1
+assign gpio_a_in[1] = i_pa1;
+assign o_pa1        = gpio_a_out[1];
+assign o_pa1_oe     = gpio_a_oe[1];
+
+// PA2
+assign gpio_a_in[2] = i_pa2;
+assign o_pa2        = gpio_a_out[2];
+assign o_pa2_oe     = gpio_a_oe[2];
+
 // ============================================================
 // PLIC
 // ============================================================
@@ -651,6 +752,7 @@ assign plic_irq_sources[0] = 1'b0;  // reserved
 assign plic_irq_sources[1] = uart0_irq;
 assign plic_irq_sources[2] = 1'b0;
 assign plic_irq_sources[3] = 1'b0;
+// GPIO 19-22 can be used as external interrupts
 assign plic_irq_sources[4] = gpio_a_irq[19];
 assign plic_irq_sources[5] = gpio_a_irq[20];
 assign plic_irq_sources[6] = gpio_a_irq[21];
