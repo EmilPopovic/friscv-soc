@@ -60,6 +60,7 @@ sources:
 
   # SoC RTL files
   - rtl/soc/friscv_axi_lite_adapter.sv
+  - rtl/soc/friscv_axi_lite_adapter_intf.sv
   - rtl/soc/friscv_dm_sba_axi.sv
   - rtl/soc/friscv_dm_sba_mem.sv
   - rtl/soc/friscv_clint.v
