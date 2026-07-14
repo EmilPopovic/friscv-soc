@@ -62,6 +62,8 @@ sources:
   # SoC RTL files
   - rtl/soc/friscv_axi_lite_adapter.sv
   - rtl/soc/friscv_axi_lite_adapter_intf.sv
+  - rtl/soc/friscv_axi4_full_adapter.sv
+  - rtl/soc/friscv_axi4_full_adapter_intf.sv
   - rtl/soc/friscv_dm_sba_mem.sv
   - rtl/soc/friscv_clint.v
   - rtl/soc/friscv_pinmux.sv

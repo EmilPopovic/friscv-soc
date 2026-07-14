@@ -325,39 +325,26 @@ assign reg_dev_rsp[ScratchPort].ready = 1'b1;
 // SRAM
 // ============================================================
 
-logic        sram_req, sram_gnt, sram_we, sram_rvalid;
-logic [31:0] sram_addr, sram_wdata, sram_rdata;
-logic [3:0]  sram_be;
-
-// Bundle the flat adapter wires into the SRAM's AXI-Lite port
-AXI_LITE #(
-    .AXI_ADDR_WIDTH ( AxiAddrWidth ),
-    .AXI_DATA_WIDTH ( AxiDataWidth )
-) sram_lite ();
-
-friscv_axi_lite_adapter_intf m_mem (
-    .clk_i          ( i_clk     ),
-    .rst_ni         ( soc_rstn  ),
-    .mem_slv        ( mem_if    ),
-    .mst            ( sram_lite )
-);
-
-// AXI-Lite -> full AXI -> memory port
 AXI_BUS #(
     .AXI_ADDR_WIDTH ( AxiAddrWidth ),
     .AXI_DATA_WIDTH ( AxiDataWidth ),
     .AXI_ID_WIDTH   ( AxiIdWidth   ),
     .AXI_USER_WIDTH ( AxiUserWidth )
-) sram_axi ();
+) mem_axi ();
 
-axi_lite_to_axi_intf #(
-    .AXI_DATA_WIDTH ( AxiDataWidth )
-) sram_lite_to_axi (
-    .in             ( sram_lite ),
-    .slv_aw_cache_i ( '0        ),
-    .slv_ar_cache_i ( '0        ),
-    .out            ( sram_axi  )
+friscv_axi4_full_adapter_intf #(
+    .AXI_ID_WIDTH   ( AxiIdWidth   ),
+    .AXI_USER_WIDTH ( AxiUserWidth )
+) m_mem (
+    .clk_i          ( i_clk    ),
+    .rst_ni         ( soc_rstn ),
+    .mem_slv        ( mem_if   ),
+    .mst            ( mem_axi  )
 );
+
+logic        sram_req, sram_gnt, sram_we, sram_rvalid;
+logic [31:0] sram_addr, sram_wdata, sram_rdata;
+logic [3:0]  sram_be;
 
 axi_to_mem_intf #(
     .ADDR_WIDTH ( AxiAddrWidth ),
@@ -366,19 +353,19 @@ axi_to_mem_intf #(
     .USER_WIDTH ( AxiUserWidth ),
     .NUM_BANKS  ( 1            )
 ) axi_to_mem (
-    .clk_i        ( i_clk                   ),
-    .rst_ni       ( soc_rstn                ),
-    .busy_o       (                         ),
-    .slv          ( sram_axi                ),
-    .mem_req_o    ( sram_req                ),
-    .mem_gnt_i    ( sram_gnt                ),
-    .mem_addr_o   ( sram_addr               ),
-    .mem_wdata_o  ( sram_wdata              ),
-    .mem_strb_o   ( sram_be                 ),
-    .mem_atop_o   (                         ),
-    .mem_we_o     ( sram_we                 ),
-    .mem_rvalid_i ( sram_rvalid             ),
-    .mem_rdata_i  ( sram_rdata              )
+    .clk_i        ( i_clk       ),
+    .rst_ni       ( soc_rstn    ),
+    .busy_o       (             ),
+    .slv          ( mem_axi     ),
+    .mem_req_o    ( sram_req    ),
+    .mem_gnt_i    ( sram_gnt    ),
+    .mem_addr_o   ( sram_addr   ),
+    .mem_wdata_o  ( sram_wdata  ),
+    .mem_strb_o   ( sram_be     ),
+    .mem_atop_o   (             ),
+    .mem_we_o     ( sram_we     ),
+    .mem_rvalid_i ( sram_rvalid ),
+    .mem_rdata_i  ( sram_rdata  )
 );
 
 tc_sram #(
