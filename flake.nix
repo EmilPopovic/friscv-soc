@@ -32,6 +32,18 @@
           };
           openroad = librelane.packages.${system}.openroad
             or librelane.legacyPackages.${system}.openroad;
+          librelane-pkg = librelane.packages.${system}.librelane
+            or librelane.packages.${system}.default;
+          librelane-manual-pdk = pkgs.symlinkJoin {
+            name = "librelane-manual-pdk";
+            paths = [ librelane-pkg ];
+            nativeBuildInputs = [ pkgs.makeWrapper ];
+            postBuild = ''
+              rm $out/bin/librelane
+              makeWrapper ${librelane-pkg}/bin/librelane $out/bin/librelane \
+                --add-flags "--manual-pdk"
+            '';
+          };
           riscv-toolchain = pkgs.stdenv.mkDerivation rec {
             pname = "riscv64-unknown-elf-toolchain";
             version = "2026.04.26";
@@ -149,7 +161,8 @@
           default = pkgs.mkShell {
             name = "friscv-tapeout";
             LIBERTY = ihp-liberty;
-            PDK_ROOT = "${ihp-pdk}/ihp-sg13g2";
+            PDK_ROOT = "${ihp-pdk}";
+            PDK = "ihp-sg13g2";
             packages = (with pkgs; [
               iverilog
               verilator
@@ -166,6 +179,7 @@
               mise
               yosys-full
               openroad
+              librelane-manual-pdk
               riscv-toolchain
               sail-riscv
               morty
