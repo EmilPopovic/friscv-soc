@@ -157,11 +157,22 @@
             hash = "sha256-MvJn3QmIA+Ixaq9XERTT2lVFo9x+9G4VvtdOyR+mM+Q=";
           };
           ihp-liberty = "${ihp-pdk}/ihp-sg13g2/libs.ref/sg13g2_stdcell/lib/sg13g2_stdcell_typ_1p20V_25C.lib";
+          ihp-cmos5l-pdk = pkgs.fetchFromGitHub {
+            owner = "IHP-GmbH";
+            repo = "ihp-sg13cmos5l";
+            rev = "33fd51900e07260ad0044ae4af22dd15ed10c764"; # v0.2.0
+            hash = "sha256-IhidmbbWyxWduV4ZuZSUAPN+LBl34s1l3WuVRd2AVlM=";
+          };
+          pdk-root = pkgs.runCommand "ihp-pdk-root" { } ''
+            mkdir -p $out
+            ln -s ${ihp-pdk}/ihp-sg13g2 $out/ihp-sg13g2
+            cp -a ${ihp-cmos5l-pdk} $out/ihp-sg13cmos5l
+          '';
         in {
           default = pkgs.mkShell {
             name = "friscv-tapeout";
             LIBERTY = ihp-liberty;
-            PDK_ROOT = "${ihp-pdk}";
+            PDK_ROOT = "${pdk-root}";
             PDK = "ihp-sg13g2";
             packages = (with pkgs; [
               iverilog
