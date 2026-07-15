@@ -1,16 +1,17 @@
 CORE_TOP = friscv_cpu_verilator
 CORE_DIR = obj_dir_core
 CORE_BIN = $(CORE_DIR)/friscv_core
-CORE_CPP = $(filter-out cpp/jtag.cpp cpp/remote_bitbang.cpp \
-	cpp/soc_memory.cpp cpp/tb_soc_main.cpp,$(wildcard cpp/*.cpp))
+
+SOC_ONLY_CPP = cpp/jtag.cpp cpp/remote_bitbang.cpp cpp/soc_memory.cpp \
+	cpp/soc_testbench.cpp cpp/tb_soc_main.cpp
+CORE_CPP = $(filter-out $(SOC_ONLY_CPP),$(wildcard cpp/*.cpp))
 
 SOC_TOP = friscv_soc
 SOC_DIR ?= obj_dir_soc
 SOC_BIN = $(SOC_DIR)/friscv_soc
 SOC_SRAM_BASE ?= 0
 SOC_SRAM_SIZE_BYTES ?= 16384
-SOC_CPP = cpp/tb_soc_main.cpp cpp/jtag.cpp cpp/remote_bitbang.cpp \
-	cpp/elf_loader.cpp cpp/paged_mem.cpp cpp/soc_memory.cpp
+SOC_CPP = cpp/elf_loader.cpp cpp/paged_mem.cpp $(SOC_ONLY_CPP)
 
 sources.f: ../../Bender.yml ../../Bender.lock
 	bender script flist-plus -t rtl -t synthesis > $@

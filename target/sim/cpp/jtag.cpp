@@ -3,6 +3,7 @@
 #include <stdexcept>
 
 #include "Vfriscv_soc.h"
+#include "soc_testbench.hpp"
 
 namespace {
 
@@ -74,16 +75,8 @@ void append_word(std::vector<uint8_t>& data, uint32_t word) {
 
 }  // namespace
 
-void Jtag::run_cycles(uint64_t count) {
-    for (uint64_t i = 0; i < count; ++i) {
-        top_.i_clk = 0;
-        top_.eval();
-        top_.i_clk = 1;
-        top_.eval();
-        top_.i_clk = 0;
-        top_.eval();
-    }
-}
+Jtag::Jtag(SocTestbench& testbench)
+    : testbench_(testbench), top_(testbench.top()) {}
 
 bool Jtag::pulse(bool tms, bool tdi) {
     top_.i_jtag_tms = tms;
@@ -91,9 +84,9 @@ bool Jtag::pulse(bool tms, bool tdi) {
     bool tdo = top_.o_jtag_tdo;
 
     top_.i_jtag_tck = 1;
-    run_cycles(2);
+    testbench_.run_cycles(2);
     top_.i_jtag_tck = 0;
-    run_cycles(2);
+    testbench_.run_cycles(2);
     return tdo;
 }
 
@@ -210,7 +203,7 @@ void Jtag::wait_dmstatus(uint32_t mask) {
             return;
         }
 
-        run_cycles(8);
+        testbench_.run_cycles(8);
     }
 
     throw std::runtime_error("debug module operation timed out");
@@ -269,9 +262,9 @@ void Jtag::sba_write(uint32_t address, uint32_t data, uint8_t access) {
 
 void Jtag::reset_soc() {
     dmi_write(DMCONTROL, DM_RESET);
-    run_cycles(16);
+    testbench_.run_cycles(16);
     dmi_write(DMCONTROL, DM_ACTIVE);
-    run_cycles(32);
+    testbench_.run_cycles(32);
 }
 
 std::vector<uint8_t> Jtag::read_memory(uint32_t address, size_t size) {

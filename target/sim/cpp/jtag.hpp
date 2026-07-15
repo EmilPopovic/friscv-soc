@@ -6,14 +6,14 @@
 #include <vector>
 
 class Vfriscv_soc;
+class SocTestbench;
 
 class Jtag {
   public:
-    explicit Jtag(Vfriscv_soc& top) : top_(top) {}
+    explicit Jtag(SocTestbench& testbench);
 
     void initialize();
     void reset_soc();
-    void run_cycles(uint64_t count);
     void halt();
     void resume();
 
@@ -38,5 +38,6 @@ class Jtag {
     void sba_write(uint32_t address, uint32_t data, uint8_t access);
     void wait_sba();
 
+    SocTestbench& testbench_;
     Vfriscv_soc& top_;
 };

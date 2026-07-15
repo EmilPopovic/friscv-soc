@@ -12,6 +12,7 @@
 #include <utility>
 
 #include "Vfriscv_soc.h"
+#include "soc_testbench.hpp"
 
 namespace {
 
@@ -108,16 +109,8 @@ bool input_ready(int fd) {
 
 }  // namespace
 
-void RemoteBitbang::run_cycles(uint64_t count) {
-    for (uint64_t i = 0; i < count; ++i) {
-        top_.i_clk = 0;
-        top_.eval();
-        top_.i_clk = 1;
-        top_.eval();
-        top_.i_clk = 0;
-        top_.eval();
-    }
-}
+RemoteBitbang::RemoteBitbang(SocTestbench& testbench)
+    : testbench_(testbench), top_(testbench.top()) {}
 
 void RemoteBitbang::set_pins(char command) {
     unsigned pins = unsigned(command - '0');
@@ -125,14 +118,14 @@ void RemoteBitbang::set_pins(char command) {
     top_.i_jtag_tck = (pins >> 2) & 1;
     top_.i_jtag_tms = (pins >> 1) & 1;
     top_.i_jtag_tdi = pins & 1;
-    run_cycles(JTAG_CYCLES);
+    testbench_.run_cycles(JTAG_CYCLES);
 }
 
 void RemoteBitbang::reset(char command) {
     bool system_reset = command == 's' || command == 'u';
 
     top_.i_rstn = !system_reset;
-    run_cycles(JTAG_CYCLES);
+    testbench_.run_cycles(JTAG_CYCLES);
 }
 
 void RemoteBitbang::serve(uint16_t port) {
@@ -142,7 +135,7 @@ void RemoteBitbang::serve(uint16_t port) {
     std::fflush(stdout);
 
     while (!input_ready(listener.get())) {
-        run_cycles(IDLE_CYCLES);
+        testbench_.run_cycles(IDLE_CYCLES);
     }
 
     Socket client(accept(listener.get(), nullptr, nullptr));
@@ -158,7 +151,7 @@ void RemoteBitbang::serve(uint16_t port) {
 
     while (true) {
         if (!input_ready(client.get())) {
-            run_cycles(IDLE_CYCLES);
+            testbench_.run_cycles(IDLE_CYCLES);
             continue;
         }
 

@@ -3,19 +3,20 @@
 #include <cstdint>
 
 class Vfriscv_soc;
+class SocTestbench;
 
 class RemoteBitbang {
   public:
     static constexpr uint16_t DEFAULT_PORT = 9824;
 
-    explicit RemoteBitbang(Vfriscv_soc& top) : top_(top) {}
+    explicit RemoteBitbang(SocTestbench& testbench);
 
     void serve(uint16_t port);
 
   private:
     void set_pins(char command);
     void reset(char command);
-    void run_cycles(uint64_t count);
 
+    SocTestbench& testbench_;
     Vfriscv_soc& top_;
 };

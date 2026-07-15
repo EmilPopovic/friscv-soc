@@ -1,4 +1,3 @@
-#include "Vfriscv_soc.h"
 #include "verilated.h"
 
 #include <cstdio>
@@ -12,6 +11,7 @@
 #include "jtag.hpp"
 #include "remote_bitbang.hpp"
 #include "soc_memory.hpp"
+#include "soc_testbench.hpp"
 
 namespace {
 
@@ -91,21 +91,21 @@ uint32_t read_word(Jtag& jtag, uint32_t address) {
            (uint32_t(data[3]) << 24);
 }
 
-void wait_for_boot_rom(Jtag& jtag) {
+void wait_for_boot_rom(SocTestbench& testbench, Jtag& jtag) {
     for (unsigned i = 0; i < 1000; ++i) {
         if (read_word(jtag, SCRATCH_ADDRESS) == PARKED) {
             return;
         }
 
-        jtag.run_cycles(8);
+        testbench.run_cycles(8);
     }
 
     throw std::runtime_error("boot ROM did not park");
 }
 
-void park(Jtag& jtag) {
+void park(SocTestbench& testbench, Jtag& jtag) {
     jtag.reset_soc();
-    wait_for_boot_rom(jtag);
+    wait_for_boot_rom(testbench, jtag);
 }
 
 void validate(const ElfImage& image) {
@@ -134,10 +134,11 @@ void validate(const ElfImage& image) {
     }
 }
 
-ElfImage prepare_image(Jtag& jtag, const char* path) {
+ElfImage prepare_image(SocTestbench& testbench, Jtag& jtag,
+                       const char* path) {
     ElfImage image = read_elf(path);
     validate(image);
-    park(jtag);
+    park(testbench, jtag);
 
     return image;
 }
@@ -146,8 +147,8 @@ void start_image(Jtag& jtag, uint32_t entry) {
     jtag.write_memory(SCRATCH_ADDRESS, word_bytes(entry));
 }
 
-void load_image(Jtag& jtag, const char* path) {
-    ElfImage image = prepare_image(jtag, path);
+void load_image(SocTestbench& testbench, Jtag& jtag, const char* path) {
+    ElfImage image = prepare_image(testbench, jtag, path);
 
     for (const ElfSegment& segment : image.segments) {
         jtag.write_memory(segment.address, segment.data);
@@ -156,18 +157,19 @@ void load_image(Jtag& jtag, const char* path) {
     start_image(jtag, image.entry);
 }
 
-void load_command(Jtag& jtag, const char* path) {
-    load_image(jtag, path);
-    jtag.run_cycles(RUN_CYCLES);
+void load_command(SocTestbench& testbench, Jtag& jtag, const char* path) {
+    load_image(testbench, jtag, path);
+    testbench.run_cycles(RUN_CYCLES);
 }
 
-int test_command(Vfriscv_soc& top, Jtag& jtag, const char* path) {
-    ElfImage image = prepare_image(jtag, path);
+int test_command(SocTestbench& testbench, Jtag& jtag, const char* path) {
+    Vfriscv_soc& top = testbench.top();
+    ElfImage image = prepare_image(testbench, jtag, path);
     preload_sram(top, image, SRAM_BASE);
     start_image(jtag, image.entry);
 
     for (uint64_t cycle = 0; cycle < TEST_CYCLES && !top.o_end; ++cycle) {
-        jtag.run_cycles(1);
+        testbench.run_cycles(1);
     }
 
     uint32_t result = read_word(jtag, SCRATCH_ADDRESS);
@@ -195,17 +197,19 @@ void print_memory(uint32_t address, const std::vector<uint8_t>& data) {
     }
 }
 
-void read_command(Jtag& jtag, const char* address_text, const char* size_text) {
+void read_command(SocTestbench& testbench, Jtag& jtag,
+                  const char* address_text, const char* size_text) {
     uint32_t address = parse_u32(address_text);
     uint32_t size = parse_u32(size_text);
 
     check_range(address, size);
-    park(jtag);
+    park(testbench, jtag);
 
     print_memory(address, jtag.read_memory(address, size));
 }
 
-void write_command(Jtag& jtag, int argc, char** argv) {
+void write_command(SocTestbench& testbench, Jtag& jtag,
+                   int argc, char** argv) {
     uint32_t address = parse_u32(argv[2]);
     std::vector<uint8_t> data;
 
@@ -216,7 +220,7 @@ void write_command(Jtag& jtag, int argc, char** argv) {
     }
 
     check_range(address, data.size());
-    park(jtag);
+    park(testbench, jtag);
     jtag.write_memory(address, data);
 
     std::printf("wrote %zu bytes at %08x\n", data.size(), address);
@@ -234,22 +238,23 @@ bool valid_command(int argc, char** argv) {
            (argc >= 4 && !std::strcmp(argv[1], "write"));
 }
 
-int execute_command(Vfriscv_soc& top, Jtag& jtag, int argc, char** argv) {
+int execute_command(SocTestbench& testbench, Jtag& jtag,
+                    int argc, char** argv) {
     if (!std::strcmp(argv[1], "load")) {
-        load_command(jtag, argv[2]);
+        load_command(testbench, jtag, argv[2]);
         return 0;
     }
 
     if (!std::strcmp(argv[1], "test")) {
-        return test_command(top, jtag, argv[2]);
+        return test_command(testbench, jtag, argv[2]);
     }
 
     if (!std::strcmp(argv[1], "read")) {
-        read_command(jtag, argv[2], argv[3]);
+        read_command(testbench, jtag, argv[2], argv[3]);
         return 0;
     }
 
-    write_command(jtag, argc, argv);
+    write_command(testbench, jtag, argc, argv);
     return 0;
 }
 
@@ -275,33 +280,22 @@ int main(int argc, char** argv) {
     }
 
     try {
-        Vfriscv_soc top;
-        top.i_clk = 0;
-        top.i_rstn = 0;
-        top.i_uart_rx = 1;
-        top.i_jtag_tck = 0;
-        top.i_jtag_tms = 1;
-        top.i_jtag_tdi = 0;
-        top.eval();
+        SocTestbench testbench;
+        Jtag jtag(testbench);
 
-        Jtag jtag(top);
-        jtag.run_cycles(20);
-
-        top.i_rstn = 1;
-        jtag.run_cycles(20);
+        testbench.reset();
 
         int result = 0;
 
         if (server_command(argc, argv)) {
             uint16_t port = argc == 3 ? parse_port(argv[2])
                                       : RemoteBitbang::DEFAULT_PORT;
-            RemoteBitbang(top).serve(port);
+            RemoteBitbang(testbench).serve(port);
         } else {
             jtag.initialize();
-            result = execute_command(top, jtag, argc, argv);
+            result = execute_command(testbench, jtag, argc, argv);
         }
 
-        top.final();
         return result;
     } catch (const std::exception& error) {
         std::fprintf(stderr, "JTAG simulation failed: %s\n", error.what());
