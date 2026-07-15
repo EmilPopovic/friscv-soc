@@ -157,6 +157,7 @@
             hash = "sha256-MvJn3QmIA+Ixaq9XERTT2lVFo9x+9G4VvtdOyR+mM+Q=";
           };
           ihp-sg13g2-liberty = "${ihp-pdk}/ihp-sg13g2/libs.ref/sg13g2_stdcell/lib/sg13g2_stdcell_typ_1p20V_25C.lib";
+          ihp-sg13g2-sram-liberty = "${ihp-pdk}/ihp-sg13g2/libs.ref/sg13g2_sram/lib/RM_IHPSG13_1P_1024x32_c2_bm_bist_typ_1p20V_25C.lib";
           ihp-cmos5l-pdk = pkgs.fetchFromGitHub {
             owner = "IHP-GmbH";
             repo = "ihp-sg13cmos5l";
@@ -173,6 +174,7 @@
           default = pkgs.mkShell {
             name = "friscv-tapeout";
             LIBERTY = ihp-sg13cmos5l-liberty;
+            SRAM_LIBERTY = ihp-sg13g2-sram-liberty;
             LIBERTY_SG13CMOS5L = ihp-sg13cmos5l-liberty;
             LIBERTY_SG13G2 = ihp-sg13g2-liberty;
             PDK_ROOT = "${pdk-root}";
