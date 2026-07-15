@@ -55,7 +55,19 @@ module friscv_soc #(
     // Muxed pins
     input  logic [NumPads-1:0] pad_in_i,
     output logic [NumPads-1:0] pad_out_o,
-    output logic [NumPads-1:0] pad_oe_o
+    output logic [NumPads-1:0] pad_oe_o,
+
+    // HyperBus
+    output logic       o_hyper_ck,
+    output logic       o_hyper_ck_n,
+    output logic [1:0] o_hyper_cs_n,
+    output logic       o_hyper_rwds,
+    output logic       i_hyper_rwds,
+    output logic       o_hyper_rwds_oe,
+    output logic [7:0] o_hyper_dq,
+    input  logic [7:0] i_hyper_dq,
+    output logic       o_hyper_dq_oe,
+    output logic       o_hyper_reset_n
 );
 
 // Provide clock divided by 16 to the outside
@@ -247,26 +259,28 @@ axi_lite_to_reg #(
     .reg_rsp_i      ( regs_reg_rsp  )
 );
 
-localparam int unsigned NoRegPorts   = 7;
+localparam int unsigned NoRegPorts   = 8;
 localparam int unsigned DmPort       = 0;
 localparam int unsigned Uart0Port    = 1;
 localparam int unsigned ScratchPort  = 2;
 localparam int unsigned GpioAPort    = 3;
 localparam int unsigned PlicPort     = 4;
 localparam int unsigned PinmuxPort   = 5;
-localparam int unsigned ErrPort      = 6;
+localparam int unsigned HyperCfgPort = 6;
+localparam int unsigned ErrPort      = 7;
 
 reg_bus_req_t [NoRegPorts-1:0] reg_dev_req;
 reg_bus_rsp_t [NoRegPorts-1:0] reg_dev_rsp;
 
-localparam int unsigned NoRegRules = 6;
+localparam int unsigned NoRegRules = 7;
 localparam axi_pkg::xbar_rule_32_t [NoRegRules-1:0] RegAddrMap = '{
-    '{ idx: DmPort,      start_addr: DmBaseAddr,    end_addr: DmBaseAddr + DmSize },
-    '{ idx: PlicPort,    start_addr: 32'h0C00_0000, end_addr: 32'h0C20_2000 },
-    '{ idx: Uart0Port,   start_addr: 32'h1000_0000, end_addr: 32'h1000_1000 },
-    '{ idx: GpioAPort,   start_addr: 32'h2000_0000, end_addr: 32'h2000_0040 },
-    '{ idx: PinmuxPort,  start_addr: 32'h3000_0000, end_addr: 32'h3000_0040 },
-    '{ idx: ScratchPort, start_addr: 32'h4000_0000, end_addr: 32'h4000_0004 }
+    '{ idx: DmPort,       start_addr: DmBaseAddr,    end_addr: DmBaseAddr + DmSize },
+    '{ idx: PlicPort,     start_addr: 32'h0C00_0000, end_addr: 32'h0C20_2000 },
+    '{ idx: Uart0Port,    start_addr: 32'h1000_0000, end_addr: 32'h1000_1000 },
+    '{ idx: GpioAPort,    start_addr: 32'h2000_0000, end_addr: 32'h2000_0040 },
+    '{ idx: PinmuxPort,   start_addr: 32'h3000_0000, end_addr: 32'h3000_0040 },
+    '{ idx: ScratchPort,  start_addr: 32'h4000_0000, end_addr: 32'h4000_0004 },
+    '{ idx: HyperCfgPort, start_addr: 32'h5000_0000, end_addr: 32'h5000_1000 }
 };
 
 logic [$clog2(NoRegPorts)-1:0] reg_select;
@@ -344,7 +358,61 @@ friscv_axi4_full_adapter_intf #(
     .mst            ( mem_axi  )
 );
 
-// TODO connect external memory interface here
+typedef logic [AxiIdWidth-1:0]   axi_id_t;
+typedef logic [AxiUserWidth-1:0] axi_user_t;
+typedef logic [3:0] axi_strb_t;
+
+`AXI_TYPEDEF_ALL(hyper_axi, addr_t, axi_id_t, data_t, axi_strb_t, axi_user_t)
+
+hyper_axi_req_t  hyper_axi_req;
+hyper_axi_resp_t hyper_axi_rsp;
+`AXI_ASSIGN_TO_REQ(hyper_axi_req,  mem_axi)
+`AXI_ASSIGN_FROM_RESP(mem_axi, hyper_axi_rsp)
+
+hyperbus #(
+    .NumChips        ( 2                       ),
+    .NumPhys         ( 1                       ),
+    .IsClockODelayed ( 1                       ),
+    .AxiAddrWidth    ( AxiAddrWidth            ),
+    .AxiDataWidth    ( AxiDataWidth            ),
+    .AxiIdWidth      ( AxiIdWidth              ),
+    .AxiUserWidth    ( AxiUserWidth            ),
+    .axi_req_t       ( hyper_axi_req_t         ),
+    .axi_rsp_t       ( hyper_axi_resp_t        ),
+    .axi_w_chan_t    ( hyper_axi_w_chan_t      ),
+    .axi_b_chan_t    ( hyper_axi_b_chan_t      ),
+    .axi_ar_chan_t   ( hyper_axi_ar_chan_t     ),
+    .axi_r_chan_t    ( hyper_axi_r_chan_t      ),
+    .axi_aw_chan_t   ( hyper_axi_aw_chan_t     ),
+    .RegAddrWidth    ( 32                      ),
+    .RegDataWidth    ( 32                      ),
+    .reg_req_t       ( reg_bus_req_t           ),
+    .reg_rsp_t       ( reg_bus_rsp_t           ),
+    .axi_rule_t      ( axi_pkg::xbar_rule_32_t ),
+    .MinFreqMHz      ( 40                      ),
+    .RstChipBase     ( MemBase                 ),
+    .RstChipSpace    ( 32'h0080_0000           )
+) i_hyperbus (
+    .clk_phy_i       ( i_clk                     ),
+    .rst_phy_ni      ( soc_rstn                  ),
+    .clk_sys_i       ( i_clk                     ),
+    .rst_sys_ni      ( soc_rstn                  ),
+    .test_mode_i     ( 1'b0                      ),
+    .axi_req_i       ( hyper_axi_req             ),
+    .axi_rsp_o       ( hyper_axi_rsp             ),
+    .reg_req_i       ( reg_dev_req[HyperCfgPort] ),
+    .reg_rsp_o       ( reg_dev_rsp[HyperCfgPort] ),
+    .hyper_cs_no     ( o_hyper_cs_n              ),
+    .hyper_ck_o      ( o_hyper_ck                ),
+    .hyper_ck_no     ( o_hyper_ck_n              ),
+    .hyper_rwds_o    ( o_hyper_rwds              ),
+    .hyper_rwds_i    ( i_hyper_rwds              ),
+    .hyper_rwds_oe_o ( o_hyper_rwds_oe           ),
+    .hyper_dq_i      ( i_hyper_dq                ),
+    .hyper_dq_o      ( o_hyper_dq                ),
+    .hyper_dq_oe_o   ( o_hyper_dq_oe             ),
+    .hyper_reset_no  ( o_hyper_reset_n           )
+);
 
 // ============================================================
 // Debugger

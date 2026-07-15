@@ -60,6 +60,7 @@ sources:
   - rtl/core/friscv_zsbl_rom.sv
 
   # SoC RTL files
+  - rtl/soc/configurable_delay.sv
   - rtl/soc/friscv_axi_lite_adapter.sv
   - rtl/soc/friscv_axi_lite_adapter_intf.sv
   - rtl/soc/friscv_axi4_full_adapter.sv
