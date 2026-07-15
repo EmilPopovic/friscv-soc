@@ -24,10 +24,30 @@ jobs:
           use-flakehub: false
           use-gha-cache: true
 
+      - name: Restore test ELFs
+        id: cache-elfs
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            verif/riscv-arch-test/elfs
+            verif/riscv-arch-test/elfs-soc
+          key: >-
+            ${{ runner.os }}-act-elfs-${{
+              hashFiles(
+                'flake.nix',
+                'flake.lock',
+                'verif/riscv-arch-test/Makefile',
+                'verif/riscv-arch-test/config/**',
+                'verif/riscv-arch-test/scripts/copy_elfs.py'
+              )
+            }}
+
       - name: Checkout riscv-arch-test
+        if: steps.cache-elfs.outputs.cache-hit != 'true'
         run: make -C verif/riscv-arch-test clone
 
       - name: Cache ACT tools
+        if: steps.cache-elfs.outputs.cache-hit != 'true'
         uses: actions/cache@v5
         with:
           path: |
@@ -45,7 +65,17 @@ jobs:
           restore-keys: ${{ runner.os }}-act-tools-
 
       - name: Build test ELFs
+        if: steps.cache-elfs.outputs.cache-hit != 'true'
         run: nix develop --accept-flake-config .#act --command make -C verif/riscv-arch-test all
+
+      - name: Save test ELFs
+        if: steps.cache-elfs.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            verif/riscv-arch-test/elfs
+            verif/riscv-arch-test/elfs-soc
+          key: ${{ steps.cache-elfs.outputs.cache-primary-key }}
 
       - name: Run arch tests on core
         run: nix develop --accept-flake-config .#act --command make act-run-core
