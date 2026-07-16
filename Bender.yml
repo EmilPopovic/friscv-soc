@@ -13,7 +13,6 @@ dependencies:
   common_cells:          { git: "https://github.com/pulp-platform/common_cells.git",          version: 1.32.0 }
   riscv-dbg:             { git: "https://github.com/pulp-platform/riscv-dbg.git",             version: 0.10.0 }
   opentitan_peripherals: { git: "https://github.com/pulp-platform/opentitan_peripherals.git", version: 0.4.0  }
-  hyperbus:              { git: "https://github.com/pulp-platform/hyperbus.git",              version: 0.0.9  }
 
 vendor_package:
   - name: rv_plic
@@ -22,13 +21,33 @@ vendor_package:
       git: "https://github.com/pulp-platform/rv_plic.git"
       rev: "5b5c5a4c1c15c3d7bb833071d344b2c2bc5f599d"
     patch_dir: "rtl/vendored/patches/pulp_rv_plic"
+  - name: hyperbus
+    target_dir: "rtl/vendored/pulp_hyperbus"
+    upstream:
+      git: "https://github.com/pulp-platform/hyperbus.git"
+      rev: "2a14bd8f9a985b488ee23d240764f52f129f7729"
+    patch_dir: "rtl/vendored/patches/pulp_hyperbus"
 
 sources:
-  # Vendor RTL files
+  # PULP PLIC
   - rtl/vendored/pulp_rv_plic/rtl/rv_plic_gateway.sv
   - rtl/vendored/pulp_rv_plic/rtl/rv_plic_target.sv
   - rtl/vendored/pulp_rv_plic/rtl/plic_regmap.sv
   - rtl/vendored/pulp_rv_plic/rtl/plic_top.sv
+  # PULP HyperBus
+  - rtl/vendored/pulp_hyperbus/src/hyperbus_pkg.sv
+  - rtl/vendored/pulp_hyperbus/src/hyperbus_delay.sv
+  - rtl/vendored/pulp_hyperbus/src/hyperbus_clock_diff_out.sv
+  - rtl/vendored/pulp_hyperbus/src/hyperbus_ddr_out.sv
+  - rtl/vendored/pulp_hyperbus/src/hyperbus_trx.sv
+  - rtl/vendored/pulp_hyperbus/src/hyperbus_cfg_regs.sv
+  - rtl/vendored/pulp_hyperbus/src/hyperbus_phy2r.sv
+  - rtl/vendored/pulp_hyperbus/src/hyperbus_w2phy.sv
+  - rtl/vendored/pulp_hyperbus/src/hyperbus_axi.sv
+  - rtl/vendored/pulp_hyperbus/src/hyperbus_phy.sv
+  - rtl/vendored/pulp_hyperbus/src/hyperbus_phy_if.sv
+  - rtl/vendored/pulp_hyperbus/src/hyperbus_clk_gen.sv
+  - rtl/vendored/pulp_hyperbus/src/hyperbus.sv
 
   # Core RTL files
   # Keep in compile order

@@ -392,7 +392,8 @@ hyperbus #(
     .axi_rule_t      ( axi_pkg::xbar_rule_32_t ),
     .MinFreqMHz      ( 40                      ),
     .RstChipBase     ( MemBase                 ),
-    .RstChipSpace    ( 32'h0080_0000           )
+    .RstChipSpace    ( 32'h0080_0000           ),
+    .AxiLogDepth     ( 1                       )
 ) i_hyperbus (
     .clk_phy_i       ( i_clk                     ),
     .rst_phy_ni      ( soc_rstn                  ),
