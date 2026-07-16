@@ -2,7 +2,7 @@ CORE_TOP = friscv_cpu_verilator
 CORE_DIR = obj_dir_core
 CORE_BIN = $(CORE_DIR)/friscv_core
 
-SOC_ONLY_CPP = cpp/jtag.cpp cpp/remote_bitbang.cpp cpp/soc_memory.cpp \
+SOC_ONLY_CPP = cpp/hyperram.cpp cpp/jtag.cpp cpp/remote_bitbang.cpp cpp/soc_memory.cpp \
 	cpp/soc_testbench.cpp cpp/tb_soc_main.cpp
 CORE_CPP = $(filter-out $(SOC_ONLY_CPP),$(wildcard cpp/*.cpp))
 
@@ -30,6 +30,7 @@ soc: sources.f | $(SOC_DIR)
 	verilator --cc --exe --build -j 0 --top-module $(SOC_TOP) -Wno-fatal \
 		+define+ASSERTS_OFF \
 		-GSramBase=$(SOC_SRAM_BASE) -GSramSize=$(SOC_SRAM_SIZE_BYTES) \
+		-GHyperClockDelayed=0 \
 		-CFLAGS -DFRISCV_SOC_SRAM_BASE=$(SOC_SRAM_BASE) \
 		-CFLAGS -DFRISCV_SOC_SRAM_SIZE_BYTES=$(SOC_SRAM_SIZE_BYTES) \
 		--Mdir $(SOC_DIR) -f sources.f $(SOC_CPP) -o $(SOC_TOP)

@@ -18,6 +18,7 @@ module friscv_soc #(
     parameter int unsigned SramSize = 32'h0000_4000,
     parameter int unsigned MemBase  = 32'h8000_0000,
     parameter int unsigned MemSize  = 32'h0100_0000,
+    parameter bit          HyperClockDelayed = 1'b1,
     parameter int unsigned NumPads  = 22
 ) (
     input  logic  i_clk,
@@ -62,7 +63,7 @@ module friscv_soc #(
     output logic       o_hyper_ck_n,
     output logic [1:0] o_hyper_cs_n,
     output logic       o_hyper_rwds,
-    output logic       i_hyper_rwds,
+    input  logic       i_hyper_rwds,
     output logic       o_hyper_rwds_oe,
     output logic [7:0] o_hyper_dq,
     input  logic [7:0] i_hyper_dq,
@@ -372,7 +373,7 @@ hyper_axi_resp_t hyper_axi_rsp;
 hyperbus #(
     .NumChips        ( 2                       ),
     .NumPhys         ( 1                       ),
-    .IsClockODelayed ( 1                       ),
+    .IsClockODelayed ( HyperClockDelayed       ),
     .AxiAddrWidth    ( AxiAddrWidth            ),
     .AxiDataWidth    ( AxiDataWidth            ),
     .AxiIdWidth      ( AxiIdWidth              ),

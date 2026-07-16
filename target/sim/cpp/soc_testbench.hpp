@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "Vfriscv_soc.h"
+#include "hyperram.hpp"
 
 class SocTestbench {
   public:
@@ -18,4 +19,5 @@ class SocTestbench {
     void eval();
 
     Vfriscv_soc top_;
+    Hyperram hyperram_;
 };
