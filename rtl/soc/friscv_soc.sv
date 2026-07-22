@@ -19,7 +19,8 @@ module friscv_soc #(
     parameter int unsigned MemBase  = 32'h8000_0000,
     parameter int unsigned MemSize  = 32'h0100_0000,
     parameter bit          HyperClockDelayed = 1'b1,
-    parameter int unsigned NumPads  = 22
+    parameter int unsigned NumPads  = 22,
+    parameter bit          EnablePlic  = 1
 ) (
     input  logic  i_clk,
     input  logic  i_rstn,
@@ -272,6 +273,11 @@ localparam int unsigned ErrPort      = 7;
 
 reg_bus_req_t [NoRegPorts-1:0] reg_dev_req;
 reg_bus_rsp_t [NoRegPorts-1:0] reg_dev_rsp;
+
+`define REG_TIE_OFF(port)                   \
+    assign reg_dev_rsp[port].rdata = '0;    \
+    assign reg_dev_rsp[port].error = 1'b1;  \
+    assign reg_dev_rsp[port].ready = 1'b1;
 
 localparam int unsigned NoRegRules = 7;
 localparam axi_pkg::xbar_rule_32_t [NoRegRules-1:0] RegAddrMap = '{
@@ -731,21 +737,26 @@ logic [NIrqTargets-1:0] plic_irq_targets;
 assign meip = plic_irq_targets[0];
 assign seip = plic_irq_targets[1];
 
-plic_top #(
-    .N_SOURCE  ( NIrqSources   ),
-    .N_TARGET  ( NIrqTargets   ),
-    .MAX_PRIO  ( 1             ),
-    .reg_req_t ( reg_bus_req_t ),
-    .reg_rsp_t ( reg_bus_rsp_t )
-) plic (
-    .clk_i         ( i_clk                 ),
-    .rst_ni        ( soc_rstn              ),
-    .req_i         ( reg_dev_req[PlicPort] ),
-    .resp_o        ( reg_dev_rsp[PlicPort] ),
-    .le_i          ( '0                    ),  // All level-held
-    .irq_sources_i ( plic_irq_sources      ),
-    .eip_targets_o ( plic_irq_targets      )
-);
+if (EnablePlic) begin : gen_plic
+    plic_top #(
+        .N_SOURCE  ( NIrqSources   ),
+        .N_TARGET  ( NIrqTargets   ),
+        .MAX_PRIO  ( 1             ),
+        .reg_req_t ( reg_bus_req_t ),
+        .reg_rsp_t ( reg_bus_rsp_t )
+    ) plic (
+        .clk_i         ( i_clk                 ),
+        .rst_ni        ( soc_rstn              ),
+        .req_i         ( reg_dev_req[PlicPort] ),
+        .resp_o        ( reg_dev_rsp[PlicPort] ),
+        .le_i          ( '0                    ),  // All level-held
+        .irq_sources_i ( plic_irq_sources      ),
+        .eip_targets_o ( plic_irq_targets      )
+    );
+end else begin : gen_no_plic
+    `REG_TIE_OFF(PlicPort)
+    assign plic_irq_targets = '0;
+end
 
 // ============================================================
 // CLINT: Lite xbar port -> AXI-Lite -> CLINT
