@@ -15,6 +15,7 @@ SOC_CPP = cpp/elf_loader.cpp cpp/paged_mem.cpp $(SOC_ONLY_CPP)
 
 sources.f: ../../Bender.yml ../../Bender.lock
 	bender script flist-plus -t rtl -t synthesis > $@
+	sed -i '\|/opentitan_peripherals-[^/]*/src/spi_host/rtl/|d' $@
 
 $(CORE_DIR):
 	mkdir -p $@

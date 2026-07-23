@@ -27,6 +27,15 @@ vendor_package:
       git: "https://github.com/pulp-platform/hyperbus.git"
       rev: "2a14bd8f9a985b488ee23d240764f52f129f7729"
     patch_dir: "rtl/vendored/patches/pulp_hyperbus"
+  - name: spi_host
+    target_dir: "rtl/vendored/opentitan_spi_host"
+    upstream:
+      git: "https://github.com/pulp-platform/opentitan_peripherals.git"
+      rev: "cd3153de2783abd3d03d0595e6c4b32413c62f14"
+    patch_dir: "rtl/vendored/patches/opentitan_spi_host"
+    mapping:
+      - {from: 'src/spi_host/rtl',  to: 'rtl', patch_dir: 'rtl'}
+      - {from: 'src/spi_host/data', to: 'data'}
 
 sources:
   # PULP PLIC
@@ -48,6 +57,19 @@ sources:
   - rtl/vendored/pulp_hyperbus/src/hyperbus_phy_if.sv
   - rtl/vendored/pulp_hyperbus/src/hyperbus_clk_gen.sv
   - rtl/vendored/pulp_hyperbus/src/hyperbus.sv
+  # OpenTitan SPI host
+  - rtl/vendored/opentitan_spi_host/rtl/spi_host_reg_pkg.sv
+  - rtl/vendored/opentitan_spi_host/rtl/spi_host_reg_top.sv
+  - rtl/vendored/opentitan_spi_host/rtl/spi_host_byte_merge.sv
+  - rtl/vendored/opentitan_spi_host/rtl/spi_host_byte_select.sv
+  - rtl/vendored/opentitan_spi_host/rtl/spi_host_cmd_pkg.sv
+  - rtl/vendored/opentitan_spi_host/rtl/spi_host_command_queue.sv
+  - rtl/vendored/opentitan_spi_host/rtl/spi_host_fsm.sv
+  - rtl/vendored/opentitan_spi_host/rtl/spi_host_window.sv
+  - rtl/vendored/opentitan_spi_host/rtl/spi_host_data_fifos.sv
+  - rtl/vendored/opentitan_spi_host/rtl/spi_host_shift_register.sv
+  - rtl/vendored/opentitan_spi_host/rtl/spi_host_core.sv
+  - rtl/vendored/opentitan_spi_host/rtl/spi_host.sv
 
   # Core RTL files
   # Keep in compile order

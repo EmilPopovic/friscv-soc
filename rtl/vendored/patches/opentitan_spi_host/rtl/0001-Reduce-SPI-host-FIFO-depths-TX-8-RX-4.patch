@@ -1,0 +1,27 @@
+From 8581385e4604d48fa7b13b1c592f3cdeedeff2e1 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Emil=20Popovi=C4=87?= <mail@emilpopovic.me>
+Date: Thu, 23 Jul 2026 16:15:55 +0200
+Subject: [PATCH] Reduce SPI host FIFO depths (TX=8, RX=4)
+
+---
+ spi_host_reg_pkg.sv | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/spi_host_reg_pkg.sv b/spi_host_reg_pkg.sv
+index 29ba1a2..40b04db 100644
+--- a/spi_host_reg_pkg.sv
++++ b/spi_host_reg_pkg.sv
+@@ -9,8 +9,8 @@ package spi_host_reg_pkg;
+   // Param list
+   parameter logic ByteOrder = 1;
+   parameter int NumCS = 3;
+-  parameter int TxDepth = 72;
+-  parameter int RxDepth = 64;
++  parameter int TxDepth = 8;
++  parameter int RxDepth = 4;
+   parameter int CmdDepth = 4;
+   parameter int NumAlerts = 1;
+ 
+-- 
+2.53.0
+
