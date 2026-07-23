@@ -19,7 +19,7 @@ module friscv_soc #(
     parameter int unsigned MemBase  = 32'h8000_0000,
     parameter int unsigned MemSize  = 32'h0100_0000,
     parameter bit          HyperClockDelayed = 1'b1,
-    parameter int unsigned NumPads  = 22,
+    parameter int unsigned NumPads  = 13,
     parameter bit          EnablePlic  = 1
 ) (
     input  logic  i_clk,
@@ -39,22 +39,7 @@ module friscv_soc #(
     input  logic  i_jtag_tdi,
     output logic  o_jtag_tdo,
 
-    // PA0
-    input  logic  i_pa0,
-    output logic  o_pa0,
-    output logic  o_pa0_oe,
-
-    // PA1
-    input  logic  i_pa1,
-    output logic  o_pa1,
-    output logic  o_pa1_oe,
-
-    // PA2
-    input  logic  i_pa2,
-    output logic  o_pa2,
-    output logic  o_pa2_oe,
-
-    // Muxed pins
+    // GPIO / QSPI muxed pads (PA0..PA12)
     input  logic [NumPads-1:0] pad_in_i,
     output logic [NumPads-1:0] pad_out_o,
     output logic [NumPads-1:0] pad_oe_o,
@@ -62,7 +47,7 @@ module friscv_soc #(
     // HyperBus
     output logic       o_hyper_ck,
     output logic       o_hyper_ck_n,
-    output logic [1:0] o_hyper_cs_n,
+    output logic       o_hyper_cs_n,
     output logic       o_hyper_rwds,
     input  logic       i_hyper_rwds,
     output logic       o_hyper_rwds_oe,
@@ -253,15 +238,17 @@ axi_lite_to_reg #(
     .reg_req_t      ( reg_bus_req_t   ),
     .reg_rsp_t      ( reg_bus_rsp_t   )
 ) lite_to_reg (
-    .clk_i          ( i_clk       ),
-    .rst_ni         ( soc_rstn    ),
+    .clk_i          ( i_clk         ),
+    .rst_ni         ( soc_rstn      ),
     .axi_lite_req_i ( regs_lite_req ),
     .axi_lite_rsp_o ( regs_lite_rsp ),
     .reg_req_o      ( regs_reg_req  ),
     .reg_rsp_i      ( regs_reg_rsp  )
 );
 
-localparam int unsigned NoRegPorts   = 8;
+localparam int unsigned NoRegPorts   = 9;
+localparam int unsigned RegPortWidth = $clog2(NoRegPorts);
+
 localparam int unsigned DmPort       = 0;
 localparam int unsigned Uart0Port    = 1;
 localparam int unsigned ScratchPort  = 2;
@@ -269,7 +256,8 @@ localparam int unsigned GpioAPort    = 3;
 localparam int unsigned PlicPort     = 4;
 localparam int unsigned PinmuxPort   = 5;
 localparam int unsigned HyperCfgPort = 6;
-localparam int unsigned ErrPort      = 7;
+localparam int unsigned Qspi0Port    = 7;
+localparam int unsigned ErrPort      = 8;
 
 reg_bus_req_t [NoRegPorts-1:0] reg_dev_req;
 reg_bus_rsp_t [NoRegPorts-1:0] reg_dev_rsp;
@@ -279,7 +267,7 @@ reg_bus_rsp_t [NoRegPorts-1:0] reg_dev_rsp;
     assign reg_dev_rsp[port].error = 1'b1;  \
     assign reg_dev_rsp[port].ready = 1'b1;
 
-localparam int unsigned NoRegRules = 7;
+localparam int unsigned NoRegRules = 8;
 localparam axi_pkg::xbar_rule_32_t [NoRegRules-1:0] RegAddrMap = '{
     '{ idx: DmPort,       start_addr: DmBaseAddr,    end_addr: DmBaseAddr + DmSize },
     '{ idx: PlicPort,     start_addr: 32'h0C00_0000, end_addr: 32'h0C20_2000 },
@@ -287,7 +275,8 @@ localparam axi_pkg::xbar_rule_32_t [NoRegRules-1:0] RegAddrMap = '{
     '{ idx: GpioAPort,    start_addr: 32'h2000_0000, end_addr: 32'h2000_0040 },
     '{ idx: PinmuxPort,   start_addr: 32'h3000_0000, end_addr: 32'h3000_0040 },
     '{ idx: ScratchPort,  start_addr: 32'h4000_0000, end_addr: 32'h4000_0004 },
-    '{ idx: HyperCfgPort, start_addr: 32'h5000_0000, end_addr: 32'h5000_1000 }
+    '{ idx: HyperCfgPort, start_addr: 32'h5000_0000, end_addr: 32'h5000_1000 },
+    '{ idx: Qspi0Port,    start_addr: 32'h6000_0000, end_addr: 32'h6000_1000 }
 };
 
 logic [$clog2(NoRegPorts)-1:0] reg_select;
@@ -297,13 +286,13 @@ addr_decode #(
     .addr_t    ( addr_t                  ),
     .rule_t    ( axi_pkg::xbar_rule_32_t )
 ) reg_decode (
-    .addr_i           ( regs_reg_req.addr ),
-    .addr_map_i       ( RegAddrMap        ),
-    .idx_o            ( reg_select        ),
-    .dec_valid_o      (                   ),
-    .dec_error_o      (                   ),
-    .en_default_idx_i ( 1'b1              ),
-    .default_idx_i    ( 3'(ErrPort)       )
+    .addr_i           ( regs_reg_req.addr        ),
+    .addr_map_i       ( RegAddrMap               ),
+    .idx_o            ( reg_select               ),
+    .dec_valid_o      (                          ),
+    .dec_error_o      (                          ),
+    .en_default_idx_i ( 1'b1                     ),
+    .default_idx_i    ( (RegPortWidth)'(ErrPort) )
 );
 
 assign reg_dev_rsp[ErrPort].rdata = '0;
@@ -377,7 +366,7 @@ hyper_axi_resp_t hyper_axi_rsp;
 `AXI_ASSIGN_FROM_RESP(mem_axi, hyper_axi_rsp)
 
 hyperbus #(
-    .NumChips        ( 2                       ),
+    .NumChips        ( 1                       ),
     .NumPhys         ( 1                       ),
     .IsClockODelayed ( HyperClockDelayed       ),
     .AxiAddrWidth    ( AxiAddrWidth            ),
@@ -618,29 +607,21 @@ apb_uart_wrap #(
 // ============================================================
 
 /*
-Pin#  Function 0  Function 1
-3     PA3         -
-4     PA4         -
-5     PA5         -
-6     PA6         -
-7     PA7         -
-8     PA8         -
-9     PA9         -
-10    PA10        -
-11    PA11        -
-12    PA12        -
-13    PA13        -
-14    PA14        -
-15    PA15        -
-16    PA16        -
-17    PA17        -
-18    PA18        -
-19    PA19        -
-20    PA20        -
-21    PA21        -
-22    PA22        -
-23    PA23        -
-24    PA24        -
+Pad   AF0 (sel=0)  AF1 (sel=1)  Notes
+----  -----------  -----------  -------------------------
+PA0   gpio[0]      -
+PA1   gpio[1]      -            external interrupt
+PA2   gpio[2]      -            external interrupt
+PA3   gpio[3]      -            external interrupt
+PA4   gpio[4]      -            external interrupt
+PA5   gpio[5]      QSPI0_IO0
+PA6   gpio[6]      QSPI0_IO1
+PA7   gpio[7]      QSPI0_IO2    boot strap
+PA8   gpio[8]      QSPI0_IO3    boot strap
+PA9   gpio[9]      QSPI0_SCK
+PA10  gpio[10]     QSPI0_CS0
+PA11  gpio[11]     QSPI0_CS1
+PA12  gpio[12]     QSPI0_CS2
 */
 
 localparam int unsigned NumAfs = 2;
@@ -677,13 +658,14 @@ logic [31:0] gpio_a_in;
 logic [31:0] gpio_a_out;
 logic [31:0] gpio_a_oe;
 
-for (genvar p = 3; p <= 24; p++) begin : gpio_a_muxed
-    assign from_func[p-3][0] = gpio_a_out[p];
-    assign from_func[p-3][1] = 1'b0;  // no alternate function
-    assign oe_func  [p-3][0] = gpio_a_oe[p];
-    assign oe_func  [p-3][1] = 1'b0;  // no alternate function
-    assign gpio_a_in[p]      = to_func[p-3][0];
+for (genvar p = 0; p < NumPads; p++) begin : gpio_a_af0
+    assign from_func[p][0] = gpio_a_out[p];
+    assign oe_func  [p][0] = gpio_a_oe [p];
+    assign gpio_a_in[p]    = to_func[p][0];
 end
+
+// GPIO bits without a pad are unused
+assign gpio_a_in[31:NumPads] = '0;
 
 gpio #(
     .reg_req_t   ( reg_bus_req_t ),
@@ -700,20 +682,59 @@ gpio #(
     .cio_gpio_en_o ( gpio_a_oe              )
 );
 
-// PA0
-assign gpio_a_in[0] = i_pa0;
-assign o_pa0        = gpio_a_out[0];
-assign o_pa0_oe     = gpio_a_oe[0];
+// ============================================================
+// QSPI0
+// ============================================================
 
-// PA1
-assign gpio_a_in[1] = i_pa1;
-assign o_pa1        = gpio_a_out[1];
-assign o_pa1_oe     = gpio_a_oe[1];
+localparam int unsigned Qspi0NumCs   = 3;  // CS0, CS1, CS2
+localparam int unsigned Qspi0PadBase = 5;  // First muxed pad (PA5 = IO0)
 
-// PA2
-assign gpio_a_in[2] = i_pa2;
-assign o_pa2        = gpio_a_out[2];
-assign o_pa2_oe     = gpio_a_oe[2];
+logic                  qspi0_sck, qspi0_sck_oe;
+logic [Qspi0NumCs-1:0] qspi0_cs,  qspi0_cs_oe;
+logic [3:0]            qspi0_sd_i, qspi0_sd_o, qspi0_sd_oe;
+logic                  qspi0_irq_error, qspi0_irq_spi_event;
+
+spi_host #(
+    .reg_req_t ( reg_bus_req_t ),
+    .reg_rsp_t ( reg_bus_rsp_t )
+) qspi0 (
+    .clk_i            ( i_clk                  ),
+    .rst_ni           ( soc_rstn               ),
+    .reg_req_i        ( reg_dev_req[Qspi0Port] ),
+    .reg_rsp_o        ( reg_dev_rsp[Qspi0Port] ),
+    .cio_sck_o        ( qspi0_sck              ),
+    .cio_sck_en_o     ( qspi0_sck_oe           ),
+    .cio_csb_o        ( qspi0_cs               ),
+    .cio_csb_en_o     ( qspi0_cs_oe            ),
+    .cio_sd_o         ( qspi0_sd_o             ),
+    .cio_sd_en_o      ( qspi0_sd_oe            ),
+    .cio_sd_i         ( qspi0_sd_i             ),
+    .intr_error_o     ( qspi0_irq_error        ),
+    .intr_spi_event_o ( qspi0_irq_spi_event    )
+);
+
+// Data lines PA5..PA8 (bidirectional)
+for (genvar i = 0; i < 4; i++) begin : gen_qspi0_io
+    assign from_func[Qspi0PadBase + i][1] = qspi0_sd_o [i];
+    assign oe_func  [Qspi0PadBase + i][1] = qspi0_sd_oe[i];
+    assign qspi0_sd_i[i]                  = to_func[Qspi0PadBase + i][1];
+end
+
+// SCK on PA9 (output only)
+assign from_func[9][1] = qspi0_sck;
+assign oe_func  [9][1] = qspi0_sck_oe;
+
+// Chip selects PA10..PA12 (outputs only)
+for (genvar i = 0; i < Qspi0NumCs; i++) begin : gen_qspi0_cs
+    assign from_func[10 + i][1] = qspi0_cs   [i];
+    assign oe_func  [10 + i][1] = qspi0_cs_oe[i];
+end
+
+// Pads PA0..PA4 have no alternate function, AF1 idle
+for (genvar p = 0; p < Qspi0PadBase; p++) begin : gen_no_af1
+    assign from_func[p][1] = 1'b0;
+    assign oe_func  [p][1] = 1'b0;
+end
 
 // ============================================================
 // PLIC
@@ -723,13 +744,13 @@ localparam int unsigned NIrqSources = 8;
 logic [NIrqSources-1:0] plic_irq_sources;
 assign plic_irq_sources[0] = 1'b0;  // reserved
 assign plic_irq_sources[1] = uart0_irq;
-assign plic_irq_sources[2] = 1'b0;
-assign plic_irq_sources[3] = 1'b0;
-// GPIO 19-22 can be used as external interrupts
-assign plic_irq_sources[4] = gpio_a_irq[19];
-assign plic_irq_sources[5] = gpio_a_irq[20];
-assign plic_irq_sources[6] = gpio_a_irq[21];
-assign plic_irq_sources[7] = gpio_a_irq[22];
+assign plic_irq_sources[2] = qspi0_irq_error;
+assign plic_irq_sources[3] = qspi0_irq_spi_event;
+// PA1..PA4 can be used as external interrupts
+assign plic_irq_sources[4] = gpio_a_irq[1];
+assign plic_irq_sources[5] = gpio_a_irq[2];
+assign plic_irq_sources[6] = gpio_a_irq[3];
+assign plic_irq_sources[7] = gpio_a_irq[4];
 
 // Two targets, context 0 is hart 0 M-mode (MEIP), context 1 is hart 0 S-mode (SEIP)
 localparam int unsigned NIrqTargets = 2;

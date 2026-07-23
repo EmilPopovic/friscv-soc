@@ -13,9 +13,6 @@ SocTestbench::SocTestbench() : hyperram_(top_) {
     top_.i_jtag_tck = 0;
     top_.i_jtag_tms = 1;
     top_.i_jtag_tdi = 0;
-    top_.i_pa0 = 0;
-    top_.i_pa1 = 0;
-    top_.i_pa2 = 0;
     top_.pad_in_i = 0;
 
     eval();
