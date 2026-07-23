@@ -4,7 +4,15 @@
 // Licensed under the Solderpad Hardware License v 2.1 (the "License");
 // you may not use this file except in compliance with the License, or,
 // at your option, the Apache License version 2.0.
-// You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
+// You may obtain a copy of the License at
+//
+//     https://solderpad.org/licenses/SHL-2.1/
+//
+// Unless required by applicable law or agreed to in writing, any work
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 `include "axi/typedef.svh"
 `include "axi/assign.svh"
@@ -19,7 +27,7 @@ module friscv_soc #(
     parameter int unsigned MemBase  = 32'h8000_0000,
     parameter int unsigned MemSize  = 32'h0100_0000,
     parameter bit          HyperClockDelayed = 1'b1,
-    parameter int unsigned NumPads  = 13,
+    parameter int unsigned NumPads  = 25,
     parameter bit          EnablePlic  = 1
 ) (
     input  logic  i_clk,
@@ -39,22 +47,10 @@ module friscv_soc #(
     input  logic  i_jtag_tdi,
     output logic  o_jtag_tdo,
 
-    // GPIO / QSPI muxed pads (PA0..PA12)
+    // GPIO Port A muxed pads (PA0..PA24)
     input  logic [NumPads-1:0] pad_in_i,
     output logic [NumPads-1:0] pad_out_o,
-    output logic [NumPads-1:0] pad_oe_o,
-
-    // HyperBus
-    output logic       o_hyper_ck,
-    output logic       o_hyper_ck_n,
-    output logic       o_hyper_cs_n,
-    output logic       o_hyper_rwds,
-    input  logic       i_hyper_rwds,
-    output logic       o_hyper_rwds_oe,
-    output logic [7:0] o_hyper_dq,
-    input  logic [7:0] i_hyper_dq,
-    output logic       o_hyper_dq_oe,
-    output logic       o_hyper_reset_n
+    output logic [NumPads-1:0] pad_oe_o
 );
 
 // Provide clock divided by 16 to the outside
@@ -251,7 +247,7 @@ localparam int unsigned RegPortWidth = $clog2(NoRegPorts);
 
 localparam int unsigned DmPort       = 0;
 localparam int unsigned Uart0Port    = 1;
-localparam int unsigned ScratchPort  = 2;
+localparam int unsigned ScbPort      = 2;
 localparam int unsigned GpioAPort    = 3;
 localparam int unsigned PlicPort     = 4;
 localparam int unsigned PinmuxPort   = 5;
@@ -273,8 +269,8 @@ localparam axi_pkg::xbar_rule_32_t [NoRegRules-1:0] RegAddrMap = '{
     '{ idx: PlicPort,     start_addr: 32'h0C00_0000, end_addr: 32'h0C20_2000 },
     '{ idx: Uart0Port,    start_addr: 32'h1000_0000, end_addr: 32'h1000_1000 },
     '{ idx: GpioAPort,    start_addr: 32'h2000_0000, end_addr: 32'h2000_0040 },
-    '{ idx: PinmuxPort,   start_addr: 32'h3000_0000, end_addr: 32'h3000_0040 },
-    '{ idx: ScratchPort,  start_addr: 32'h4000_0000, end_addr: 32'h4000_0004 },
+    '{ idx: ScbPort,      start_addr: 32'h4000_0000, end_addr: 32'h4000_1000 },
+    '{ idx: PinmuxPort,   start_addr: 32'h4000_1000, end_addr: 32'h4000_2000 },
     '{ idx: HyperCfgPort, start_addr: 32'h5000_0000, end_addr: 32'h5000_1000 },
     '{ idx: Qspi0Port,    start_addr: 32'h6000_0000, end_addr: 32'h6000_1000 }
 };
@@ -314,28 +310,41 @@ reg_demux #(
 );
 
 // ============================================================
-// Scratch register
+// System Control Block
 // ============================================================
 
-logic [31:0] scratch_q;
-always_ff @(posedge i_clk) begin
-    if (!soc_rstn) begin
-        scratch_q <= 32'h0;
-    end else if (reg_dev_req[ScratchPort].valid && reg_dev_req[ScratchPort].write) begin
-        for (int i = 0; i < 4; i++) begin
-            if (reg_dev_req[ScratchPort].wstrb[i])
-                scratch_q[8*i +: 8] <= reg_dev_req[ScratchPort].wdata[8*i +: 8];
-        end
-    end
-end
+logic hb_en;  // HBCTL.HB_EN drives the AFX and the external memory guard
 
-assign reg_dev_rsp[ScratchPort].rdata = scratch_q;
-assign reg_dev_rsp[ScratchPort].error = 1'b0;
-assign reg_dev_rsp[ScratchPort].ready = 1'b1;
+friscv_scb #(
+    .NumPads   ( NumPads       ),
+    .reg_req_t ( reg_bus_req_t ),
+    .reg_rsp_t ( reg_bus_rsp_t )
+) scb (
+    .clk_i     ( i_clk                ),
+    .rst_ni    ( soc_rstn             ),
+    .reg_req_i ( reg_dev_req[ScbPort] ),
+    .reg_rsp_o ( reg_dev_rsp[ScbPort] ),
+    .strap_i   ( pad_in_i             ),
+    .o_hb_en   ( hb_en                )
+);
 
 // ============================================================
 // External memory interface
 // ============================================================
+
+logic       hb_ck, hb_ck_n, hb_cs_n, hb_reset_n;
+logic       hb_rwds_o, hb_rwds_i, hb_rwds_oe;
+logic [7:0] hb_dq_o, hb_dq_i;
+logic       hb_dq_oe;
+
+// Guarded external port
+friscv_mem_if hyper_mem_if ();
+
+friscv_hb_guard hb_guard (
+    .i_hb_en ( hb_en        ),
+    .s_if    ( ext_if       ),
+    .m_if    ( hyper_mem_if )
+);
 
 AXI_BUS #(
     .AXI_ADDR_WIDTH ( AxiAddrWidth ),
@@ -348,10 +357,10 @@ friscv_axi4_full_adapter_intf #(
     .AXI_ID_WIDTH   ( AxiIdWidth   ),
     .AXI_USER_WIDTH ( AxiUserWidth )
 ) m_mem (
-    .clk_i          ( i_clk    ),
-    .rst_ni         ( soc_rstn ),
-    .mem_slv        ( ext_if   ),
-    .mst            ( mem_axi  )
+    .clk_i          ( i_clk        ),
+    .rst_ni         ( soc_rstn     ),
+    .mem_slv        ( hyper_mem_if ),
+    .mst            ( mem_axi      )
 );
 
 typedef logic [AxiIdWidth-1:0]   axi_id_t;
@@ -399,16 +408,16 @@ hyperbus #(
     .axi_rsp_o       ( hyper_axi_rsp             ),
     .reg_req_i       ( reg_dev_req[HyperCfgPort] ),
     .reg_rsp_o       ( reg_dev_rsp[HyperCfgPort] ),
-    .hyper_cs_no     ( o_hyper_cs_n              ),
-    .hyper_ck_o      ( o_hyper_ck                ),
-    .hyper_ck_no     ( o_hyper_ck_n              ),
-    .hyper_rwds_o    ( o_hyper_rwds              ),
-    .hyper_rwds_i    ( i_hyper_rwds              ),
-    .hyper_rwds_oe_o ( o_hyper_rwds_oe           ),
-    .hyper_dq_i      ( i_hyper_dq                ),
-    .hyper_dq_o      ( o_hyper_dq                ),
-    .hyper_dq_oe_o   ( o_hyper_dq_oe             ),
-    .hyper_reset_no  ( o_hyper_reset_n           )
+    .hyper_cs_no     ( hb_cs_n                   ),
+    .hyper_ck_o      ( hb_ck                     ),
+    .hyper_ck_no     ( hb_ck_n                   ),  // single-ended: no package pin
+    .hyper_rwds_o    ( hb_rwds_o                 ),
+    .hyper_rwds_i    ( hb_rwds_i                 ),
+    .hyper_rwds_oe_o ( hb_rwds_oe                ),
+    .hyper_dq_i      ( hb_dq_i                   ),
+    .hyper_dq_o      ( hb_dq_o                   ),
+    .hyper_dq_oe_o   ( hb_dq_oe                  ),
+    .hyper_reset_no  ( hb_reset_n                )
 );
 
 // ============================================================
@@ -607,28 +616,56 @@ apb_uart_wrap #(
 // ============================================================
 
 /*
-Pad   AF0 (sel=0)  AF1 (sel=1)  Notes
-----  -----------  -----------  -------------------------
-PA0   gpio[0]      -
-PA1   gpio[1]      -            external interrupt
-PA2   gpio[2]      -            external interrupt
-PA3   gpio[3]      -            external interrupt
-PA4   gpio[4]      -            external interrupt
-PA5   gpio[5]      QSPI0_IO0
-PA6   gpio[6]      QSPI0_IO1
-PA7   gpio[7]      QSPI0_IO2    boot strap
-PA8   gpio[8]      QSPI0_IO3    boot strap
-PA9   gpio[9]      QSPI0_SCK
-PA10  gpio[10]     QSPI0_CS0
-PA11  gpio[11]     QSPI0_CS1
-PA12  gpio[12]     QSPI0_CS2
+Pad   AF0        AF1        AFX (HB_EN)  Notes
+----  ---------  ---------  -----------  -------------------------
+PA0   gpio[0]    -          -
+PA1   gpio[1]    -          -            external interrupt
+PA2   gpio[2]    -          -            external interrupt
+PA3   gpio[3]    -          -            external interrupt
+PA4   gpio[4]    -          -            external interrupt
+PA5   gpio[5]    QSPI0_IO0  -
+PA6   gpio[6]    QSPI0_IO1  -
+PA7   gpio[7]    QSPI0_IO2  -            boot strap
+PA8   gpio[8]    QSPI0_IO3  -            boot strap
+PA9   gpio[9]    QSPI0_SCK  -
+PA10  gpio[10]   QSPI0_CS0  -
+PA11  gpio[11]   QSPI0_CS1  -
+PA12  gpio[12]   QSPI0_CS2  -
+PA13  gpio[13]   DBG_D0     HB_DQ0
+PA14  gpio[14]   DBG_D1     HB_DQ1
+PA15  gpio[15]   DBG_D2     HB_DQ2
+PA16  gpio[16]   DBG_D3     HB_DQ3
+PA17  gpio[17]   DBG_D4     HB_DQ4
+PA18  gpio[18]   DBG_D5     HB_DQ5
+PA19  gpio[19]   DBG_D6     HB_DQ6
+PA20  gpio[20]   DBG_D7     HB_DQ7
+PA21  gpio[21]   DBG_SEL0   HB_RWDS
+PA22  gpio[22]   DBG_SEL1   HB_CK
+PA23  gpio[23]   DBG_SEL2   HB_CS0_N
+PA24  gpio[24]   DBG_SEL3   HB_RST_N
 */
 
 localparam int unsigned NumAfs = 2;
 
+// HyperBus pad assignment for the AFX overlay
+localparam int unsigned PadHbDqLsb = 13;  // PA13..PA20 = HB_DQ0..HB_DQ7
+localparam int unsigned PadHbRwds  = 21;  // PA21 = HB_RWDS
+localparam int unsigned PadHbCk    = 22;  // PA22 = HB_CK
+localparam int unsigned PadHbCsN   = 23;  // PA23 = HB_CS0_N
+localparam int unsigned PadHbRstN  = 24;  // PA24 = HB_RST_N
+
 logic [NumPads-1:0][NumAfs-1:0] to_func;
 logic [NumPads-1:0][NumAfs-1:0] from_func;
 logic [NumPads-1:0][NumAfs-1:0] oe_func;
+
+logic [NumPads-1:0] pm_pad_out, pm_pad_oe;
+
+// Region-relative pinmux register address
+reg_bus_req_t pinmux_req;
+always_comb begin
+    pinmux_req      = reg_dev_req[PinmuxPort];
+    pinmux_req.addr = reg_dev_req[PinmuxPort].addr & 32'h0000_0FFF;
+end
 
 friscv_pinmux #(
     .NumPads  ( NumPads       ),
@@ -639,15 +676,45 @@ friscv_pinmux #(
  ) pinmux (
     .clk_i      ( i_clk                   ),
     .rst_ni     ( i_rstn                  ),
-    .reg_req_i  ( reg_dev_req[PinmuxPort] ),
+    .reg_req_i  ( pinmux_req              ),
     .reg_rsp_o  ( reg_dev_rsp[PinmuxPort] ),
     .pad_in_i   ( pad_in_i                ),
-    .pad_out_o  ( pad_out_o               ),
-    .pad_oe_o   ( pad_oe_o                ),
+    .pad_out_o  ( pm_pad_out              ),
+    .pad_oe_o   ( pm_pad_oe               ),
     .func_out_i ( from_func               ),  // peripheral -> pinmux
     .func_in_o  ( to_func                 ),  // peripheral <- pinmux
     .func_oe_i  ( oe_func                 )
 );
+
+// ============================================================
+// AFX Switch
+// ============================================================
+
+assign hb_dq_i   = pad_in_i[PadHbDqLsb +: 8];  // PA13..PA20
+assign hb_rwds_i = pad_in_i[PadHbRwds];        // PA21
+
+always_comb begin
+    pad_out_o = pm_pad_out;
+    pad_oe_o  = pm_pad_oe;
+
+    if (hb_en) begin
+        // DQ[7:0] on PA13..PA20 bidirectional with one shared output enable
+        for (int unsigned i = 0; i < 8; i++) begin
+            pad_out_o[PadHbDqLsb + i] = hb_dq_o[i];
+            pad_oe_o [PadHbDqLsb + i] = hb_dq_oe;
+        end
+        // RWDS on PA21 bidirectional
+        pad_out_o[PadHbRwds] = hb_rwds_o;
+        pad_oe_o [PadHbRwds] = hb_rwds_oe;
+        // CK / CS0_N / RST_N on PA22..PA24 output only
+        pad_out_o[PadHbCk]   = hb_ck;
+        pad_oe_o [PadHbCk]   = 1'b1;
+        pad_out_o[PadHbCsN]  = hb_cs_n;
+        pad_oe_o [PadHbCsN]  = 1'b1;
+        pad_out_o[PadHbRstN] = hb_reset_n;
+        pad_oe_o [PadHbRstN] = 1'b1;
+    end
+end
 
 // ============================================================
 // GPIO Port A
@@ -734,6 +801,34 @@ end
 for (genvar p = 0; p < Qspi0PadBase; p++) begin : gen_no_af1
     assign from_func[p][1] = 1'b0;
     assign oe_func  [p][1] = 1'b0;
+end
+
+// ============================================================
+// Debug read port
+// ============================================================
+
+logic [3:0] dbg_sel;
+logic [7:0] dbg_data;
+logic [7:0] dbg_src [16];
+
+assign dbg_sel = { to_func[PadHbRstN][1], to_func[PadHbCsN][1],
+                   to_func[PadHbCk][1],   to_func[PadHbRwds][1] };
+
+for (genvar i = 0; i < 16; i++) begin : gen_dbg_src
+    assign dbg_src[i] = 8'h00;  // TODO tied to 0 for now
+end
+assign dbg_data = dbg_src[dbg_sel];
+
+// DBG_D0..DBG_D7 drive PA13..PA20
+for (genvar i = 0; i < 8; i++) begin : gen_dbg_d
+    assign from_func[PadHbDqLsb + i][1] = dbg_data[i];
+    assign oe_func  [PadHbDqLsb + i][1] = 1'b1;
+end
+
+// DBG_SEL0..DBG_SEL3 read PA21..PA24 output disabled, pad drives func_in
+for (genvar i = 0; i < 4; i++) begin : gen_dbg_sel
+    assign from_func[PadHbRwds + i][1] = 1'b0;
+    assign oe_func  [PadHbRwds + i][1] = 1'b0;
 end
 
 // ============================================================
