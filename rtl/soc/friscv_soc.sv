@@ -28,7 +28,9 @@ module friscv_soc #(
     parameter int unsigned MemSize  = 32'h0100_0000,
     parameter bit          HyperClockDelayed = 1'b1,
     parameter int unsigned NumPads  = 25,
-    parameter bit          EnablePlic  = 1
+    parameter bit          EnablePlic  = 1,
+    parameter int unsigned ClkFreqHz = 50_000_000,
+    parameter int unsigned ZsblRomSizeBytes = 64
 ) (
     input  logic  i_clk,
     input  logic  i_rstn,
@@ -84,10 +86,10 @@ logic soc_rstn;
 assign soc_rstn = i_rstn & ~ndmreset;
 
 friscv_cpu_subsystem_core #(
-    .RAM_BASE            ( MemBase       ),
-    .ZSBL_ROM_SIZE_BYTES ( 64            ),
-    .ZSBL_BASE           ( 32'h20000     ),
-    .DM_BASE             ( DmBaseAddr    )
+    .RAM_BASE            ( MemBase          ),
+    .ZSBL_ROM_SIZE_BYTES ( ZsblRomSizeBytes ),
+    .ZSBL_BASE           ( 32'h20000        ),
+    .DM_BASE             ( DmBaseAddr       )
 ) cpu_subsystem (
     .i_clk     ( i_clk     ),
     .i_rstn    ( soc_rstn  ),
@@ -884,7 +886,7 @@ axi_lite_resp_t clint_lite_rsp;
 `AXI_LITE_ASSIGN_FROM_RESP(axi_lite_xbar_mst[ClintPort], clint_lite_rsp)
 
 friscv_clint #(
-    .CLK_FREQ_HZ   ( 50_000_000 ),
+    .CLK_FREQ_HZ   ( ClkFreqHz  ),
     .MTIME_FREQ_HZ ( 10_000_000 )
 ) clint (
     .clk_in        ( i_clk                   ),
