@@ -154,7 +154,8 @@
             owner = "IHP-GmbH";
             repo = "IHP-Open-PDK";
             rev = "22f2a25f1734796de3debbbf29cf697cbbc54081";
-            hash = "sha256-MvJn3QmIA+Ixaq9XERTT2lVFo9x+9G4VvtdOyR+mM+Q=";
+            fetchSubmodules = true;
+            hash = "sha256-BUf7DgUm2mMScw524Hbnq2viHY+DMm5i68Eqqlik3g8=";
           };
           ihp-sg13g2-liberty = "${ihp-pdk}/ihp-sg13g2/libs.ref/sg13g2_stdcell/lib/sg13g2_stdcell_typ_1p20V_25C.lib";
           ihp-sg13g2-sram-liberty = "${ihp-pdk}/ihp-sg13g2/libs.ref/sg13g2_sram/lib/RM_IHPSG13_1P_1024x32_c2_bm_bist_typ_1p20V_25C.lib";

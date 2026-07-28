@@ -1,6 +1,6 @@
 # FRISC-V Tapeout
 
-The first tapeout of the FRISC-V core, targeting IHP's open-source **SG13G2**
+The first tapeout of the FRISC-V core, targeting IHP's open-source **SG13CMOS5L**
 130nm process.
 
 ## Setup

@@ -19,3 +19,11 @@ act-run-soc:
 .PHONY: report-area
 report-area:
 	make -C target/ihp-sg13cmos5l area
+
+.PHONY: librelane
+librelane:
+	make -C target/ihp-sg13cmos5l librelane
+
+.PHONY: librelane-nodrc
+librelane-nodrc:
+	make -C target/ihp-sg13cmos5l librelane-nodrc
