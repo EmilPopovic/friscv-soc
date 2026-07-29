@@ -13,9 +13,10 @@
 `timescale 1ns/1ps
 
 module friscv_scb #(
-    parameter int unsigned NumPads   = 25,
-    parameter type         reg_req_t = logic,
-    parameter type         reg_rsp_t = logic
+    parameter int unsigned NumPads    = 25,
+    parameter int unsigned OcmLlcWays = 4,
+    parameter type         reg_req_t  = logic,
+    parameter type         reg_rsp_t  = logic
 ) (
     input  logic clk_i,
     input  logic rst_ni,
@@ -25,7 +26,8 @@ module friscv_scb #(
 
     input  logic [NumPads-1:0] strap_i,
 
-    output logic o_hb_en
+    output logic o_hb_en,
+    output logic [OcmLlcWays-1:0] o_llcsel
 );
 
 localparam int unsigned DW = $bits(reg_req_i.wdata);
@@ -34,6 +36,7 @@ localparam int unsigned DW = $bits(reg_req_i.wdata);
 localparam logic [11:0] OFF_SCRATCH0 = 12'h000;
 localparam logic [11:0] OFF_STRAPA   = 12'h004;
 localparam logic [11:0] OFF_HBCTL    = 12'h008;
+localparam logic [11:0] OFF_LLCSEL   = 12'h00C;
 
 logic [11:0] off;
 assign off = reg_req_i.addr[11:0];
@@ -45,10 +48,11 @@ assign do_write = reg_req_i.valid && reg_req_i.write;
 // Registers
 // ============================================================
 
-logic [31:0]        r_scratch0;  // SCRATCH0
-logic               r_hb_en;     // HBCTL.HB_EN
-logic               r_strapped;  // STRAPA sampled flag
-logic [NumPads-1:0] r_strapa;    // STRAPA
+logic [31:0]           r_scratch0;  // SCRATCH0
+logic                  r_hb_en;     // HBCTL.HB_EN
+logic                  r_strapped;  // STRAPA sampled flag
+logic [NumPads-1:0]    r_strapa;    // STRAPA
+logic [OcmLlcWays-1:0] r_llcsel;    // LLCSEL
 
 always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
@@ -73,10 +77,15 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
         if (do_write && off == OFF_HBCTL && reg_req_i.wstrb[0]) begin
             r_hb_en <= reg_req_i.wdata[0];
         end
+
+        if (do_write && off == OFF_LLCSEL && reg_req_i.wstrb[0]) begin
+            r_llcsel <= reg_req_i.wdata[OcmLlcWays-1:0];
+        end
     end
 end
 
 assign o_hb_en = r_hb_en;
+assign o_llcsel = r_llcsel;
 
 // ============================================================
 // Read / response
@@ -92,6 +101,7 @@ always_comb begin
         OFF_SCRATCH0: rdata = r_scratch0;
         OFF_STRAPA:   rdata = 32'(r_strapa);
         OFF_HBCTL:    rdata = {31'h0, r_hb_en};
+        OFF_LLCSEL:   rdata = {{32-OcmLlcWays{1'b0}}, {r_llcsel}};
         default:      map_err = 1'b1;
     endcase
 end

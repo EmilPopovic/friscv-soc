@@ -22,8 +22,7 @@ module friscv_ocm_llc #(
 ) (
     input  logic            i_clk,
     input  logic            i_rstn,
-    input  logic            i_mode_valid,
-    input  logic [WAYS-1:0] i_mode_cache_en,
+    input  logic [WAYS-1:0] i_way_is_cache,  // 1 = this way is cache, 0 = this way is OCM
 
     friscv_mem_if.slave     s_mem_if,  // To CPU
     friscv_mem_if.master    m_mem_if   // To Memory
@@ -67,16 +66,6 @@ end
 
 localparam int unsigned WAY_WORDS = SIZE_BYTES / WAYS / 4;
 
-logic [WAYS-1:0] r_way_is_cache;
-
-always_ff @(posedge i_clk) begin
-    if (!i_rstn) begin
-        r_way_is_cache <= '0;
-    end else if (i_mode_valid) begin
-        r_way_is_cache <= i_mode_cache_en;
-    end
-end
-
 logic [WAYS-1:0]       w_way_req, w_way_we;
 logic [WAYS-1:0][31:0] w_way_wdata, w_way_rdata;
 logic [WAYS-1:0][3:0]  w_way_be;
@@ -116,7 +105,7 @@ assign w_ocm_way_sel = w_addr[$clog2(WAY_WORDS)+$clog2(WAYS)+1:$clog2(WAY_WORDS)
 
 always_comb begin
     for (int unsigned i = 0; i < WAYS; i++) begin
-        if (r_way_is_cache[i]) begin
+        if (i_way_is_cache[i]) begin
             w_way_req  [i] = 1'b0;
             w_way_addr [i] = '0;
             w_way_we   [i] = 1'b0;
@@ -145,7 +134,7 @@ end
 always_comb begin
     w_rdata = '0;
     for (int unsigned i = 0; i < WAYS; i++) begin
-        if (r_way_is_cache[i]) begin
+        if (i_way_is_cache[i]) begin
             // Do nothing, this way is not used
         end else if (w_ocm_way_sel == i) begin
             w_rdata = w_way_rdata[i];

@@ -22,15 +22,17 @@
 `timescale 1ns/1ps
 
 module friscv_soc #(
-    parameter int unsigned SramBase = 32'h0000_0000,
-    parameter int unsigned SramSize = 32'h0000_4000,
-    parameter int unsigned MemBase  = 32'h8000_0000,
-    parameter int unsigned MemSize  = 32'h0100_0000,
+    parameter int unsigned SramBase          = 32'h0000_0000,
+    parameter int unsigned SramSize          = 32'h0000_4000,
+    parameter int unsigned MemBase           = 32'h8000_0000,
+    parameter int unsigned MemSize           = 32'h0100_0000,
+    parameter int unsigned LineBytes         = 64,
+    parameter int unsigned Ways              = 4,
     parameter bit          HyperClockDelayed = 1'b1,
-    parameter int unsigned NumPads  = 25,
-    parameter bit          EnablePlic  = 1,
-    parameter int unsigned ClkFreqHz = 50_000_000,
-    parameter int unsigned ZsblRomSizeBytes = 64
+    parameter int unsigned NumPads           = 25,
+    parameter bit          EnablePlic        = 1,
+    parameter int unsigned ClkFreqHz         = 50_000_000,
+    parameter int unsigned ZsblRomSizeBytes  = 64
 ) (
     input  logic  i_clk,
     input  logic  i_rstn,
@@ -107,22 +109,27 @@ friscv_cpu_subsystem_core #(
 // Memory hub {cpu, dm} -> {soc, mem}
 // ============================================================
 
+logic [3:0] llcsel;
+
 friscv_mem_if dm_if ();
 friscv_mem_if ext_if ();
 friscv_mem_if soc_if ();
 
 friscv_mem_hub #(
-    .MEM_BASE  ( MemBase  ),
-    .MEM_SIZE  ( MemSize  ),
-    .SRAM_BASE ( SramBase ),
-    .SRAM_SIZE ( SramSize )
+    .MEM_BASE   ( MemBase   ),
+    .MEM_SIZE   ( MemSize   ),
+    .SRAM_BASE  ( SramBase  ),
+    .SRAM_SIZE  ( SramSize  ),
+    .LINE_BYTES ( LineBytes ),
+    .WAYS       ( Ways      )
 ) friscv_mem_hub (
     .i_clk    ( i_clk    ),
     .i_rstn   ( soc_rstn ),
     .s_cpu_if ( cpu_if   ),
     .s_dm_if  ( dm_if    ),
     .m_ext_if ( ext_if   ),
-    .m_sys_if ( soc_if   )
+    .m_sys_if ( soc_if   ),
+    .i_llcsel ( llcsel   )
 );
 
 // ============================================================
@@ -318,16 +325,18 @@ reg_demux #(
 logic hb_en;  // HBCTL.HB_EN drives the AFX and the external memory guard
 
 friscv_scb #(
-    .NumPads   ( NumPads       ),
-    .reg_req_t ( reg_bus_req_t ),
-    .reg_rsp_t ( reg_bus_rsp_t )
+    .NumPads    ( NumPads       ),
+    .reg_req_t  ( reg_bus_req_t ),
+    .reg_rsp_t  ( reg_bus_rsp_t ),
+    .OcmLlcWays ( Ways          )
 ) scb (
     .clk_i     ( i_clk                ),
     .rst_ni    ( soc_rstn             ),
     .reg_req_i ( reg_dev_req[ScbPort] ),
     .reg_rsp_o ( reg_dev_rsp[ScbPort] ),
     .strap_i   ( pad_in_i             ),
-    .o_hb_en   ( hb_en                )
+    .o_hb_en   ( hb_en                ),
+    .o_llcsel  ( llcsel               )
 );
 
 // ============================================================

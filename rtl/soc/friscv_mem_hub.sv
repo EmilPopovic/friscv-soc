@@ -11,18 +11,22 @@
 import friscv_pkg::*;
 
 module friscv_mem_hub #(
-    parameter int unsigned MEM_BASE  = 32'h8000_0000,
-    parameter int unsigned MEM_SIZE  = 32'h8000_0000,
-    parameter int unsigned SRAM_BASE = 32'h0000_0000,
-    parameter int unsigned SRAM_SIZE = 32'h0100_0000
+    parameter int unsigned MEM_BASE   = 32'h8000_0000,
+    parameter int unsigned MEM_SIZE   = 32'h8000_0000,
+    parameter int unsigned SRAM_BASE  = 32'h0000_0000,
+    parameter int unsigned SRAM_SIZE  = 32'h0100_0000,
+    parameter int unsigned LINE_BYTES = 64,
+    parameter int unsigned WAYS       = 4
 ) (
-    input  logic         i_clk,
-    input  logic         i_rstn,
+    input  logic            i_clk,
+    input  logic            i_rstn,
 
-    friscv_mem_if.slave  s_cpu_if,  // To CPU
-    friscv_mem_if.slave  s_dm_if,   // To DM
-    friscv_mem_if.master m_ext_if,  // To downstream
-    friscv_mem_if.master m_sys_if   // To SoC
+    friscv_mem_if.slave     s_cpu_if,  // To CPU
+    friscv_mem_if.slave     s_dm_if,   // To DM
+    friscv_mem_if.master    m_ext_if,  // To downstream
+    friscv_mem_if.master    m_sys_if,  // To SoC
+
+    input  logic [WAYS-1:0] i_llcsel
 );
 
 friscv_mem_if granted_if ();
@@ -228,14 +232,13 @@ friscv_mem_if refill_if ();
 
 friscv_ocm_llc #(
     .REGION_LOG2 ( $clog2(MEM_SIZE) ),
-    .LINE_BYTES  ( 64               ),
-    .WAYS        ( 4                ),
+    .LINE_BYTES  ( LINE_BYTES       ),
+    .WAYS        ( WAYS             ),
     .SIZE_BYTES  ( SRAM_SIZE        )
 ) ocm_llc (
     .i_clk           ( i_clk     ),
     .i_rstn          ( i_rstn    ),
-    .i_mode_valid    ( 1'b0      ),
-    .i_mode_cache_en ( '0        ),
+    .i_way_is_cache  ( i_llcsel  ),
     .s_mem_if        ( sram_if   ),
     .m_mem_if        ( refill_if )
 );
