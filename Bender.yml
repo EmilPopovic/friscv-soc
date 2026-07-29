@@ -112,5 +112,6 @@ sources:
   - rtl/soc/friscv_pinmux.sv
   - rtl/soc/friscv_scb.sv
   - rtl/soc/friscv_hb_guard.sv
+  - rtl/soc/friscv_ocm_llc.sv
   - rtl/soc/friscv_mem_hub.sv
   - rtl/soc/friscv_soc.sv

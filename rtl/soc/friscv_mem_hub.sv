@@ -221,53 +221,23 @@ assign granted_if.err        = w_sel_ext ? m_ext_if.err        : w_sel_sram ? sr
 assign granted_if.beat_valid = w_sel_ext ? m_ext_if.beat_valid : w_sel_sram ? sram_if.beat_valid : m_sys_if.beat_valid;
 
 // ============================================================
-// SRAM block
+// Switchable OCM/LLC block
 // ============================================================
 
-logic        sram_req, sram_gnt, sram_we, sram_rvalid;
-logic [31:0] sram_addr, sram_wdata, sram_rdata;
-logic [3:0]  sram_be;
+friscv_mem_if refill_if ();
 
-friscv_to_mem #(
-    .REGISTER_REQ ( 0 )
-) sram_mem_if (
-    .i_clk       ( i_clk       ),
-    .i_rstn      ( i_rstn      ),
-    .req_o       ( sram_req    ),
-    .addr_o      ( sram_addr   ),
-    .we_o        ( sram_we     ),
-    .wdata_o     ( sram_wdata  ),
-    .be_o        ( sram_be     ),
-    .gnt_i       ( sram_gnt    ),
-    .rvalid_i    ( sram_rvalid ),
-    .err_i       ( 1'b0        ),
-    .other_err_i ( 1'b0        ),
-    .rdata_i     ( sram_rdata  ),
-    .mem_if      ( sram_if     )
+friscv_ocm_llc #(
+    .REGION_LOG2 ( $clog2(MEM_SIZE) ),
+    .LINE_BYTES  ( 64               ),
+    .WAYS        ( 4                ),
+    .SIZE_BYTES  ( SRAM_SIZE        )
+) ocm_llc (
+    .i_clk           ( i_clk     ),
+    .i_rstn          ( i_rstn    ),
+    .i_mode_valid    ( 1'b0      ),
+    .i_mode_cache_en ( '0        ),
+    .s_mem_if        ( sram_if   ),
+    .m_mem_if        ( refill_if )
 );
-
-tc_sram #(
-    .NumWords  ( SRAM_SIZE/4 ),
-    .DataWidth ( 32          ),
-    .ByteWidth ( 8           ),
-    .NumPorts  ( 1           ),
-    .Latency   ( 1           )
-) sram (
-    .clk_i   ( i_clk                            ),
-    .rst_ni  ( i_rstn                           ),
-    .req_i   ( sram_req                         ),
-    .we_i    ( sram_we                          ),
-    .addr_i  ( sram_addr[$clog2(SRAM_SIZE)-1:2] ),
-    .wdata_i ( sram_wdata                       ),
-    .be_i    ( sram_be                          ),
-    .rdata_o ( sram_rdata                       )
-);
-
-assign sram_gnt = 1'b1;
-always_ff @(posedge i_clk) begin
-    if (!i_rstn) sram_rvalid <= 1'b0;
-    else         sram_rvalid <= sram_req;
-end
-
 
 endmodule
