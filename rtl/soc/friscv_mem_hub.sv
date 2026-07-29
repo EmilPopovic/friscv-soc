@@ -26,7 +26,8 @@ module friscv_mem_hub #(
     friscv_mem_if.master    m_ext_if,  // To downstream
     friscv_mem_if.master    m_sys_if,  // To SoC
 
-    input  logic [WAYS-1:0] i_llcsel
+    input  logic [WAYS-1:0] i_llcsel,
+    input  logic            i_crpsel
 );
 
 friscv_mem_if granted_if ();
@@ -239,6 +240,7 @@ friscv_ocm_llc #(
     .i_clk           ( i_clk     ),
     .i_rstn          ( i_rstn    ),
     .i_way_is_cache  ( i_llcsel  ),
+    .i_crpsel        ( i_crpsel  ),
     .s_mem_if        ( sram_if   ),
     .m_mem_if        ( refill_if )
 );

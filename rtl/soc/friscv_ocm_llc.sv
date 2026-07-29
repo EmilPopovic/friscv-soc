@@ -23,6 +23,7 @@ module friscv_ocm_llc #(
     input  logic            i_clk,
     input  logic            i_rstn,
     input  logic [WAYS-1:0] i_way_is_cache,  // 1 = this way is cache, 0 = this way is OCM
+    input  logic            i_crpsel,        // 0 = round-robin, 1 = random
 
     friscv_mem_if.slave     s_mem_if,  // To CPU
     friscv_mem_if.master    m_mem_if   // To Memory
@@ -54,7 +55,8 @@ friscv_to_mem #(
     .mem_if      ( s_mem_if )
 );
 
-assign w_gnt = 1'b1;  // SRAM always ready
+// SRAM always ready
+assign w_gnt = 1'b1;
 always_ff @(posedge i_clk) begin
     if (!i_rstn) w_rvalid <= 1'b0;
     else         w_rvalid <= w_req;
@@ -90,14 +92,30 @@ for (genvar i = 0; i < WAYS; i++) begin : gen_ways
     );
 end
 
+// ============================================================
+// LLC mode
+// ============================================================
+
+logic [WAYS-1:0][SETS-1:0][TAG_W-1:0] r_tag_arr;
+logic [WAYS-1:0][SETS-1:0]            r_valid_arr;
+
+always_ff @(posedge i_clk) begin
+    if (!i_rstn) begin
+        r_tag_arr   <= '0;
+        r_valid_arr <= '0;
+    end else begin
+        // TODO implement cache replacement policy
+    end
+end
+
 assign m_mem_if.rw = RW_IDLE;  // TODO temporary tieoff
 
 // ============================================================
 // SRAM inputs
 // ============================================================
 
-logic [$clog2(WAY_WORDS)-1:0] w_ocm_addr, w_llc_addr;
-logic [$clog2(WAYS)-1:0] w_ocm_way_sel, w_llc_way_sel;
+logic [$clog2(WAY_WORDS)-1:0] w_ocm_addr,    w_llc_addr;
+logic [$clog2(WAYS)-1:0]      w_ocm_way_sel, w_llc_way_sel;
 
 // Full OCM address is [X, WAY_ADDR, WAY_SEL, BYTE_SEL], where BYTE_SEL is 2 bits for 32-bit address
 assign w_ocm_addr    = w_addr[$clog2(WAY_WORDS)+1:2];
@@ -106,6 +124,7 @@ assign w_ocm_way_sel = w_addr[$clog2(WAY_WORDS)+$clog2(WAYS)+1:$clog2(WAY_WORDS)
 always_comb begin
     for (int unsigned i = 0; i < WAYS; i++) begin
         if (i_way_is_cache[i]) begin
+            // TODO implement cache mode
             w_way_req  [i] = 1'b0;
             w_way_addr [i] = '0;
             w_way_we   [i] = 1'b0;
@@ -135,7 +154,7 @@ always_comb begin
     w_rdata = '0;
     for (int unsigned i = 0; i < WAYS; i++) begin
         if (i_way_is_cache[i]) begin
-            // Do nothing, this way is not used
+            // TODO implement cache mode
         end else if (w_ocm_way_sel == i) begin
             w_rdata = w_way_rdata[i];
         end

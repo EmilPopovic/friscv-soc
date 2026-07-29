@@ -27,7 +27,9 @@ module friscv_scb #(
     input  logic [NumPads-1:0] strap_i,
 
     output logic o_hb_en,
-    output logic [OcmLlcWays-1:0] o_llcsel
+
+    output logic [OcmLlcWays-1:0] o_llcsel,
+    output logic                  o_crpsel
 );
 
 localparam int unsigned DW = $bits(reg_req_i.wdata);
@@ -37,6 +39,7 @@ localparam logic [11:0] OFF_SCRATCH0 = 12'h000;
 localparam logic [11:0] OFF_STRAPA   = 12'h004;
 localparam logic [11:0] OFF_HBCTL    = 12'h008;
 localparam logic [11:0] OFF_LLCSEL   = 12'h00C;
+localparam logic [11:0] OFF_CRPSEL   = 12'h010;
 
 logic [11:0] off;
 assign off = reg_req_i.addr[11:0];
@@ -53,6 +56,7 @@ logic                  r_hb_en;     // HBCTL.HB_EN
 logic                  r_strapped;  // STRAPA sampled flag
 logic [NumPads-1:0]    r_strapa;    // STRAPA
 logic [OcmLlcWays-1:0] r_llcsel;    // LLCSEL
+logic                  r_crpsel;    // CRPSEL
 
 always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
@@ -81,11 +85,16 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
         if (do_write && off == OFF_LLCSEL && reg_req_i.wstrb[0]) begin
             r_llcsel <= reg_req_i.wdata[OcmLlcWays-1:0];
         end
+
+        if (do_write && off == OFF_CRPSEL && reg_req_i.wstrb[0]) begin
+            r_crpsel <= reg_req_i.wdata[0];
+        end
     end
 end
 
 assign o_hb_en = r_hb_en;
 assign o_llcsel = r_llcsel;
+assign o_crpsel = r_crpsel;
 
 // ============================================================
 // Read / response
@@ -102,6 +111,7 @@ always_comb begin
         OFF_STRAPA:   rdata = 32'(r_strapa);
         OFF_HBCTL:    rdata = {31'h0, r_hb_en};
         OFF_LLCSEL:   rdata = {{32-OcmLlcWays{1'b0}}, {r_llcsel}};
+        OFF_CRPSEL:   rdata = {31'h0, r_crpsel};
         default:      map_err = 1'b1;
     endcase
 end
