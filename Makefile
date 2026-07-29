@@ -24,6 +24,10 @@ report-area:
 librelane:
 	make -C target/ihp-sg13cmos5l librelane
 
-.PHONY: librelane-nodrc
-librelane-nodrc:
-	make -C target/ihp-sg13cmos5l librelane-nodrc
+.PHONY: librelane-openroad
+librelane-openroad:
+	make -C target/ihp-sg13cmos5l librelane-openroad
+
+.PHONY: librelane-klayout
+librelane-klayout:
+	make -C target/ihp-sg13cmos5l librelane-klayout
