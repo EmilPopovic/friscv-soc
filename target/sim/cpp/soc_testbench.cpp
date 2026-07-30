@@ -37,6 +37,8 @@ void SocTestbench::reset() {
 }
 
 void SocTestbench::run_cycles(uint64_t count) {
+    cycles_ += count;
+
     for (uint64_t i = 0; i < count; ++i) {
         top_.i_clk = 0;
         eval();

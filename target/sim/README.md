@@ -25,6 +25,32 @@ obj_dir_soc/friscv_soc write <address> <byte> [byte ...]
 obj_dir_soc/friscv_soc load <program.elf>
 ```
 
+## HyperRAM model
+
+`cpp/hyperram.cpp` models the device on the HyperBus and enforces its timing. It
+raises RWDS during the command phase to request the longer latency, and reports
+when the controller turns the bus around before the device would have driven
+data. Device timing and the controller's config registers are set from the
+environment, so changing them needs no rebuild:
+
+| Variable | Default | |
+| --- | --- | --- |
+| `FRISCV_HRAM_LATENCY` | 6 | initial latency in clocks |
+| `FRISCV_HRAM_FIXED` | 0 | twice the latency on every access |
+| `FRISCV_HRAM_REFRESH_EVERY` | 0 | refresh collision every Nth access |
+| `FRISCV_HRAM_TCSM` | 0 | maximum CS# low clocks, 0 disables the check |
+| `FRISCV_HRAM_STRICT` | 1 | 0 warns instead of aborting |
+| `FRISCV_HB_CFG` | | `reg:value[,...]`, register 0 is `t_latency_access` |
+
+```bash
+for lat in 3 4 5 6 7; do
+    FRISCV_HRAM_LATENCY=$lat FRISCV_HB_CFG=0:$lat \
+        obj_dir_soc/friscv_soc test program.elf
+done
+```
+
+`test` reports the cycle count from reset, for comparing runs.
+
 Start the SoC simulation and debug server from the repository root:
 
 ```bash

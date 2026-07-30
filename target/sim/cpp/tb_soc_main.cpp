@@ -23,6 +23,7 @@ namespace {
 #define FRISCV_SOC_SRAM_SIZE_BYTES 0x4000
 #endif
 
+constexpr uint32_t HYPER_CFG_BASE = 0x50010000;
 constexpr uint32_t SCRATCH_ADDRESS = 0x40000000;
 constexpr uint32_t PARKED = 1;
 constexpr uint32_t PASS_VALUE = 0xaabbccdd;
@@ -134,11 +135,44 @@ void validate(const ElfImage& image) {
     }
 }
 
+// FRISCV_HB_CFG="reg:value[,...]" sets the HyperBus controller config before the
+// program runs, so a sweep does not have to rebuild the program
+void apply_hyperbus_config(Jtag& jtag) {
+    const char* spec = std::getenv("FRISCV_HB_CFG");
+
+    if (spec == nullptr) {
+        return;
+    }
+
+    while (*spec != '\0') {
+        char* end = nullptr;
+        unsigned long index = std::strtoul(spec, &end, 0);
+
+        if (end == spec || *end != ':') {
+            throw std::runtime_error("FRISCV_HB_CFG wants reg:value pairs");
+        }
+
+        spec = end + 1;
+        unsigned long value = std::strtoul(spec, &end, 0);
+
+        if (end == spec) {
+            throw std::runtime_error("FRISCV_HB_CFG wants reg:value pairs");
+        }
+
+        jtag.write_memory(HYPER_CFG_BASE + uint32_t(index) * 4,
+                          word_bytes(uint32_t(value)));
+        std::fprintf(stderr, "hyperbus cfg[%lu] = %lu\n", index, value);
+
+        spec = (*end == ',') ? end + 1 : end;
+    }
+}
+
 ElfImage prepare_image(SocTestbench& testbench, Jtag& jtag,
                        const char* path) {
     ElfImage image = read_elf(path);
     validate(image);
     park(testbench, jtag);
+    apply_hyperbus_config(jtag);
 
     return image;
 }
@@ -174,12 +208,15 @@ int test_command(SocTestbench& testbench, Jtag& jtag, const char* path) {
 
     uint32_t result = read_word(jtag, SCRATCH_ADDRESS);
 
+    // From reset, so the count does not shift with debug-module traffic
+    unsigned long long cycles = testbench.cycles();
+
     if (top.o_end && result == PASS_VALUE) {
-        std::fprintf(stderr, "PASS\n");
+        std::fprintf(stderr, "PASS (%llu cycles)\n", cycles);
         return 0;
     }
 
-    std::fprintf(stderr, "FAIL (scratch=0x%08x)\n", result);
+    std::fprintf(stderr, "FAIL (scratch=0x%08x, %llu cycles)\n", result, cycles);
     return 1;
 }
 
