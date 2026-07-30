@@ -232,6 +232,8 @@ assign granted_if.beat_valid = w_sel_ext ? m_ext_if.beat_valid : w_sel_sram ? sr
 friscv_mem_if refill_if ();
 
 friscv_ocm_llc #(
+    .OCM_BASE    ( SRAM_BASE        ),
+    .REGION_BASE ( MEM_BASE         ),
     .REGION_LOG2 ( $clog2(MEM_SIZE) ),
     .LINE_BYTES  ( LINE_BYTES       ),
     .WAYS        ( WAYS             ),
