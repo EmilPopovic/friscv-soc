@@ -282,7 +282,7 @@ localparam axi_pkg::xbar_rule_32_t [NoRegRules-1:0] RegAddrMap = '{
     '{ idx: GpioAPort,    start_addr: 32'h2000_0000, end_addr: 32'h2000_0040 },
     '{ idx: ScbPort,      start_addr: 32'h4000_0000, end_addr: 32'h4000_1000 },
     '{ idx: PinmuxPort,   start_addr: 32'h4000_1000, end_addr: 32'h4000_2000 },
-    '{ idx: HyperCfgPort, start_addr: 32'h5000_0000, end_addr: 32'h5000_1000 },
+    '{ idx: HyperCfgPort, start_addr: 32'h5001_0000, end_addr: 32'h5001_1000 },
     '{ idx: Qspi0Port,    start_addr: 32'h6000_0000, end_addr: 32'h6000_1000 }
 };
 
