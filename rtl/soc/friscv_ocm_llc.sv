@@ -214,18 +214,64 @@ always_ff @(posedge i_clk) begin
     else if (w_lookup_en) r_hit_arr <= w_hit_arr_d;
 end
 
-// TODO implement replacement policy
+// ============================================================
+// Replacement policy
+// ============================================================
+
 logic [WAY_SEL_W-1:0] w_victim, r_victim;
+
+// Random replacement
+
+localparam int unsigned LFSR_W    = 32;
+localparam int unsigned LFSR_POLY = 32'h8020_0003;
+
+logic [LFSR_W-1:0] r_lfsr;  // for random replacement
+
+logic w_lfsr_next;
+assign w_lfsr_next = ~^(r_lfsr & LFSR_POLY);
+
+always_ff @(posedge i_clk) begin
+    if (!i_rstn) r_lfsr <= '0;
+    else         r_lfsr <= {r_lfsr[LFSR_W-2:0], w_lfsr_next};
+end
+
+// Round-robin replacement
+
+logic [SETS-1:0][WAY_SEL_W-1:0] r_rr_ptr;  // round-robin pointer for each set
+
+// Both policies only nominate a starting index, the selection below rotates from it
+// over the eligible ways so neither policy can land on a way that is OCM
+logic [WAY_SEL_W-1:0] w_start;
+assign w_start = i_crpsel ? r_lfsr[WAY_SEL_W-1:0] : r_rr_ptr[w_idx];
+
 always_comb begin
     w_victim = '0;
+    // Lowest priority: wrap round to an eligible way below the starting index
     for (int unsigned i = WAYS; i > 0; i--) begin
-        if (i_way_is_cache[i-1]) w_victim = WAY_SEL_W'(i-1);
+        if (i_way_is_cache[i-1] && WAY_SEL_W'(i-1) < w_start)
+            w_victim = WAY_SEL_W'(i-1);
     end
+    // Then the first eligible way at or above the starting index
     for (int unsigned i = WAYS; i > 0; i--) begin
-        if (i_way_is_cache[i-1] && !r_valid_arr[i-1][w_idx]) w_victim = WAY_SEL_W'(i-1);
+        if (i_way_is_cache[i-1] && WAY_SEL_W'(i-1) >= w_start)
+            w_victim = WAY_SEL_W'(i-1);
+    end
+    // Highest priority: an eligible way that holds nothing yet
+    for (int unsigned i = WAYS; i > 0; i--) begin
+        if (i_way_is_cache[i-1] && !r_valid_arr[i-1][w_idx])
+            w_victim = WAY_SEL_W'(i-1);
     end
 end
 
+always_ff @(posedge i_clk) begin
+    if (!i_rstn) begin
+        r_rr_ptr <= '0;
+    end else if (r_state == S_LLC_REFILL && w_dn_done && !w_refill_err) begin
+        r_rr_ptr[w_idx] <= r_victim + 1'b1;  // next way in round-robin order
+    end
+end
+
+// Replace chosen victim
 always_ff @(posedge i_clk) begin
     if (!i_rstn) begin
         r_tag_arr   <= '0;
@@ -235,6 +281,7 @@ always_ff @(posedge i_clk) begin
         r_valid_arr[r_victim][w_idx] <= 1'b1;
     end
 end
+
 
 // ============================================================
 // Refill
