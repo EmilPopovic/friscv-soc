@@ -29,7 +29,8 @@ module friscv_scb #(
     output logic o_hb_en,
 
     output logic [OcmLlcWays-1:0] o_llcsel,
-    output logic                  o_crpsel
+    output logic                  o_crpsel,
+    output logic                  o_llcinv
 );
 
 localparam int unsigned DW = $bits(reg_req_i.wdata);
@@ -40,6 +41,7 @@ localparam logic [11:0] OFF_STRAPA   = 12'h004;
 localparam logic [11:0] OFF_HBCTL    = 12'h008;
 localparam logic [11:0] OFF_LLCSEL   = 12'h00C;
 localparam logic [11:0] OFF_CRPSEL   = 12'h010;
+localparam logic [11:0] OFF_LLCINV   = 12'h014;
 
 logic [11:0] off;
 assign off = reg_req_i.addr[11:0];
@@ -57,6 +59,7 @@ logic                  r_strapped;  // STRAPA sampled flag
 logic [NumPads-1:0]    r_strapa;    // STRAPA
 logic [OcmLlcWays-1:0] r_llcsel;    // LLCSEL
 logic                  r_crpsel;    // CRPSEL
+logic                  r_llcinv;    // LLCINV
 
 always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
@@ -66,7 +69,11 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
         r_strapa   <= '0;
         r_llcsel   <= '0;
         r_crpsel   <= '0;
+        r_llcinv   <= 1'b0;
     end else begin
+        // Write one to request an invalidate, then self-clear
+        r_llcinv <= do_write && off == OFF_LLCINV && reg_req_i.wstrb[0] && reg_req_i.wdata[0];
+
         // Capture the pad inputs once, on the first cycle out of reset
         if (!r_strapped) begin
             r_strapa   <= strap_i;
@@ -97,6 +104,7 @@ end
 assign o_hb_en = r_hb_en;
 assign o_llcsel = r_llcsel;
 assign o_crpsel = r_crpsel;
+assign o_llcinv = r_llcinv;
 
 // ============================================================
 // Read / response
@@ -114,6 +122,8 @@ always_comb begin
         OFF_HBCTL:    rdata = {31'h0, r_hb_en};
         OFF_LLCSEL:   rdata = {{32-OcmLlcWays{1'b0}}, {r_llcsel}};
         OFF_CRPSEL:   rdata = {31'h0, r_crpsel};
+        OFF_LLCINV:   rdata = 32'h0;   // write-only, the invalidate is done by the
+                                       // time the store retires
         default:      map_err = 1'b1;
     endcase
 end

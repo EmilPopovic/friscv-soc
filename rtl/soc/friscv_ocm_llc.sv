@@ -31,6 +31,7 @@ module friscv_ocm_llc #(
     input  logic            i_rstn,
     input  logic [WAYS-1:0] i_way_is_cache,  // 1 = this way is cache, 0 = this way is OCM
     input  logic            i_crpsel,        // 0 = round-robin, 1 = random
+    input  logic            i_llcinv,        // pulse to invalidate every way
 
     friscv_mem_if.slave     s_mem_if,  // From the hub: OCM region and cacheable region
     friscv_mem_if.master    m_mem_if   // To external memory
@@ -130,6 +131,23 @@ for (genvar i = 0; i < WAYS; i++) begin : gen_ways
 end
 
 // ============================================================
+// Invalidate
+// ============================================================
+
+logic [WAYS-1:0] r_mode, w_mode_changed;
+assign w_mode_changed = i_way_is_cache ^ r_mode;
+
+always_ff @(posedge i_clk) begin
+    if (!i_rstn) r_mode <= '0;
+    else         r_mode <= i_way_is_cache;
+end
+
+logic [WAYS-1:0] w_inv_ways;
+logic            w_inv;
+assign w_inv_ways = i_llcinv ? {WAYS{1'b1}} : w_mode_changed;
+assign w_inv      = |w_inv_ways;
+
+// ============================================================
 // LLC mode
 // ============================================================
 
@@ -157,7 +175,8 @@ always_comb begin
     w_next_state = r_state;
     case (r_state)
         S_LLC_IDLE: begin
-            if (w_req && !w_sel_ocm) w_next_state = w_is_lookup ? S_LLC_LOOKUP : S_LLC_FWD;
+            if (w_req && !w_sel_ocm && !w_inv)
+                w_next_state = w_is_lookup ? S_LLC_LOOKUP : S_LLC_FWD;
         end
         S_LLC_LOOKUP: begin
             if      (w_we)  w_next_state = S_LLC_FWD;     // write-through
@@ -184,8 +203,7 @@ end
 
 // A tag compare and a parallel read of every cache way are issued this cycle
 logic w_lookup_en;
-assign w_lookup_en = (r_state == S_LLC_IDLE && w_req && w_is_lookup) ||
-                     (r_state == S_LLC_REPLAY);
+assign w_lookup_en = !w_inv && ((r_state == S_LLC_IDLE && w_req && w_is_lookup) || (r_state == S_LLC_REPLAY));
 
 // Split address into tag, index, and offset
 logic [OFFSET_W-1:0] w_offset;
@@ -276,12 +294,15 @@ always_ff @(posedge i_clk) begin
     if (!i_rstn) begin
         r_tag_arr   <= '0;
         r_valid_arr <= '0;
+    end else if (w_inv) begin
+        for (int unsigned i = 0; i < WAYS; i++) begin
+            if (w_inv_ways[i]) r_valid_arr[i] <= '0;  // every set of that way, one cycle
+        end
     end else if (r_state == S_LLC_REFILL && w_dn_done && !w_refill_err) begin
         r_tag_arr  [r_victim][w_idx] <= w_tag;
         r_valid_arr[r_victim][w_idx] <= 1'b1;
     end
 end
-
 
 // ============================================================
 // Refill
@@ -340,10 +361,10 @@ end
 
 always_comb begin
     case (r_state)
-        S_LLC_IDLE:   w_gnt = w_req && w_sel_ocm;         // the SRAM answers immediately
-        S_LLC_LOOKUP: w_gnt = w_hit && !w_we;             // read hit
+        S_LLC_IDLE:   w_gnt = w_req && w_sel_ocm && !w_inv;  // the SRAM answers immediately
+        S_LLC_LOOKUP: w_gnt = w_hit && !w_we;                // read hit
         S_LLC_FWD:    w_gnt = w_dn_done;
-        S_LLC_REFILL: w_gnt = w_dn_done && w_refill_err;  // a failed refill ends the access
+        S_LLC_REFILL: w_gnt = w_dn_done && w_refill_err;     // a failed refill ends the access
         S_LLC_REPLAY: w_gnt = 1'b0;
         default:      w_gnt = 1'b0;
     endcase

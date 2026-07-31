@@ -111,6 +111,7 @@ friscv_cpu_subsystem_core #(
 
 logic [Ways-1:0] llcsel;
 logic            crpsel;
+logic            llcinv;
 
 friscv_mem_if dm_if ();
 friscv_mem_if ext_if ();
@@ -131,7 +132,8 @@ friscv_mem_hub #(
     .m_ext_if ( ext_if   ),
     .m_sys_if ( soc_if   ),
     .i_llcsel ( llcsel   ),
-    .i_crpsel ( crpsel   )
+    .i_crpsel ( crpsel   ),
+    .i_llcinv ( llcinv   )
 );
 
 // ============================================================
@@ -339,7 +341,8 @@ friscv_scb #(
     .strap_i   ( pad_in_i             ),
     .o_hb_en   ( hb_en                ),
     .o_llcsel  ( llcsel               ),
-    .o_crpsel  ( crpsel               )
+    .o_crpsel  ( crpsel               ),
+    .o_llcinv  ( llcinv               )
 );
 
 // ============================================================
