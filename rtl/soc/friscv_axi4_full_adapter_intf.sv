@@ -9,6 +9,7 @@
 `timescale 1ns/1ps
 
 module friscv_axi4_full_adapter_intf #(
+    parameter int unsigned BURST_LEN      = 8,
     parameter int unsigned AXI_ID_WIDTH   = 1,
     parameter int unsigned AXI_USER_WIDTH = 1
 ) (
@@ -19,6 +20,7 @@ module friscv_axi4_full_adapter_intf #(
 );
 
 friscv_axi4_full_adapter #(
+    .BURST_LEN      ( BURST_LEN      ),
     .AXI_ID_WIDTH   ( AXI_ID_WIDTH   ),
     .AXI_USER_WIDTH ( AXI_USER_WIDTH )
 ) m_axi (

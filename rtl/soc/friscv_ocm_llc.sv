@@ -27,8 +27,8 @@ module friscv_ocm_llc #(
     input  logic [WAYS-1:0] i_way_is_cache,  // 1 = this way is cache, 0 = this way is OCM
     input  logic            i_crpsel,        // 0 = round-robin, 1 = random
 
-    friscv_mem_if.slave     s_mem_if,  // To CPU
-    friscv_mem_if.master    m_mem_if   // To Memory
+    friscv_mem_if.slave     s_mem_if,  // From the hub: OCM region and cacheable region
+    friscv_mem_if.master    m_mem_if   // To external memory
 );
 
 // ============================================================
@@ -54,36 +54,67 @@ friscv_to_mem #(
     .be_o        ( w_be     ),
     .gnt_i       ( w_gnt    ),
     .rvalid_i    ( w_rvalid ),
-    .err_i       ( 1'b0     ),
+    .err_i       ( w_err    ),
     .other_err_i ( 1'b0     ),
     .rdata_i     ( w_rdata  ),
     .mem_if      ( s_mem_if )
 );
-
-// SRAM always ready
-assign w_gnt = 1'b1;
-always_ff @(posedge i_clk) begin
-    if (!i_rstn) begin
-        w_rvalid <= 1'b0;
-        w_err    <= 1'b0;
-    end else begin
-        w_rvalid <= w_req;
-        w_err    <= w_illegal_ocm_access;
-    end
-end
 
 // ============================================================
 // Address decode
 // ============================================================
 
 logic w_match_cached, w_match_ocm;
-assign w_match_cached = (w_addr - REGION_BASE) < (1 << REGION_LOG2);
-assign w_match_ocm    = (w_addr - OCM_BASE) < SIZE_BYTES;
+assign w_match_cached = (w_addr - addr_t'(REGION_BASE)) < (addr_t'(1) << REGION_LOG2);
+assign w_match_ocm    = (w_addr - addr_t'(OCM_BASE)) < addr_t'(SIZE_BYTES);
 
 // If regions overlap, OCM takes priority
 logic w_sel_ocm, w_sel_cached;
 assign w_sel_ocm    = w_match_ocm;
 assign w_sel_cached = w_match_cached && !w_sel_ocm;
+
+// Everything that is not OCM is served downstream
+logic w_fwd;
+assign w_fwd = !w_sel_ocm;
+
+// ============================================================
+// Downstream path
+// ============================================================
+
+logic w_fwd_req, w_fwd_done;
+assign w_fwd_req  = w_req && w_fwd;
+assign w_fwd_done = w_fwd_req && !m_mem_if.wait_req;
+
+assign m_mem_if.addr     = w_addr;
+assign m_mem_if.size     = s_mem_if.size;
+assign m_mem_if.wdata    = w_wdata;
+assign m_mem_if.rw       = !w_fwd_req ? RW_IDLE : w_we ? RW_WRITE : RW_READ;
+assign m_mem_if.burst_en = 1'b0;
+
+// ============================================================
+// Request completion
+// ============================================================
+
+assign w_gnt = w_fwd ? w_fwd_done : 1'b1;
+
+data_t r_fwd_rdata;
+logic  r_fwd_sel;
+
+always_ff @(posedge i_clk) begin
+    if (!i_rstn) begin
+        w_rvalid    <= 1'b0;
+        w_err       <= 1'b0;
+        r_fwd_sel   <= 1'b0;
+        r_fwd_rdata <= '0;
+    end else begin
+        w_rvalid <= w_req && w_gnt;
+        if (w_req && w_gnt) begin
+            w_err       <= w_fwd ? m_mem_if.err : w_illegal_ocm_access;
+            r_fwd_sel   <= w_fwd;
+            r_fwd_rdata <= m_mem_if.rdata;
+        end
+    end
+end
 
 // ============================================================
 // SRAM blocks
@@ -119,6 +150,12 @@ end
 // LLC mode
 // ============================================================
 
+typedef enum logic [1:0] {
+    LLC_IDLE,
+    LLC_LOOKUP,
+    LLC_REFILL
+} llc_state_e;
+
 logic w_cache_enabled;
 assign w_cache_enabled = |i_way_is_cache;  // Cache is enabled if any way is configured as cache
 
@@ -141,78 +178,90 @@ logic [TAG_W-1:0]    w_tag;
 assign {w_tag, w_idx, w_offset} = w_addr[REGION_LOG2-1:0];
 
 // Tag lookup
-logic [WAYS-1:0] w_hit_arr_d, w_hit_arr;
+logic [WAYS-1:0] w_hit_arr_d, r_hit_arr;
 for (genvar i = 0; i < WAYS; i++) begin : gen_hit_arr
-    assign w_hit_arr_d[i] = r_valid_arr[i][w_idx] && (r_tag_arr[i][w_idx] == w_tag);
+    assign w_hit_arr_d[i] = i_way_is_cache[i] && r_valid_arr[i][w_idx] && (r_tag_arr[i][w_idx] == w_tag);
 end
 
 // Cache hit if any way matches
 logic w_hit;
-assign w_hit = |w_hit_arr;
+assign w_hit = |r_hit_arr;
 
 always_ff @(posedge i_clk) begin
-    if (!i_rstn) w_hit_arr <= '0;
-    else         w_hit_arr <= w_hit_arr_d;
+    if (!i_rstn) r_hit_arr <= '0;
+    else         r_hit_arr <= w_hit_arr_d;
 end
 
 // Line selection
 logic [$clog2(WAY_WORDS)-1:0] w_lookup_addr;
 assign w_lookup_addr = {w_idx, w_offset[OFFSET_W-1:2]};  // 32-bit word address within line
 
+// This cycle is a tag lookup
 logic w_do_lookup;
 assign w_do_lookup = w_sel_cached && w_cache_enabled && w_req && !w_we;
 
-assign m_mem_if.rw = RW_IDLE;  // TODO temporary tieoff
-
-// ============================================================
-// SRAM inputs
-// ============================================================
-
-logic [$clog2(WAY_WORDS)-1:0] w_ocm_addr,    w_llc_addr;
-logic [$clog2(WAYS)-1:0]      w_ocm_way_sel, w_llc_way_sel;
-
-// Full OCM address is [X, WAY_ADDR, WAY_SEL, BYTE_SEL], where BYTE_SEL is 2 bits for 32-bit address
-assign w_ocm_addr    = w_addr[$clog2(WAY_WORDS)+1:2];
-assign w_ocm_way_sel = w_addr[$clog2(WAY_WORDS)+$clog2(WAYS)+1:$clog2(WAY_WORDS)+2];
-
-always_comb begin
-    for (int unsigned i = 0; i < WAYS; i++) begin
-        if (i_way_is_cache[i] && w_hit_arr[i]) begin
-            // TODO implement cache mode
-            w_way_req  [i] = 1'b0;
-            w_way_addr [i] = '0;
-            w_way_we   [i] = 1'b0;
-            w_way_wdata[i] = '0;
-            w_way_be   [i] = '0;
-        end else if (w_ocm_way_sel == i && w_sel_ocm) begin
-            w_way_req  [i] = 1'b1;
-            w_way_addr [i] = w_ocm_addr;
-            w_way_we   [i] = w_we;
-            w_way_wdata[i] = w_wdata;
-            w_way_be   [i] = w_be;
-        end else begin
-            w_way_req  [i] = 1'b0;
-            w_way_addr [i] = '0;
-            w_way_we   [i] = 1'b0;
-            w_way_wdata[i] = '0;
-            w_way_be   [i] = '0;
-        end
-    end
+// Hit/miss is ready this cycle
+logic r_was_lookup;
+always_ff @(posedge i_clk) begin
+    if (!i_rstn) r_was_lookup <= 1'b0;
+    else         r_was_lookup <= w_do_lookup;
 end
 
 // ============================================================
-// SRAM outputs
+// SRAM read/write
 // ============================================================
+
+logic [$clog2(WAY_WORDS)-1:0] w_ocm_addr;
+logic [$clog2(WAYS)-1:0]      w_ocm_way_sel;
+
+// Full OCM address is [X, WAY_SEL, WAY_ADDR, BYTE_SEL], where BYTE_SEL is 2 bits for 32-bit address
+assign w_ocm_addr    = w_addr[$clog2(WAY_WORDS)+1:2];
+assign w_ocm_way_sel = w_addr[$clog2(WAY_WORDS)+$clog2(WAYS)+1:$clog2(WAY_WORDS)+2];
 
 assign w_illegal_ocm_access = w_sel_ocm && i_way_is_cache[w_ocm_way_sel];
 
 always_comb begin
-    w_rdata = '0;
     for (int unsigned i = 0; i < WAYS; i++) begin
-        if (i_way_is_cache[i] && w_hit_arr[i]) begin
-            w_rdata = w_way_rdata[i];
-        end else if (w_ocm_way_sel == i && w_sel_ocm) begin
-            w_rdata = w_way_rdata[i];
+        w_way_req  [i] = 1'b0;
+        w_way_addr [i] = '0;
+        w_way_we   [i] = 1'b0;
+        w_way_wdata[i] = '0;
+        w_way_be   [i] = '0;
+
+        if (i_way_is_cache[i]) begin
+            // TODO implement cache mode
+            if (w_req && w_do_lookup && !r_was_lookup && !w_we) begin
+                // Read cache lines in parallel with tag lookup for a read
+                w_way_req  [i] = 1'b1;
+                w_way_addr [i] = w_lookup_addr;
+                w_way_we   [i] = 1'b0;
+                w_way_wdata[i] = '0;
+                w_way_be   [i] = w_be;
+            end
+        end else begin
+            if (w_ocm_way_sel == i && w_req && w_sel_ocm) begin
+                // OCM access
+                w_way_req  [i] = 1'b1;
+                w_way_addr [i] = w_ocm_addr;
+                w_way_we   [i] = w_we;
+                w_way_wdata[i] = w_wdata;
+                w_way_be   [i] = w_be;
+            end
+        end
+    end
+end
+
+always_comb begin
+    if (r_fwd_sel) begin
+        w_rdata = r_fwd_rdata;
+    end else begin
+        w_rdata = '0;
+        for (int unsigned i = 0; i < WAYS; i++) begin
+            if (i_way_is_cache[i] && r_was_lookup && r_hit_arr[i]) begin
+                w_rdata = w_way_rdata[i];
+            end else if (w_ocm_way_sel == i && w_sel_ocm) begin
+                w_rdata = w_way_rdata[i];
+            end
         end
     end
 end

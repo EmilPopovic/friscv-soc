@@ -368,8 +368,9 @@ AXI_BUS #(
 ) mem_axi ();
 
 friscv_axi4_full_adapter_intf #(
-    .AXI_ID_WIDTH   ( AxiIdWidth   ),
-    .AXI_USER_WIDTH ( AxiUserWidth )
+    .BURST_LEN      ( LineBytes / (AxiDataWidth/8) ),
+    .AXI_ID_WIDTH   ( AxiIdWidth                   ),
+    .AXI_USER_WIDTH ( AxiUserWidth                 )
 ) m_mem (
     .clk_i          ( i_clk        ),
     .rst_ni         ( soc_rstn     ),

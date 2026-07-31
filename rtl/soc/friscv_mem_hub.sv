@@ -188,25 +188,24 @@ assign s_cpu_if.beat_valid  = 1'b0;
 assign s_dm_if.beat_valid   = 1'b0;
 
 // ============================================================
-// Demux to SoC, external and SRAM
+// Demux to the OCM/LLC block and the SoC
 // ============================================================
 
-friscv_mem_if sram_if ();
+friscv_mem_if llc_if ();
 
 logic w_match_ext, w_match_sram;
 assign w_match_ext  = (granted_if.addr - addr_t'( MEM_BASE)) < addr_t'( MEM_SIZE);
 assign w_match_sram = (granted_if.addr - addr_t'(SRAM_BASE)) < addr_t'(SRAM_SIZE);
 
-logic w_sel_ext, w_sel_sram, w_sel_sys;
-assign w_sel_ext = w_match_ext && !w_sel_sram;
-assign w_sel_sram = w_match_sram; 
-assign w_sel_sys  = !w_sel_ext && !w_sel_sram;
+logic w_sel_llc, w_sel_sys;
+assign w_sel_llc = w_match_ext || w_match_sram;
+assign w_sel_sys = !w_sel_llc;
 
-assign m_ext_if.addr     = granted_if.addr;
-assign m_ext_if.size     = granted_if.size;
-assign m_ext_if.wdata    = granted_if.wdata;
-assign m_ext_if.rw       = w_sel_ext ? granted_if.rw : RW_IDLE;
-assign m_ext_if.burst_en = 1'b0;
+assign llc_if.addr       = granted_if.addr;
+assign llc_if.size       = granted_if.size;
+assign llc_if.wdata      = granted_if.wdata;
+assign llc_if.rw         = w_sel_llc ? granted_if.rw : RW_IDLE;
+assign llc_if.burst_en   = 1'b0;
 
 assign m_sys_if.addr     = granted_if.addr;
 assign m_sys_if.size     = granted_if.size;
@@ -214,22 +213,14 @@ assign m_sys_if.wdata    = granted_if.wdata;
 assign m_sys_if.rw       = w_sel_sys ? granted_if.rw : RW_IDLE;
 assign m_sys_if.burst_en = 1'b0;
 
-assign sram_if.addr      = granted_if.addr;
-assign sram_if.size      = granted_if.size;
-assign sram_if.wdata     = granted_if.wdata;
-assign sram_if.rw        = w_sel_sram ? granted_if.rw : RW_IDLE;
-assign sram_if.burst_en  = 1'b0;
-
-assign granted_if.rdata      = w_sel_ext ? m_ext_if.rdata      : w_sel_sram ? sram_if.rdata      : m_sys_if.rdata;
-assign granted_if.wait_req   = w_sel_ext ? m_ext_if.wait_req   : w_sel_sram ? sram_if.wait_req   : m_sys_if.wait_req;
-assign granted_if.err        = w_sel_ext ? m_ext_if.err        : w_sel_sram ? sram_if.err        : m_sys_if.err;
-assign granted_if.beat_valid = w_sel_ext ? m_ext_if.beat_valid : w_sel_sram ? sram_if.beat_valid : m_sys_if.beat_valid;
+assign granted_if.rdata      = w_sel_llc ? llc_if.rdata      : m_sys_if.rdata;
+assign granted_if.wait_req   = w_sel_llc ? llc_if.wait_req   : m_sys_if.wait_req;
+assign granted_if.err        = w_sel_llc ? llc_if.err        : m_sys_if.err;
+assign granted_if.beat_valid = w_sel_llc ? llc_if.beat_valid : m_sys_if.beat_valid;
 
 // ============================================================
 // Switchable OCM/LLC block
 // ============================================================
-
-friscv_mem_if refill_if ();
 
 friscv_ocm_llc #(
     .OCM_BASE    ( SRAM_BASE        ),
@@ -239,12 +230,12 @@ friscv_ocm_llc #(
     .WAYS        ( WAYS             ),
     .SIZE_BYTES  ( SRAM_SIZE        )
 ) ocm_llc (
-    .i_clk           ( i_clk     ),
-    .i_rstn          ( i_rstn    ),
-    .i_way_is_cache  ( i_llcsel  ),
-    .i_crpsel        ( i_crpsel  ),
-    .s_mem_if        ( sram_if   ),
-    .m_mem_if        ( refill_if )
+    .i_clk           ( i_clk    ),
+    .i_rstn          ( i_rstn   ),
+    .i_way_is_cache  ( i_llcsel ),
+    .i_crpsel        ( i_crpsel ),
+    .s_mem_if        ( llc_if   ),
+    .m_mem_if        ( m_ext_if )
 );
 
 endmodule

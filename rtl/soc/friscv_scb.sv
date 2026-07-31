@@ -64,6 +64,8 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
         r_hb_en    <= 1'b0;
         r_strapped <= 1'b0;
         r_strapa   <= '0;
+        r_llcsel   <= '0;
+        r_crpsel   <= '0;
     end else begin
         // Capture the pad inputs once, on the first cycle out of reset
         if (!r_strapped) begin
