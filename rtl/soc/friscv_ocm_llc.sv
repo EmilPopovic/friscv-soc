@@ -230,11 +230,6 @@ always_ff @(posedge i_clk) begin
     if (!i_rstn) begin
         r_tag_arr   <= '0;
         r_valid_arr <= '0;
-    end else if (r_state == S_LLC_LOOKUP && w_we) begin
-        // TODO temporarily invalidate all on write
-        for (int unsigned i = 0; i < WAYS; i++) begin
-            if (r_hit_arr[i]) r_valid_arr[i][w_idx] <= 1'b0;
-        end
     end else if (r_state == S_LLC_REFILL && w_dn_done && !w_refill_err) begin
         r_tag_arr  [r_victim][w_idx] <= w_tag;
         r_valid_arr[r_victim][w_idx] <= 1'b1;
@@ -340,13 +335,18 @@ end
 // ============================================================
 
 logic [WAY_ADDR_W-1:0] w_ocm_addr;
-logic [WAY_SEL_W-1:0]         w_ocm_way_sel;
+logic [WAY_SEL_W-1:0]  w_ocm_way_sel;
 
 // Full OCM address is [X, WAY_SEL, WAY_ADDR, BYTE_SEL], where BYTE_SEL is 2 bits for 32-bit address
 assign w_ocm_addr    = w_addr[WAY_ADDR_W+1:2];
 assign w_ocm_way_sel = w_addr[WAY_ADDR_W+WAY_SEL_W+1:WAY_ADDR_W+2];
 
 assign w_illegal_ocm_access = w_sel_ocm && i_way_is_cache[w_ocm_way_sel];
+
+// A write hit updates the line in place only once the external write has been accepted
+logic w_write_hit;
+assign w_write_hit = (r_state == S_LLC_FWD) && w_we && w_sel_cached &&
+                     w_dn_done && !m_mem_if.err;
 
 always_comb begin
     for (int unsigned i = 0; i < WAYS; i++) begin
@@ -369,6 +369,13 @@ always_comb begin
                 // Read every cache way in parallel with the tag lookup
                 w_way_req  [i] = 1'b1;
                 w_way_addr [i] = w_lookup_addr;
+            end else if (w_write_hit && r_hit_arr[i]) begin
+                // Write-through to the hit way
+                w_way_req  [i] = 1'b1;
+                w_way_addr [i] = w_lookup_addr;
+                w_way_we   [i] = 1'b1;
+                w_way_wdata[i] = w_wdata;
+                w_way_be   [i] = w_be;
             end
         end else begin
             if (w_ocm_way_sel == WAY_SEL_W'(i) && w_req && w_sel_ocm) begin
