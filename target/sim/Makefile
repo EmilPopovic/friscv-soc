@@ -31,7 +31,7 @@ soc: sources.f | $(SOC_DIR)
 	verilator --cc --exe --build -j 0 --top-module $(SOC_TOP) -Wno-fatal \
 		+define+ASSERTS_OFF \
 		-GSramBase=$(SOC_SRAM_BASE) -GSramSize=$(SOC_SRAM_SIZE_BYTES) \
-		-GHyperClockDelayed=0 \
+		-GHyperClockDelayed=0 $(SOC_PARAMS) \
 		-CFLAGS -DFRISCV_SOC_SRAM_BASE=$(SOC_SRAM_BASE) \
 		-CFLAGS -DFRISCV_SOC_SRAM_SIZE_BYTES=$(SOC_SRAM_SIZE_BYTES) \
 		--Mdir $(SOC_DIR) -f sources.f $(SOC_CPP) -o $(SOC_TOP)

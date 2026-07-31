@@ -28,6 +28,7 @@ module friscv_soc #(
     parameter int unsigned MemSize           = 32'h0100_0000,
     parameter int unsigned LineBytes         = 64,
     parameter int unsigned Ways              = 4,
+    parameter bit          SramTags          = 1'b1,
     parameter bit          HyperClockDelayed = 1'b1,
     parameter int unsigned NumPads           = 25,
     parameter bit          EnablePlic        = 1,
@@ -123,7 +124,8 @@ friscv_mem_hub #(
     .SRAM_BASE  ( SramBase  ),
     .SRAM_SIZE  ( SramSize  ),
     .LINE_BYTES ( LineBytes ),
-    .WAYS       ( Ways      )
+    .WAYS       ( Ways      ),
+    .SRAM_TAGS  ( SramTags  )
 ) friscv_mem_hub (
     .i_clk    ( i_clk    ),
     .i_rstn   ( soc_rstn ),

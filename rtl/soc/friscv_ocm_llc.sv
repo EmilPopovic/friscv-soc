@@ -17,6 +17,7 @@ module friscv_ocm_llc #(
     parameter  int unsigned LINE_BYTES  = 64,
     parameter  int unsigned WAYS        = 4,
     parameter  int unsigned SIZE_BYTES  = 16*1024,
+    parameter  bit          SRAM_TAGS   = 1'b1,
     localparam int unsigned SETS        = SIZE_BYTES / (LINE_BYTES * WAYS),
     localparam int unsigned OFFSET_W    = $clog2(LINE_BYTES),
     localparam int unsigned IDX_W       = $clog2(SETS),
@@ -215,28 +216,82 @@ assign {w_tag, w_idx, w_offset} = w_addr[REGION_LOG2-1:0];
 logic [WAY_ADDR_W-1:0] w_lookup_addr;
 assign w_lookup_addr = {w_idx, w_offset[OFFSET_W-1:2]};  // 32-bit word address within line
 
-logic [WAYS-1:0][SETS-1:0][TAG_W-1:0] r_tag_arr;
-logic [WAYS-1:0][SETS-1:0]            r_valid_arr;
+logic [WAYS-1:0][SETS-1:0] r_valid_arr;
 
-// Tag lookup
-logic [WAYS-1:0] w_hit_arr_d, r_hit_arr;
-for (genvar i = 0; i < WAYS; i++) begin : gen_hit_arr
-    assign w_hit_arr_d[i] = i_way_is_cache[i] && r_valid_arr[i][w_idx] && (r_tag_arr[i][w_idx] == w_tag);
-end
+logic [WAY_SEL_W-1:0] w_victim, r_victim;
+
+// The refill writes the tag and validates the line
+logic w_alloc;
+assign w_alloc = (r_state == S_LLC_REFILL) && w_dn_done && !w_refill_err;
+
+logic [WAYS-1:0] w_hit_arr, r_hit_arr;
 
 // Cache hit if any way matches
-assign w_hit = |r_hit_arr;
+assign w_hit = |w_hit_arr;
 
-always_ff @(posedge i_clk) begin
-    if (!i_rstn)          r_hit_arr <= '0;
-    else if (w_lookup_en) r_hit_arr <= w_hit_arr_d;
+if (SRAM_TAGS) begin : gen_tag_sram
+    localparam int unsigned TAG_MEM_W = WAYS * TAG_W;
+
+    logic [TAG_MEM_W-1:0] w_tag_rdata;
+    logic [WAYS-1:0]      w_tag_be;
+
+    for (genvar i = 0; i < WAYS; i++) begin : gen_tag_be
+        assign w_tag_be[i] = (r_victim == WAY_SEL_W'(unsigned'(i)));
+    end
+
+    tc_sram #(
+        .NumWords  ( SETS      ),
+        .DataWidth ( TAG_MEM_W ),
+        .ByteWidth ( TAG_W     ),
+        .NumPorts  ( 1         ),
+        .Latency   ( 1         )
+    ) tag_sram (
+        .clk_i   ( i_clk                  ),
+        .rst_ni  ( i_rstn                 ),
+        .req_i   ( w_lookup_en || w_alloc ),
+        .we_i    ( w_alloc                ),
+        .addr_i  ( w_idx                  ),
+        .wdata_i ( {WAYS{w_tag}}          ),
+        .be_i    ( w_tag_be               ),
+        .rdata_o ( w_tag_rdata            )
+    );
+
+    for (genvar i = 0; i < WAYS; i++) begin : gen_hit_arr
+        assign w_hit_arr[i] = i_way_is_cache[i] && r_valid_arr[i][w_idx] &&
+                              (w_tag_rdata[i*TAG_W +: TAG_W] == w_tag);
+    end
+
+    always_ff @(posedge i_clk) begin
+        if (!i_rstn)                      r_hit_arr <= '0;
+        else if (r_state == S_LLC_LOOKUP) r_hit_arr <= w_hit_arr;
+    end
+
+end else begin : gen_tag_flops
+    logic [WAYS-1:0][SETS-1:0][TAG_W-1:0] r_tag_arr;
+    logic [WAYS-1:0]                      w_hit_arr_d;
+
+    for (genvar i = 0; i < WAYS; i++) begin : gen_hit_arr
+        assign w_hit_arr_d[i] = i_way_is_cache[i] && r_valid_arr[i][w_idx] &&
+                                (r_tag_arr[i][w_idx] == w_tag);
+    end
+
+    // r_hit_arr behaves like the SRAM output
+    always_ff @(posedge i_clk) begin
+        if (!i_rstn)          r_hit_arr <= '0;
+        else if (w_lookup_en) r_hit_arr <= w_hit_arr_d;
+    end
+
+    assign w_hit_arr = r_hit_arr;
+
+    always_ff @(posedge i_clk) begin
+        if (!i_rstn)      r_tag_arr <= '0;
+        else if (w_alloc) r_tag_arr[r_victim][w_idx] <= w_tag;
+    end
 end
 
 // ============================================================
 // Replacement policy
 // ============================================================
-
-logic [WAY_SEL_W-1:0] w_victim, r_victim;
 
 // Random replacement
 
@@ -289,17 +344,14 @@ always_ff @(posedge i_clk) begin
     end
 end
 
-// Replace chosen victim
 always_ff @(posedge i_clk) begin
     if (!i_rstn) begin
-        r_tag_arr   <= '0;
         r_valid_arr <= '0;
     end else if (w_inv) begin
         for (int unsigned i = 0; i < WAYS; i++) begin
             if (w_inv_ways[i]) r_valid_arr[i] <= '0;  // every set of that way, one cycle
         end
-    end else if (r_state == S_LLC_REFILL && w_dn_done && !w_refill_err) begin
-        r_tag_arr  [r_victim][w_idx] <= w_tag;
+    end else if (w_alloc) begin
         r_valid_arr[r_victim][w_idx] <= 1'b1;
     end
 end
@@ -374,7 +426,7 @@ data_t w_hit_rdata;
 always_comb begin
     w_hit_rdata = '0;
     for (int unsigned i = 0; i < WAYS; i++) begin
-        if (r_hit_arr[i]) w_hit_rdata = w_way_rdata[i];
+        if (w_hit_arr[i]) w_hit_rdata = w_way_rdata[i];
     end
 end
 

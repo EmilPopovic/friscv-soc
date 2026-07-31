@@ -16,7 +16,8 @@ module friscv_mem_hub #(
     parameter int unsigned SRAM_BASE  = 32'h0000_0000,
     parameter int unsigned SRAM_SIZE  = 32'h0100_0000,
     parameter int unsigned LINE_BYTES = 64,
-    parameter int unsigned WAYS       = 4
+    parameter int unsigned WAYS       = 4,
+    parameter bit          SRAM_TAGS  = 1'b1
 ) (
     input  logic            i_clk,
     input  logic            i_rstn,
@@ -229,7 +230,8 @@ friscv_ocm_llc #(
     .REGION_LOG2 ( $clog2(MEM_SIZE) ),
     .LINE_BYTES  ( LINE_BYTES       ),
     .WAYS        ( WAYS             ),
-    .SIZE_BYTES  ( SRAM_SIZE        )
+    .SIZE_BYTES  ( SRAM_SIZE        ),
+    .SRAM_TAGS   ( SRAM_TAGS        )
 ) ocm_llc (
     .i_clk           ( i_clk    ),
     .i_rstn          ( i_rstn   ),
