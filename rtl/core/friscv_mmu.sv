@@ -285,6 +285,24 @@ always_ff @(posedge i_clk) begin
     end
 end
 
+// A request the memory has taken cannot be withdrawn, so it must not be
+// translated again. An sfence.vma in between would make it a TLB miss and
+// the walk would read the request's own response as its PTE.
+logic  r_access_busy;
+addr_t r_access_pa, w_tlate_pa;
+
+always_ff @(posedge i_clk) begin
+    if (!i_rstn) begin
+        r_access_busy <= 1'b0;
+        r_access_pa   <= '0;
+    end else if (!i_mem_wait) begin
+        r_access_busy <= 1'b0;
+    end else if (!r_access_busy && !w_walk_en && o_mem_rw != RW_IDLE) begin
+        r_access_busy <= 1'b1;
+        r_access_pa   <= w_tlate_pa;
+    end
+end
+
 // The registered TLB output is valid for this access only when
 //  1) its VPN was the one looked up last cycle and
 //  2) no fill/flush last cycle changed the TLB contents
@@ -294,12 +312,12 @@ logic w_tlate_valid, w_tlate_pending;
 assign w_tlate_valid = !r_tlb_changed &&
                        (w_eff_req_ctx.is_inst ? (r_ivpn_q == w_inst_vpn)
                                               : (r_dvpn_q == w_data_vpn));
-assign w_tlate_pending = w_paging_en && w_grant_active && !w_tlate_valid;
+assign w_tlate_pending = w_paging_en && w_grant_active && !w_tlate_valid && !r_access_busy;
 
 // TLB miss - arbiter has granted the request, paging is on, and the TLB did not hit
 logic w_itlb_miss, w_dtlb_miss, w_tlb_miss;
-assign w_itlb_miss = w_grant_active &&  w_eff_req_ctx.is_inst && !w_itlb_hit && w_paging_en && !w_tlate_pending;
-assign w_dtlb_miss = w_grant_active && !w_eff_req_ctx.is_inst && !w_dtlb_hit && w_paging_en && !w_tlate_pending;
+assign w_itlb_miss = w_grant_active &&  w_eff_req_ctx.is_inst && !w_itlb_hit && w_paging_en && !w_tlate_pending && !r_access_busy;
+assign w_dtlb_miss = w_grant_active && !w_eff_req_ctx.is_inst && !w_dtlb_hit && w_paging_en && !w_tlate_pending && !r_access_busy;
 assign w_tlb_miss  = w_itlb_miss || w_dtlb_miss;
 
 // PTW memory interface
@@ -396,7 +414,8 @@ assign w_data_write = i_data_en &&   i_data_store_like;
 
 // PMP fault of the access currently granted on the bus
 logic w_grant_pmp_fault;
-assign w_grant_pmp_fault = w_grant_active && (w_eff_req_ctx.is_inst ? w_inst_pmp_fault : w_data_pmp_fault);
+assign w_grant_pmp_fault = w_grant_active && !r_access_busy &&
+                           (w_eff_req_ctx.is_inst ? w_inst_pmp_fault : w_data_pmp_fault);
 
 if (ENFORCE_PMP) begin : gen_pmp_check
     friscv_pmp_check #(
@@ -447,9 +466,9 @@ assign w_perm_store_ok = w_dtlb_perm.w &&
                           (w_eff_req_ctx.mode == S_MODE && (!w_dtlb_perm.u || w_eff_req_ctx.sum)));
 
 // Perm fault: paging on, arbiter granted, TLB hit, but permission denied
-assign w_perm_inst_fault  = w_paging_en && w_grant_active &&  w_eff_req_ctx.is_inst                            && w_itlb_hit && !w_perm_inst_ok  && !w_tlate_pending;
-assign w_perm_load_fault  = w_paging_en && w_grant_active && !w_eff_req_ctx.is_inst && !w_eff_req_ctx.is_write && w_dtlb_hit && !w_perm_load_ok  && !w_tlate_pending;
-assign w_perm_store_fault = w_paging_en && w_grant_active && !w_eff_req_ctx.is_inst &&  w_eff_req_ctx.is_write && w_dtlb_hit && !w_perm_store_ok && !w_tlate_pending;
+assign w_perm_inst_fault  = w_paging_en && w_grant_active &&  w_eff_req_ctx.is_inst                            && w_itlb_hit && !w_perm_inst_ok  && !w_tlate_pending && !r_access_busy;
+assign w_perm_load_fault  = w_paging_en && w_grant_active && !w_eff_req_ctx.is_inst && !w_eff_req_ctx.is_write && w_dtlb_hit && !w_perm_load_ok  && !w_tlate_pending && !r_access_busy;
+assign w_perm_store_fault = w_paging_en && w_grant_active && !w_eff_req_ctx.is_inst &&  w_eff_req_ctx.is_write && w_dtlb_hit && !w_perm_store_ok && !w_tlate_pending && !r_access_busy;
 assign w_perm_fault       = w_perm_inst_fault | w_perm_load_fault | w_perm_store_fault;
 
 // Final fault outputs: PTW structural faults OR perm faults
@@ -468,7 +487,8 @@ ppn_t w_granted_ppn;
 assign w_granted_ppn = w_eff_req_ctx.is_inst ? w_itlb_ppn : w_dtlb_ppn;
 
 addr_t w_granted_pa;
-assign w_granted_pa = w_paging_en ? {w_granted_ppn, w_eff_req_ctx.addr[11:0]} : w_eff_req_ctx.addr;
+assign w_tlate_pa   = w_paging_en ? {w_granted_ppn, w_eff_req_ctx.addr[11:0]} : w_eff_req_ctx.addr;
+assign w_granted_pa = r_access_busy ? r_access_pa : w_tlate_pa;
 
 assign o_inst_err = w_l1_inst_err;
 assign o_data_err = w_l1_data_err;
