@@ -93,7 +93,8 @@ assign m_axi_araddr = r_addr;
 assign m_axi_arprot = 3'b000;
 
 assign mem_if.rdata      = w_read_completing ? m_axi_rdata : r_rdata;
-assign mem_if.wait_req   = w_next_state != S_IDLE;
+assign mem_if.wait_req   = (r_state == S_W_RET)  ? !m_axi_bvalid :
+                           (r_state == S_R_DATA) ? !m_axi_rvalid : 1'b1;
 assign mem_if.beat_valid = 1'b0;
 assign mem_if.err        = w_read_completing  ? |m_axi_rresp :
                            w_write_completing ? |m_axi_bresp : 1'b0;

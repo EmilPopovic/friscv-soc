@@ -155,7 +155,8 @@ assign m_axi_arqos     = 4'h0;
 assign m_axi_arregion  = '0;
 assign m_axi_aruser    = '0;
 
-assign mem_if.wait_req   = w_next_state != S_IDLE;
+assign mem_if.wait_req   = (r_state == S_W_RET)  ? !m_axi_bvalid :
+                           (r_state == S_R_DATA) ? !(m_axi_rvalid && (!r_burst_en || m_axi_rlast)) : 1'b1;
 assign mem_if.beat_valid = r_burst_en &&
                            (((r_state == S_R_DATA) && m_axi_rvalid && m_axi_rready) ||
                             ((r_state == S_W)      && m_axi_wvalid && m_axi_wready));

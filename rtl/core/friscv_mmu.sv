@@ -290,6 +290,7 @@ end
 // the walk would read the request's own response as its PTE.
 logic  r_access_busy;
 addr_t r_access_pa, w_tlate_pa;
+logic  w_walk_en;
 
 always_ff @(posedge i_clk) begin
     if (!i_rstn) begin
@@ -322,7 +323,6 @@ assign w_tlb_miss  = w_itlb_miss || w_dtlb_miss;
 
 // PTW memory interface
 addr_t w_walk_addr;
-logic  w_walk_en;
 data_t w_walk_rdata;
 logic  w_walk_wait;
 logic  w_walk_err;
@@ -499,8 +499,7 @@ assign w_walk_wait  = i_mem_wait;
 assign w_walk_err   = i_mem_err;
 
 // Stall arbiter while PTW is active, memory stalls, or the registered
-// translation for the granted access is not yet valid
-assign w_stall = w_ptw_stall | i_mem_wait | w_tlate_pending;
+assign w_stall = w_ptw_stall | (i_mem_wait & (o_mem_rw != RW_IDLE)) | w_tlate_pending;
 
 // Suppress physical memory access on TLB miss (PTW takes over), perm fault,
 // PMP fault, or while the translation is still not ready

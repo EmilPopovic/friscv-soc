@@ -26,9 +26,6 @@ module friscv_cpu_subsystem_core #(
     parameter int unsigned DM_HALT_OFFSET      = 32'h800,
     parameter int unsigned DM_EXC_OFFSET       = 32'h810,
 
-    // If enabled, buffer outbound requests to improve timing
-    parameter logic ENABLE_L2_BUFFER = 0,
-
     // Memory protection and address translation
     parameter logic ENABLE_MMU      = 1,
     parameter logic ENFORCE_PMP     = 0,
@@ -98,7 +95,6 @@ friscv_core_complex #(
     .DM_HALT_OFFSET      ( DM_HALT_OFFSET      ),
     .DM_EXC_OFFSET       ( DM_EXC_OFFSET       ),
 
-    .ENABLE_L2_BUFFER               ( ENABLE_L2_BUFFER               ),
     .ENABLE_MMU                     ( ENABLE_MMU                     ),
     .ENFORCE_PMP                    ( ENFORCE_PMP                    ),
     .ENFORCE_PTW_PMP                ( ENFORCE_PTW_PMP                ),

@@ -87,9 +87,8 @@ logic w_busy_cpu, w_busy_dm;
 assign w_busy_cpu = w_take_cpu | (r_state == S_HOLD_CPU);
 assign w_busy_dm  = w_take_dm  | (r_state == S_HOLD_DM);
 
-// Must park in a HOLD state, issued this cycle but the memory did not complete
 logic w_park;
-assign w_park = w_take_any & granted_if.wait_req;
+assign w_park = w_take_any;
 
 // ============================================================
 // Next state
@@ -143,15 +142,16 @@ end
 // Output
 // ============================================================
 
+assign s_cpu_if.wait_req = (r_state == S_HOLD_CPU) ? granted_if.wait_req : 1'b1;
+assign s_dm_if.wait_req  = (r_state == S_HOLD_DM)  ? granted_if.wait_req : 1'b1;
+assign s_cpu_if.err      = (r_state == S_HOLD_CPU) ? granted_if.err : 1'b0;
+assign s_dm_if.err       = (r_state == S_HOLD_DM)  ? granted_if.err : 1'b0;
+
 always_comb begin
     granted_if.addr  = '0;
     granted_if.size  = WIDTH_I32;
     granted_if.wdata = '0;
     granted_if.rw    = RW_IDLE;
-    s_cpu_if.wait_req = 1'b0;
-    s_dm_if.wait_req  = 1'b0;
-    s_cpu_if.err      = 1'b0;
-    s_dm_if.err       = 1'b0;
 
     if (w_busy_cpu) begin
         granted_if.addr  = w_take_cpu ? s_cpu_if.addr  : r_cpu_addr;
@@ -159,25 +159,12 @@ always_comb begin
         granted_if.wdata = w_take_cpu ? s_cpu_if.wdata : r_cpu_wdata;
         granted_if.rw    = w_take_cpu ? s_cpu_if.rw    : r_cpu_rw;
 
-        s_cpu_if.wait_req = granted_if.wait_req;
-        s_cpu_if.err      = granted_if.err;
-
-        if (w_dm_en) s_dm_if.wait_req = 1'b1;    // DM is queued
-
     end else if (w_busy_dm) begin
         granted_if.addr  = w_take_dm ? s_dm_if.addr  : r_dm_addr;
         granted_if.size  = w_take_dm ? s_dm_if.size  : r_dm_size;
         granted_if.wdata = w_take_dm ? s_dm_if.wdata : r_dm_wdata;
         granted_if.rw    = w_take_dm ? s_dm_if.rw    : r_dm_rw;
 
-        s_dm_if.wait_req = granted_if.wait_req;
-        s_dm_if.err      = granted_if.err;
-
-        if (w_cpu_en) s_cpu_if.wait_req = 1'b1;   // CPU is queued
-
-    end else begin
-        if (w_cpu_en) s_cpu_if.wait_req = 1'b1;
-        if (w_dm_en)  s_dm_if.wait_req  = 1'b1;
     end
 end
 
@@ -215,10 +202,16 @@ assign m_sys_if.wdata    = granted_if.wdata;
 assign m_sys_if.rw       = w_sel_sys ? granted_if.rw : RW_IDLE;
 assign m_sys_if.burst_en = 1'b0;
 
-assign granted_if.rdata      = w_sel_llc ? llc_if.rdata      : m_sys_if.rdata;
-assign granted_if.wait_req   = w_sel_llc ? llc_if.wait_req   : m_sys_if.wait_req;
-assign granted_if.err        = w_sel_llc ? llc_if.err        : m_sys_if.err;
-assign granted_if.beat_valid = w_sel_llc ? llc_if.beat_valid : m_sys_if.beat_valid;
+logic r_sel_llc;
+always_ff @(posedge i_clk) begin
+    if (!i_rstn)         r_sel_llc <= 1'b0;
+    else if (w_take_any) r_sel_llc <= w_sel_llc;
+end
+
+assign granted_if.rdata      = r_sel_llc ? llc_if.rdata      : m_sys_if.rdata;
+assign granted_if.wait_req   = r_sel_llc ? llc_if.wait_req   : m_sys_if.wait_req;
+assign granted_if.err        = r_sel_llc ? llc_if.err        : m_sys_if.err;
+assign granted_if.beat_valid = r_sel_llc ? llc_if.beat_valid : m_sys_if.beat_valid;
 
 // ============================================================
 // Switchable OCM/LLC block

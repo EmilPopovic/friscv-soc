@@ -23,9 +23,6 @@ module friscv_core_complex #(
     parameter int unsigned DM_HALT_OFFSET      = 32'h800,
     parameter int unsigned DM_EXC_OFFSET       = 32'h810,
 
-    // If enabled, buffer outbound requests to improve timing
-    parameter logic ENABLE_L2_BUFFER = 0,
-
     // Memory protection and address translation
     parameter logic ENABLE_MMU      = 1,
     parameter logic ENFORCE_PMP     = 0,
@@ -135,9 +132,6 @@ data_t      w_l2_backend_rdata;
 logic       w_l2_backend_wait;
 logic       w_l2_backend_err;
 amo_op_e    w_l2_amo_op;
-
-friscv_l2_if l2_upstream_if();
-friscv_l2_if l2_downstream_if();
 
 // AMO unit signals
 rw_cmd_e    w_amo_rw;
@@ -292,56 +286,18 @@ end else begin : gen_no_mmu
 end
 
 // ============================================================
-// Level 2 bus buffering
+// Level 2 bus
 // ============================================================
 
-// Connect the upstream signals to the core
+assign w_l2_addr   = w_l2_req_addr;
+assign w_l2_size   = w_l2_req_size;
+assign w_l2_wdata  = w_l2_req_wdata;
+assign w_l2_rw     = w_l2_req_rw;
+assign w_l2_amo_op = (w_l2_req_rw != RW_IDLE) ? w_l2_req_amo_op : AMO_NONE;
 
-assign l2_upstream_if.valid  = (w_l2_req_rw != RW_IDLE);
-assign l2_upstream_if.addr   = w_l2_req_addr;
-assign l2_upstream_if.size   = w_l2_req_size;
-assign l2_upstream_if.wdata  = w_l2_req_wdata;
-assign l2_upstream_if.rw     = w_l2_req_rw;
-assign l2_upstream_if.amo_op = w_l2_req_amo_op;
-
-assign w_l2_req_wait  = l2_upstream_if.stall;
-assign w_l2_req_err   = l2_upstream_if.err;
-assign w_l2_req_rdata = l2_upstream_if.rdata;
-
-if (ENABLE_L2_BUFFER) begin : gen_l2_buffer
-    // The buffer decouples the core from the downstream memory system.
-    // This adds latency but improves timing significantly.
-    friscv_l2_buffer l2_buff (
-        .i_clk         ( i_clk            ),
-        .i_rstn        ( i_rstn           ),
-        .if_upstream   ( l2_upstream_if   ),
-        .if_downstream ( l2_downstream_if )
-    );
-end else begin : gen_no_l2_buffer
-    // Just connect the wires if there is no buffer
-    assign l2_upstream_if.stall = l2_downstream_if.stall;
-    assign l2_upstream_if.err   = l2_downstream_if.err;
-    assign l2_upstream_if.rdata = l2_downstream_if.rdata;
-
-    assign l2_downstream_if.valid  = l2_upstream_if.valid;
-    assign l2_downstream_if.addr   = l2_upstream_if.addr;
-    assign l2_downstream_if.size   = l2_upstream_if.size;
-    assign l2_downstream_if.wdata  = l2_upstream_if.wdata;
-    assign l2_downstream_if.rw     = l2_upstream_if.rw;
-    assign l2_downstream_if.amo_op = l2_upstream_if.valid ? l2_upstream_if.amo_op : AMO_NONE;
-end
-
-// Connect the downstream signals to the L2 backend (external bus and AMO unit)
-
-assign l2_downstream_if.stall = w_l2_backend_wait;
-assign l2_downstream_if.err   = w_l2_backend_err;
-assign l2_downstream_if.rdata = w_l2_backend_rdata;
-
-assign w_l2_addr   = l2_downstream_if.addr;
-assign w_l2_size   = l2_downstream_if.size;
-assign w_l2_wdata  = l2_downstream_if.wdata;
-assign w_l2_rw     = l2_downstream_if.rw;
-assign w_l2_amo_op = l2_downstream_if.amo_op;
+assign w_l2_req_wait  = w_l2_backend_wait;
+assign w_l2_req_err   = w_l2_backend_err;
+assign w_l2_req_rdata = w_l2_backend_rdata;
 
 // ============================================================
 // End signal detection on write to END_ADDRESS
@@ -496,35 +452,29 @@ if (ZSBL_ROM_SIZE_BYTES > 0) begin : gen_zsbl_rom
     );
 
     logic w_l2_is_rom;
-    addr_t r_rom_addr_prev;
-    
+    logic r_rom_valid;
+
     // Intercept reads in the ROM address window before they reach AXI
     assign w_l2_is_rom = (w_l2_addr >= RESET_VEC) &&
                          (w_l2_addr < RESET_VEC + ZSBL_ROM_SIZE_BYTES) &&
                          (w_l2_rw == RW_READ);
 
-    // ROM has 1 cycle latency
-    // Only update when we detect a new address change
     always_ff @(posedge i_clk) begin
         if (!i_rstn) begin
-            r_rom_addr_prev <= '0;
-        end else if (w_l2_is_rom && (w_l2_addr != r_rom_addr_prev)) begin
-            r_rom_addr_prev <= w_l2_addr;
-        end else if (!w_l2_is_rom) begin
-            r_rom_addr_prev <= '0;
+            r_rom_valid <= 1'b0;
+        end else begin
+            r_rom_valid <= w_l2_is_rom && !r_rom_valid;
         end
     end
 
-    assign w_l2_backend_rdata = w_l2_is_rom ? w_zsbl_data :
-                                w_amo_active ? w_amo_load_data :
-                                i_mem_rdata;
+    assign w_l2_backend_rdata = r_rom_valid ? w_zsbl_data :
+                                w_amo_active ? w_amo_load_data : i_mem_rdata;
 
-    assign w_l2_backend_wait = w_l2_is_rom ? (w_l2_addr != r_rom_addr_prev) :
+    assign w_l2_backend_wait = r_rom_valid ? 1'b0 :
                                w_amo_bootstrap ? 1'b1 :
-                               w_amo_active ? w_amo_core_wait :
-                               i_mem_wait;
+                               w_amo_active ? w_amo_core_wait : i_mem_wait;
 
-    assign w_l2_backend_err = w_l2_is_rom ? 1'b0 : i_mem_err;
+    assign w_l2_backend_err = r_rom_valid ? 1'b0 : i_mem_err;
 
     assign o_mem_rw   = w_l2_is_rom ? RW_IDLE :
                         w_amo_bootstrap ? RW_IDLE :

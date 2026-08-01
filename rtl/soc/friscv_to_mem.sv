@@ -74,7 +74,7 @@ assign w_completing = (state_q == S_RSP) && rvalid_i;
 
 assign mem_if.rdata      = rdata_i;
 assign mem_if.err        = w_completing && (err_i || other_err_i);
-assign mem_if.wait_req   = state_d != S_IDLE;
+assign mem_if.wait_req   = (state_q == S_RSP) ? !rvalid_i : 1'b1;
 assign mem_if.beat_valid = 1'b0;
 
 assign req_o = w_issue || (state_q == S_REQ);
