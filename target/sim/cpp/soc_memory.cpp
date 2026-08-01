@@ -10,7 +10,7 @@
 namespace {
 
 #ifndef FRISCV_SOC_SRAM_SIZE_BYTES
-#define FRISCV_SOC_SRAM_SIZE_BYTES 0x4000
+#define FRISCV_SOC_SRAM_SIZE_BYTES 0x2000
 #endif
 
 // friscv_ocm_llc splits the OCM over WAYS equally sized tc_sram macros. A word

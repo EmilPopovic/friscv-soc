@@ -10,7 +10,7 @@ SOC_TOP = friscv_soc
 SOC_DIR ?= obj_dir_soc
 SOC_BIN = $(SOC_DIR)/friscv_soc
 SOC_SRAM_BASE ?= 0
-SOC_SRAM_SIZE_BYTES ?= 16384
+SOC_SRAM_SIZE_BYTES ?= 8192
 SOC_CPP = cpp/elf_loader.cpp cpp/paged_mem.cpp $(SOC_ONLY_CPP)
 
 sources.f: ../../Bender.yml ../../Bender.lock

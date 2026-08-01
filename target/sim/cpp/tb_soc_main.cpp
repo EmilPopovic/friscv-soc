@@ -20,7 +20,7 @@ namespace {
 #endif
 
 #ifndef FRISCV_SOC_SRAM_SIZE_BYTES
-#define FRISCV_SOC_SRAM_SIZE_BYTES 0x4000
+#define FRISCV_SOC_SRAM_SIZE_BYTES 0x2000
 #endif
 
 constexpr uint32_t HYPER_CFG_BASE = 0x50010000;
