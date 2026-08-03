@@ -27,6 +27,14 @@ vendor_package:
       git: "https://github.com/pulp-platform/hyperbus.git"
       rev: "2a14bd8f9a985b488ee23d240764f52f129f7729"
     patch_dir: "rtl/vendored/patches/pulp_hyperbus"
+  - name: obi_uart
+    target_dir: "rtl/vendored/pulp_obi_uart"
+    upstream:
+      git: "https://github.com/pulp-platform/obi_peripherals.git"
+      rev: "079894a6cbd4e544c477643d184a4c340bd4e391"
+    patch_dir: "rtl/vendored/patches/pulp_obi_uart"
+    mapping:
+      - {from: 'hw/obi_uart', to: 'rtl', patch_dir: 'rtl'}
   - name: spi_host
     target_dir: "rtl/vendored/opentitan_spi_host"
     upstream:
@@ -70,6 +78,15 @@ sources:
   - rtl/vendored/opentitan_spi_host/rtl/spi_host_shift_register.sv
   - rtl/vendored/opentitan_spi_host/rtl/spi_host_core.sv
   - rtl/vendored/opentitan_spi_host/rtl/spi_host.sv
+  # PULP OBI UART
+  - rtl/vendored/pulp_obi_uart/rtl/obi_uart_pkg.sv
+  - rtl/vendored/pulp_obi_uart/rtl/obi_uart_baudgen.sv
+  - rtl/vendored/pulp_obi_uart/rtl/obi_uart_interrupts.sv
+  - rtl/vendored/pulp_obi_uart/rtl/obi_uart_modem.sv
+  - rtl/vendored/pulp_obi_uart/rtl/obi_uart_rx.sv
+  - rtl/vendored/pulp_obi_uart/rtl/obi_uart_tx.sv
+  - rtl/vendored/pulp_obi_uart/rtl/obi_uart_register.sv
+  - rtl/vendored/pulp_obi_uart/rtl/obi_uart.sv
 
   # Core RTL files
   # Keep in compile order

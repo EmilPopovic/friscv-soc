@@ -1,0 +1,55 @@
+From a8930bd9a9e0345219aa08c68bce82bbaaa60b31 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Matej=20Jurasi=C4=87?= <matej.jurasic@fer.hr>
+Date: Sun, 2 Aug 2026 03:59:07 +0200
+Subject: [PATCH] Fix LSR THRE/TEMT never clearing and dropped break indication
+
+Writing THR clears thr_empty and tx_empty, but both Set-LSR blocks re-assert
+them from thr_full_q and fifo_empty, neither of which has seen the write yet,
+so THRE and TEMT read 1 permanently. Both now qualify on thr_full_d. Drivers
+that poll THRE before writing THR therefore overwrite the holding register in
+flight and lose characters.
+
+break_irq is computed and then immediately overwritten with a constant, so
+LSR bit 4 latches high after the first received character.
+---
+ obi_uart_rx.sv | 1 -
+ obi_uart_tx.sv | 4 ++--
+ 2 files changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/obi_uart_rx.sv b/obi_uart_rx.sv
+index 396aefb..948a04e 100644
+--- a/obi_uart_rx.sv
++++ b/obi_uart_rx.sv
+@@ -459,7 +459,6 @@ module obi_uart_rx import obi_uart_pkg::*; #()
+         reg_write_o.frame_err    = framing_err_q;
+         break_interrupt          = & (~{break_q, rsr_q}); // All character bits 0 ?
+         reg_write_o.break_irq = break_interrupt;
+-        reg_write_o.break_irq = 1'b1;
+         reg_write_o.break_valid  = 1'b1;
+         reg_write_o.par_valid    = 1'b1;
+         reg_write_o.frame_valid  = 1'b1;
+diff --git a/obi_uart_tx.sv b/obi_uart_tx.sv
+index 920879d..f3856ac 100644
+--- a/obi_uart_tx.sv
++++ b/obi_uart_tx.sv
+@@ -257,7 +257,7 @@ module obi_uart_tx #()
+       end
+ 
+       //--Set-LSR---------------------------------------------------------------------------------
+-      if (fifo_empty) begin
++      if (fifo_empty & ~thr_full_d) begin
+         reg_write_o.thr_empty = 1'b1;
+         reg_write_o.thr_valid = 1'b1;
+         if (tsr_empty) begin
+@@ -282,7 +282,7 @@ module obi_uart_tx #()
+       //--Keep-FIFO-cleared-----------------------------------------------------------------------
+       fifo_clear = 1'b1;
+       //--Set-LSR---------------------------------------------------------------------------------
+-      if (~thr_full_q) begin
++      if (~thr_full_d) begin
+         reg_write_o.thr_empty = 1'b1;
+         reg_write_o.thr_valid = 1'b1;
+         if (tsr_empty) begin
+-- 
+2.55.0
+
