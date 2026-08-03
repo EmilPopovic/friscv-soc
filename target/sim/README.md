@@ -51,6 +51,35 @@ done
 
 `test` reports the cycle count from reset, for comparing runs.
 
+## apheleiaOS
+
+`scripts/aos.sh` fetches and builds apheleiaOS into a gitignored `build_aos/`,
+then boots it; an existing image is booted rather than rebuilt. Pass `rebuild`
+to force a new one. Building needs clang, ld.lld and dtc.
+
+```bash
+scripts/aos.sh
+```
+
+`scripts/run_aos.sh` boots an image that is already built, and takes the same
+environment as `test`:
+
+```bash
+scripts/run_aos.sh build_aos/apheleiaOS/bin/apheleia_1.0_riscv_32.img
+```
+
+The image runs from external memory with the whole SRAM left as cache, so the
+memory is sized past its default. Its boot stub assumes a boot ROM programmed
+the UART divisor and never does it itself, which is what `UART_DIV` covers.
+Reaching the login prompt takes about half an hour.
+
+| Variable | Default | |
+| --- | --- | --- |
+| `MEM_SIZE` | 268435456 | external memory bytes |
+| `LLCSEL` | 0xf | ways used as cache rather than scratchpad |
+| `UART_DIV` | 27 | 16550 divisor, 115200 baud from 50 MHz |
+| `CYCLES` | 20000000000 | cycle limit |
+
 Start the SoC simulation and debug server from the repository root:
 
 ```bash
