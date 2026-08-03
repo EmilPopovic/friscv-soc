@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
 #include "paged_mem.hpp"
 
@@ -28,6 +29,7 @@ class Hyperram {
     explicit Hyperram(Vfriscv_soc& top);
 
     void update();
+    void preload(uint32_t address, const std::vector<uint8_t>& data);
 
   private:
     enum class Phase {
@@ -38,7 +40,7 @@ class Hyperram {
         Write,
     };
 
-    static constexpr uint32_t MEMORY_SIZE = 0x01000000;
+    static constexpr uint32_t MEMORY_SIZE = 0x10000000;
     static constexpr unsigned COMMAND_BYTES = 6;
     static constexpr unsigned TURNAROUND_EDGES = 2;
 

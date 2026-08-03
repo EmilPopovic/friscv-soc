@@ -40,9 +40,10 @@ void SocTestbench::run_cycles(uint64_t count) {
     cycles_ += count;
 
     for (uint64_t i = 0; i < count; ++i) {
-        top_.i_clk = 0;
-        eval();
+        uart_.sample(top_.o_uart_tx);
 
+        // The loop leaves the clock low, so a leading low phase would only
+        // re-evaluate an unchanged model
         top_.i_clk = 1;
         eval();
 

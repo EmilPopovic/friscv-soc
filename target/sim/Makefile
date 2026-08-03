@@ -3,7 +3,7 @@ CORE_DIR = obj_dir_core
 CORE_BIN = $(CORE_DIR)/friscv_core
 
 SOC_ONLY_CPP = cpp/hyperram.cpp cpp/jtag.cpp cpp/remote_bitbang.cpp cpp/soc_memory.cpp \
-	cpp/soc_testbench.cpp cpp/tb_soc_main.cpp
+	cpp/soc_testbench.cpp cpp/tb_soc_main.cpp cpp/uart_tx_monitor.cpp
 CORE_CPP = $(filter-out $(SOC_ONLY_CPP),$(wildcard cpp/*.cpp))
 
 SOC_TOP = friscv_soc
@@ -11,6 +11,7 @@ SOC_DIR ?= obj_dir_soc
 SOC_BIN = $(SOC_DIR)/friscv_soc
 SOC_SRAM_BASE ?= 0
 SOC_SRAM_SIZE_BYTES ?= 8192
+SOC_MEM_SIZE ?= 16777216
 SOC_CPP = cpp/elf_loader.cpp cpp/paged_mem.cpp $(SOC_ONLY_CPP)
 
 sources.f: ../../Bender.yml ../../Bender.lock
@@ -32,6 +33,7 @@ soc: sources.f | $(SOC_DIR)
 	verilator --cc --exe --build -j 0 --top-module $(SOC_TOP) -Wno-fatal \
 		+define+ASSERTS_OFF \
 		-GSramBase=$(SOC_SRAM_BASE) -GSramSize=$(SOC_SRAM_SIZE_BYTES) \
+		-GMemSize=$(SOC_MEM_SIZE) \
 		-GHyperClockDelayed=0 $(SOC_PARAMS) \
 		-CFLAGS -DFRISCV_SOC_SRAM_BASE=$(SOC_SRAM_BASE) \
 		-CFLAGS -DFRISCV_SOC_SRAM_SIZE_BYTES=$(SOC_SRAM_SIZE_BYTES) \

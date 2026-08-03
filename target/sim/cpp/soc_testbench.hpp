@@ -4,6 +4,7 @@
 
 #include "Vfriscv_soc.h"
 #include "hyperram.hpp"
+#include "uart_tx_monitor.hpp"
 
 class SocTestbench {
   public:
@@ -11,6 +12,8 @@ class SocTestbench {
     ~SocTestbench();
 
     Vfriscv_soc& top() { return top_; }
+    Hyperram& hyperram() { return hyperram_; }
+    UartTxMonitor& uart() { return uart_; }
 
     void reset();
     void run_cycles(uint64_t count);
@@ -21,5 +24,6 @@ class SocTestbench {
 
     Vfriscv_soc top_;
     Hyperram hyperram_;
+    UartTxMonitor uart_;
     uint64_t cycles_ = 0;
 };

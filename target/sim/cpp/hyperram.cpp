@@ -88,6 +88,18 @@ Hyperram::Hyperram(Vfriscv_soc& top)
     set_hb_rwds_in(top_, false);
 }
 
+void Hyperram::preload(uint32_t address, const std::vector<uint8_t>& data) {
+    for (size_t offset = 0; offset < data.size(); ++offset) {
+        uint32_t byte_address = address + uint32_t(offset);
+
+        if (!memory_.in_range(byte_address)) {
+            throw std::runtime_error("HyperRAM preload is out of range");
+        }
+
+        memory_.write_byte(byte_address, data[offset]);
+    }
+}
+
 void Hyperram::begin_transaction() {
     phase_ = Phase::Command;
     command_ = 0;

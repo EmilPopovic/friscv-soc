@@ -1,0 +1,65 @@
+#include "uart_tx_monitor.hpp"
+
+#include <cstdio>
+
+// The 16550 oversamples by 16, so a bit lasts 16 divisor clocks
+void UartTxMonitor::set_divisor(unsigned divisor) {
+    bit_cycles_ = 16 * divisor;
+}
+
+void UartTxMonitor::sample(bool tx) {
+    if (bit_cycles_ == 0) {
+        return;
+    }
+
+    switch (state_) {
+        case State::IDLE:
+            if (last_ && !tx) {
+                state_   = State::START;
+                counter_ = 0;
+            }
+            break;
+
+        case State::START:
+            // Re-check mid bit so a glitch does not start a character
+            if (++counter_ >= bit_cycles_ / 2) {
+                if (tx) {
+                    state_ = State::IDLE;
+                } else {
+                    state_     = State::DATA;
+                    counter_   = 0;
+                    bit_index_ = 0;
+                    shifter_   = 0;
+                }
+            }
+            break;
+
+        case State::DATA:
+            if (++counter_ >= bit_cycles_) {
+                counter_ = 0;
+                shifter_ = (unsigned char)(shifter_ >> 1) | (tx ? 0x80u : 0x00u);
+                if (++bit_index_ == 8) {
+                    state_ = State::STOP;
+                }
+            }
+            break;
+
+        case State::STOP:
+            if (++counter_ >= bit_cycles_) {
+                if (tx) {
+                    std::fputc(shifter_, stderr);
+                    std::fflush(stderr);
+                } else if (!warned_) {
+                    // A missing stop bit means the program reprogrammed the
+                    // divisor away from the one the testbench was given
+                    warned_ = true;
+                    std::fprintf(stderr, "\n[uart] framing error at %u cycles "
+                                         "per bit\n", bit_cycles_);
+                }
+                state_ = State::IDLE;
+            }
+            break;
+    }
+
+    last_ = tx;
+}
