@@ -394,9 +394,19 @@ hyper_axi_resp_t hyper_axi_rsp;
 `AXI_ASSIGN_TO_REQ(hyper_axi_req,  mem_axi)
 `AXI_ASSIGN_FROM_RESP(mem_axi, hyper_axi_rsp)
 
+localparam int unsigned HyperNumPhys    = 1;
+localparam int unsigned HyperMinFreqMHz = 40;
+
+// Requests past the mask alias onto low addresses instead of faulting
+function automatic hyperbus_pkg::hyper_cfg_t hyper_rst_cfg();
+    hyper_rst_cfg = hyperbus_pkg::gen_RstCfg(HyperNumPhys, HyperMinFreqMHz);
+    hyper_rst_cfg.address_mask_msb = 5'($clog2(MemSize));
+endfunction
+
 hyperbus #(
     .NumChips        ( 1                       ),
-    .NumPhys         ( 1                       ),
+    .NumPhys         ( HyperNumPhys            ),
+    .RstCfg          ( hyper_rst_cfg()         ),
     .IsClockODelayed ( HyperClockDelayed       ),
     .AxiAddrWidth    ( AxiAddrWidth            ),
     .AxiDataWidth    ( AxiDataWidth            ),
@@ -414,9 +424,9 @@ hyperbus #(
     .reg_req_t       ( reg_bus_req_t           ),
     .reg_rsp_t       ( reg_bus_rsp_t           ),
     .axi_rule_t      ( axi_pkg::xbar_rule_32_t ),
-    .MinFreqMHz      ( 40                      ),
+    .MinFreqMHz      ( HyperMinFreqMHz         ),
     .RstChipBase     ( MemBase                 ),
-    .RstChipSpace    ( 32'h0080_0000           ),
+    .RstChipSpace    ( MemSize                 ),
     .AxiLogDepth     ( 1                       )
 ) i_hyperbus (
     .clk_phy_i       ( i_clk                     ),
