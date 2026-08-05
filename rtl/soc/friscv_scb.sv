@@ -128,7 +128,7 @@ always_comb begin
     endcase
 end
 
-assign reg_rsp_o.rdata = DW'(rdata);
+assign reg_rsp_o.rdata = rdata;
 assign reg_rsp_o.ready = 1'b1;
 assign reg_rsp_o.error = reg_req_i.valid && map_err;
 

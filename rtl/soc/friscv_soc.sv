@@ -76,6 +76,8 @@ logic [63:0] mtime;
 logic        msip, mtip, meip, seip;
 
 // Debug module base address
+localparam int unsigned NumMuxPads = 13;
+
 localparam logic [31:0] DmBaseAddr = 32'h0001_0000;
 localparam logic [31:0] DmSize     = 32'h0000_1000;
 
@@ -328,23 +330,23 @@ reg_demux #(
 // System Control Block
 // ============================================================
 
-logic hb_en;  // HBCTL.HB_EN drives the AFX and the external memory guard
+logic hb_en;
 
 friscv_scb #(
-    .NumPads    ( NumPads       ),
+    .NumPads    ( NumMuxPads    ),
     .reg_req_t  ( reg_bus_req_t ),
     .reg_rsp_t  ( reg_bus_rsp_t ),
     .OcmLlcWays ( Ways          )
 ) scb (
-    .clk_i     ( i_clk                ),
-    .rst_ni    ( soc_rstn             ),
-    .reg_req_i ( reg_dev_req[ScbPort] ),
-    .reg_rsp_o ( reg_dev_rsp[ScbPort] ),
-    .strap_i   ( pad_in_i             ),
-    .o_hb_en   ( hb_en                ),
-    .o_llcsel  ( llcsel               ),
-    .o_crpsel  ( crpsel               ),
-    .o_llcinv  ( llcinv               )
+    .clk_i     ( i_clk                     ),
+    .rst_ni    ( soc_rstn                  ),
+    .reg_req_i ( reg_dev_req[ScbPort]      ),
+    .reg_rsp_o ( reg_dev_rsp[ScbPort]      ),
+    .strap_i   ( pad_in_i[NumMuxPads-1:0]  ),
+    .o_hb_en   ( hb_en                     ),
+    .o_llcsel  ( llcsel                    ),
+    .o_crpsel  ( crpsel                    ),
+    .o_llcinv  ( llcinv                    )
 );
 
 // ============================================================
@@ -646,49 +648,36 @@ apb_uart_wrap #(
 // ============================================================
 
 /*
-Pad   AF0        AF1        AFX (HB_EN)  Notes
-----  ---------  ---------  -----------  -------------------------
-PA0   gpio[0]    -          -
-PA1   gpio[1]    -          -            external interrupt
-PA2   gpio[2]    -          -            external interrupt
-PA3   gpio[3]    -          -            external interrupt
-PA4   gpio[4]    -          -            external interrupt
-PA5   gpio[5]    QSPI0_IO0  -
-PA6   gpio[6]    QSPI0_IO1  -
-PA7   gpio[7]    QSPI0_IO2  -            boot strap
-PA8   gpio[8]    QSPI0_IO3  -            boot strap
-PA9   gpio[9]    QSPI0_SCK  -
-PA10  gpio[10]   QSPI0_CS0  -
-PA11  gpio[11]   QSPI0_CS1  -
-PA12  gpio[12]   QSPI0_CS2  -
-PA13  gpio[13]   DBG_D0     HB_DQ0
-PA14  gpio[14]   DBG_D1     HB_DQ1
-PA15  gpio[15]   DBG_D2     HB_DQ2
-PA16  gpio[16]   DBG_D3     HB_DQ3
-PA17  gpio[17]   DBG_D4     HB_DQ4
-PA18  gpio[18]   DBG_D5     HB_DQ5
-PA19  gpio[19]   DBG_D6     HB_DQ6
-PA20  gpio[20]   DBG_D7     HB_DQ7
-PA21  gpio[21]   DBG_SEL0   HB_RWDS
-PA22  gpio[22]   DBG_SEL1   HB_CK
-PA23  gpio[23]   DBG_SEL2   HB_CS0_N
-PA24  gpio[24]   DBG_SEL3   HB_RST_N
+Pad   AF0        AF1        Notes
+----  ---------  ---------  -------------------------
+PA0   gpio[0]    -
+PA1   gpio[1]    -          external interrupt
+PA2   gpio[2]    -          external interrupt
+PA3   gpio[3]    -          external interrupt
+PA4   gpio[4]    -          external interrupt
+PA5   gpio[5]    QSPI0_IO0
+PA6   gpio[6]    QSPI0_IO1
+PA7   gpio[7]    QSPI0_IO2  boot strap
+PA8   gpio[8]    QSPI0_IO3  boot strap
+PA9   gpio[9]    QSPI0_SCK
+PA10  gpio[10]   QSPI0_CS0
+PA11  gpio[11]   QSPI0_CS1
+PA12  gpio[12]   QSPI0_CS2
 */
 
 localparam int unsigned NumAfs = 2;
 
-// HyperBus pad assignment for the AFX overlay
 localparam int unsigned PadHbDqLsb = 13;  // PA13..PA20 = HB_DQ0..HB_DQ7
 localparam int unsigned PadHbRwds  = 21;  // PA21 = HB_RWDS
 localparam int unsigned PadHbCk    = 22;  // PA22 = HB_CK
 localparam int unsigned PadHbCsN   = 23;  // PA23 = HB_CS0_N
 localparam int unsigned PadHbRstN  = 24;  // PA24 = HB_RST_N
 
-logic [NumPads-1:0][NumAfs-1:0] to_func;
-logic [NumPads-1:0][NumAfs-1:0] from_func;
-logic [NumPads-1:0][NumAfs-1:0] oe_func;
+logic [NumMuxPads-1:0][NumAfs-1:0] to_func;
+logic [NumMuxPads-1:0][NumAfs-1:0] from_func;
+logic [NumMuxPads-1:0][NumAfs-1:0] oe_func;
 
-logic [NumPads-1:0] pm_pad_out, pm_pad_oe;
+logic [NumMuxPads-1:0] pm_pad_out, pm_pad_oe;
 
 // Region-relative pinmux register address
 reg_bus_req_t pinmux_req;
@@ -698,52 +687,45 @@ always_comb begin
 end
 
 friscv_pinmux #(
-    .NumPads  ( NumPads       ),
+    .NumPads  ( NumMuxPads    ),
     .NumAfs   ( NumAfs        ),
     .AfInIdle ( '0            ),  // Idle level presented to non-selected AFs, all 0
     .reg_req_t( reg_bus_req_t ),
     .reg_rsp_t( reg_bus_rsp_t )
  ) pinmux (
-    .clk_i      ( i_clk                   ),
-    .rst_ni     ( i_rstn                  ),
-    .reg_req_i  ( pinmux_req              ),
-    .reg_rsp_o  ( reg_dev_rsp[PinmuxPort] ),
-    .pad_in_i   ( pad_in_i                ),
-    .pad_out_o  ( pm_pad_out              ),
-    .pad_oe_o   ( pm_pad_oe               ),
-    .func_out_i ( from_func               ),  // peripheral -> pinmux
-    .func_in_o  ( to_func                 ),  // peripheral <- pinmux
-    .func_oe_i  ( oe_func                 )
+    .clk_i      ( i_clk                     ),
+    .rst_ni     ( i_rstn                    ),
+    .reg_req_i  ( pinmux_req                ),
+    .reg_rsp_o  ( reg_dev_rsp[PinmuxPort]   ),
+    .pad_in_i   ( pad_in_i[NumMuxPads-1:0]  ),
+    .pad_out_o  ( pm_pad_out                ),
+    .pad_oe_o   ( pm_pad_oe                 ),
+    .func_out_i ( from_func                 ),  // peripheral -> pinmux
+    .func_in_o  ( to_func                   ),  // peripheral <- pinmux
+    .func_oe_i  ( oe_func                   )
 );
 
 // ============================================================
-// AFX Switch
+// Pad drive
 // ============================================================
 
-assign hb_dq_i   = pad_in_i[PadHbDqLsb +: 8];  // PA13..PA20
-assign hb_rwds_i = pad_in_i[PadHbRwds];        // PA21
+assign hb_dq_i   = pad_in_i[PadHbDqLsb +: 8];
+assign hb_rwds_i = pad_in_i[PadHbRwds];
 
 always_comb begin
-    pad_out_o = pm_pad_out;
-    pad_oe_o  = pm_pad_oe;
+    pad_out_o[NumMuxPads-1:0] = pm_pad_out;
+    pad_oe_o [NumMuxPads-1:0] = pm_pad_oe;
 
-    if (hb_en) begin
-        // DQ[7:0] on PA13..PA20 bidirectional with one shared output enable
-        for (int unsigned i = 0; i < 8; i++) begin
-            pad_out_o[PadHbDqLsb + i] = hb_dq_o[i];
-            pad_oe_o [PadHbDqLsb + i] = hb_dq_oe;
-        end
-        // RWDS on PA21 bidirectional
-        pad_out_o[PadHbRwds] = hb_rwds_o;
-        pad_oe_o [PadHbRwds] = hb_rwds_oe;
-        // CK / CS0_N / RST_N on PA22..PA24 output only
-        pad_out_o[PadHbCk]   = hb_ck;
-        pad_oe_o [PadHbCk]   = 1'b1;
-        pad_out_o[PadHbCsN]  = hb_cs_n;
-        pad_oe_o [PadHbCsN]  = 1'b1;
-        pad_out_o[PadHbRstN] = hb_reset_n;
-        pad_oe_o [PadHbRstN] = 1'b1;
-    end
+    pad_out_o[PadHbDqLsb +: 8] = hb_dq_o;
+    pad_oe_o [PadHbDqLsb +: 8] = {8{hb_dq_oe}};
+    pad_out_o[PadHbRwds] = hb_rwds_o;
+    pad_oe_o [PadHbRwds] = hb_rwds_oe;
+    pad_out_o[PadHbCk]   = hb_ck;
+    pad_oe_o [PadHbCk]   = 1'b1;
+    pad_out_o[PadHbCsN]  = hb_cs_n;
+    pad_oe_o [PadHbCsN]  = 1'b1;
+    pad_out_o[PadHbRstN] = hb_reset_n;
+    pad_oe_o [PadHbRstN] = 1'b1;
 end
 
 // ============================================================
@@ -755,14 +737,14 @@ logic [31:0] gpio_a_in;
 logic [31:0] gpio_a_out;
 logic [31:0] gpio_a_oe;
 
-for (genvar p = 0; p < NumPads; p++) begin : gpio_a_af0
+for (genvar p = 0; p < NumMuxPads; p++) begin : gpio_a_af0
     assign from_func[p][0] = gpio_a_out[p];
     assign oe_func  [p][0] = gpio_a_oe [p];
     assign gpio_a_in[p]    = to_func[p][0];
 end
 
-// GPIO bits without a pad are unused
-assign gpio_a_in[31:NumPads] = '0;
+// Unused GPIO bits
+assign gpio_a_in[31:NumMuxPads] = '0;
 
 gpio #(
     .reg_req_t   ( reg_bus_req_t ),
@@ -831,34 +813,6 @@ end
 for (genvar p = 0; p < Qspi0PadBase; p++) begin : gen_no_af1
     assign from_func[p][1] = 1'b0;
     assign oe_func  [p][1] = 1'b0;
-end
-
-// ============================================================
-// Debug read port
-// ============================================================
-
-logic [3:0] dbg_sel;
-logic [7:0] dbg_data;
-logic [7:0] dbg_src [16];
-
-assign dbg_sel = { to_func[PadHbRstN][1], to_func[PadHbCsN][1],
-                   to_func[PadHbCk][1],   to_func[PadHbRwds][1] };
-
-for (genvar i = 0; i < 16; i++) begin : gen_dbg_src
-    assign dbg_src[i] = 8'h00;  // TODO tied to 0 for now
-end
-assign dbg_data = dbg_src[dbg_sel];
-
-// DBG_D0..DBG_D7 drive PA13..PA20
-for (genvar i = 0; i < 8; i++) begin : gen_dbg_d
-    assign from_func[PadHbDqLsb + i][1] = dbg_data[i];
-    assign oe_func  [PadHbDqLsb + i][1] = 1'b1;
-end
-
-// DBG_SEL0..DBG_SEL3 read PA21..PA24 output disabled, pad drives func_in
-for (genvar i = 0; i < 4; i++) begin : gen_dbg_sel
-    assign from_func[PadHbRwds + i][1] = 1'b0;
-    assign oe_func  [PadHbRwds + i][1] = 1'b0;
 end
 
 // ============================================================

@@ -81,6 +81,7 @@ logic reg_hazard, csr_hazard, ret_csr_hazard, ret_pipe_hazard;
 logic serializing_csr_hazard;
 logic counter_csr_hazard;
 logic mem_stall, hazard_stall, trap_pending_stall;
+logic id_stall;
 
 function automatic logic is_serializing_csr(csr_addr_e csr_sel);
     case (csr_sel)
@@ -104,9 +105,6 @@ function automatic logic is_counter_csr(csr_addr_e csr_sel);
     endcase
 endfunction
 
-// Early JAL/JALR must be suppressed when
-//  1) EX cannot capture the decoded instruction (mem_stall) or
-//  2) JALR's rs1 has a data hazard with EX (hazard_stall)
 logic effective_jal, effective_ret;
 
 always_comb begin
@@ -145,12 +143,14 @@ always_comb begin
     hazard_stall = reg_hazard || csr_hazard;
     trap_pending_stall = trap_pending_in;
 
-    // Suppress mret redirect until the hazard clears so IF sees the committed mepc
-    effective_ret = ret_in && !ret_csr_hazard && !ret_pipe_hazard;
-    effective_jal = jal_ok_in && !mem_stall && !hazard_stall && !trap_pending_stall;
+    id_stall = mem_stall || hazard_stall || trap_pending_stall || ex_muldiv_active_in || halt_in;
 
-    stall_if_out  = mem_stall || hazard_stall || trap_pending_stall || ex_muldiv_active_in || halt_in;
-    stall_id_out  = mem_stall || hazard_stall || trap_pending_stall || ex_muldiv_active_in || halt_in;
+    // Suppress mret redirect until the hazard clears so IF sees the committed mepc
+    effective_ret = ret_in && !ret_csr_hazard && !ret_pipe_hazard && !id_stall;
+    effective_jal = jal_ok_in && !id_stall;
+
+    stall_if_out  = id_stall;
+    stall_id_out  = id_stall;
     stall_ex_out  = mem_stall || ex_muldiv_active_in;
     stall_mem_out = mem_stall;
 
