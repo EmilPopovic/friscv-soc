@@ -1,4 +1,5 @@
 rtl/core/friscv_pkg.sv
+rtl/core/friscv_zsbl_rom_pkg.sv
 rtl/core/friscv_amo_unit.sv
 rtl/core/friscv_core_complex.sv
 rtl/core/friscv_core.sv

@@ -33,7 +33,7 @@ module friscv_soc #(
     parameter int unsigned NumPads           = 25,
     parameter bit          EnablePlic        = 1,
     parameter int unsigned ClkFreqHz         = 50_000_000,
-    parameter int unsigned ZsblRomSizeBytes  = 64
+    parameter int unsigned ZsblRomSizeBytes  = 144
 ) (
     input  logic  i_clk,
     input  logic  i_rstn,

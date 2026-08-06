@@ -9,6 +9,7 @@
 `timescale 1ns / 1ps
 
 import friscv_pkg::*;
+import friscv_zsbl_rom_pkg::*;
 
 module friscv_zsbl_rom #(
     parameter int unsigned SIZE_BYTES = 64,
@@ -20,7 +21,10 @@ module friscv_zsbl_rom #(
 );
 
 inst_t mem [SIZE_BYTES/4];
-localparam int unsigned ZSBL_PROG_WORDS = 7;
+
+if (ZSBL_PROG_WORDS > SIZE_BYTES/4) begin : gen_zsbl_too_big
+    $error("ZSBL needs %0d bytes, SIZE_BYTES is %0d", ZSBL_PROG_WORDS*4, SIZE_BYTES);
+end
 
 logic [31:0] w_word_offset;
 logic        w_valid;
@@ -40,16 +44,8 @@ end
 assign o_data = r_data;
 
 always_comb begin
-    mem[0] = 32'h4000_02b7;  // 
-    mem[1] = 32'h0010_0313;  // 
-    mem[2] = 32'h0062_a023;  // 
-    mem[3] = 32'h0002_a383;  // 
-    mem[4] = 32'hfe63_8ee3;  // 
-    mem[5] = 32'h0000_100f;  // 
-    mem[6] = 32'h0003_8067;  // 
-
-    for (int unsigned i = ZSBL_PROG_WORDS; i < (SIZE_BYTES/4); i++) begin
-        mem[i] = 32'h0000_0000;
+    for (int unsigned i = 0; i < (SIZE_BYTES/4); i++) begin
+        mem[i] = (i < ZSBL_PROG_WORDS) ? ZSBL_PROG[i] : 32'h0000_0000;
     end
 end
 
