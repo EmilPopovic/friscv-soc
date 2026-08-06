@@ -32,9 +32,24 @@ CYCLES=${CYCLES:-20000000000}
 DIR=obj_dir_aos
 
 mkdir -p "$DIR"
-python3 "$HERE/flat2elf.py" "$IMAGE" "$DIR/aos.elf"
-
 make soc SOC_MEM_SIZE="$MEM_SIZE" SOC_DIR="$DIR" >/dev/null
+
+# boot through the ROM and the flash instead of the debug module
+if [ "${BOOT:-jtag}" = qspi ]; then
+    BOOT_SRC=$HERE/../../../sw/boot
+
+    riscv64-unknown-elf-gcc -march=rv32ima_zicsr_zifencei -mabi=ilp32 \
+        -nostdlib -nostartfiles -Wl,--no-warn-rwx-segments -Wl,-Ttext=0 \
+        -o "$DIR/stage2.elf" "$BOOT_SRC/stage2.S"
+    riscv64-unknown-elf-objcopy -O binary "$DIR/stage2.elf" "$DIR/stage2.bin"
+    python3 "$BOOT_SRC/mkflash.py" "$DIR/stage2.bin" "$IMAGE" "$DIR/flash.bin"
+
+    # The second stage sets the divisor and the cache ways itself
+    exec env FRISCV_UART_DIV="$UART_DIV" FRISCV_TEST_CYCLES="$CYCLES" \
+        "./$DIR/friscv_soc" qspiboot "$DIR/flash.bin"
+fi
+
+python3 "$HERE/flat2elf.py" "$IMAGE" "$DIR/aos.elf"
 
 # The boot stub expects the baud rate to be set already, as a real boot ROM
 # would, and never programs the divisor itself

@@ -79,6 +79,20 @@ Reaching the login prompt takes about half an hour.
 | `LLCSEL` | 0xf | ways used as cache rather than scratchpad |
 | `UART_DIV` | 27 | 16550 divisor, 115200 baud from 50 MHz |
 | `CYCLES` | 20000000000 | cycle limit |
+| `BOOT` | jtag | `qspi` to boot through the ROM and the flash |
+
+`BOOT=qspi` is the path the chip itself takes. Rather than having the debug
+module place the image in memory, it packs the second stage and the image into
+a flash image, and the boot ROM reads it over QSPI:
+
+```bash
+BOOT=qspi scripts/run_aos.sh build_aos/apheleiaOS/bin/apheleia_1.0_riscv_32.img
+```
+
+The ROM copies the first block into the OCM and jumps to it; that stage turns
+on the external memory, sets the divisor, streams the image into RAM and hands
+over. `LLCSEL` does not apply, the second stage switches the ways itself.
+Streaming 3 MB over SPI adds a few minutes before the console starts.
 
 Start the SoC simulation and debug server from the repository root:
 
