@@ -215,6 +215,38 @@ void apply_uart_config(SocTestbench& testbench, Jtag& jtag) {
     testbench.uart().set_divisor(divisor);
 }
 
+std::vector<uint8_t> read_file(const char* path) {
+    std::FILE* file = std::fopen(path, "rb");
+
+    if (file == nullptr) {
+        throw std::runtime_error("cannot open the flash image");
+    }
+
+    std::vector<uint8_t> data;
+    uint8_t chunk[4096];
+    size_t read = 0;
+
+    while ((read = std::fread(chunk, 1, sizeof(chunk), file)) > 0) {
+        data.insert(data.end(), chunk, chunk + read);
+    }
+
+    std::fclose(file);
+    return data;
+}
+
+// FRISCV_FLASH=<file> fills the flash for programs that drive it themselves
+void apply_flash_image(SocTestbench& testbench) {
+    const char* path = std::getenv("FRISCV_FLASH");
+
+    if (path == nullptr) {
+        return;
+    }
+
+    std::vector<uint8_t> data = read_file(path);
+    testbench.flash().preload(0, data);
+    std::fprintf(stderr, "flash image %s: %zu bytes\n", path, data.size());
+}
+
 ElfImage prepare_image(SocTestbench& testbench, Jtag& jtag,
                        const char* path) {
     ElfImage image = read_elf(path);
@@ -223,6 +255,7 @@ ElfImage prepare_image(SocTestbench& testbench, Jtag& jtag,
     apply_hyperbus_config(jtag);
     apply_cache_config(jtag);
     apply_uart_config(testbench, jtag);
+    apply_flash_image(testbench);
 
     return image;
 }
@@ -244,6 +277,45 @@ void load_image(SocTestbench& testbench, Jtag& jtag, const char* path) {
 void load_command(SocTestbench& testbench, Jtag& jtag, const char* path) {
     load_image(testbench, jtag, path);
     testbench.run_cycles(RUN_CYCLES);
+}
+
+// image in the flash, PA0 high, nothing preloaded
+int qspiboot_command(SocTestbench& testbench, Jtag& jtag, const char* path) {
+    Vfriscv_soc& top = testbench.top();
+
+    std::vector<uint8_t> image = read_file(path);
+    testbench.flash().preload(0, image);
+    std::fprintf(stderr, "flash image %s: %zu bytes\n", path, image.size());
+
+    // the second stage sets the divisor, this is just for the decoder
+    if (const char* div = std::getenv("FRISCV_UART_DIV")) {
+        testbench.uart().set_divisor(uint32_t(std::strtoul(div, nullptr, 0)));
+    }
+
+    top.pad_in_i |= 1;  // PA0 high selects the flash path
+    testbench.reset();
+    jtag.initialize();  // the reset above took the debug module with it
+
+    uint64_t limit = TEST_CYCLES;
+
+    if (const char* env = std::getenv("FRISCV_TEST_CYCLES")) {
+        limit = std::strtoull(env, nullptr, 0);
+    }
+
+    for (uint64_t cycle = 0; cycle < limit && !top.o_end; ++cycle) {
+        testbench.run_cycles(1);
+    }
+
+    uint32_t result = read_word(jtag, SCRATCH_ADDRESS);
+    unsigned long long cycles = testbench.cycles();
+
+    if (top.o_end && result == PASS_VALUE) {
+        std::fprintf(stderr, "PASS (%llu cycles)\n", cycles);
+        return 0;
+    }
+
+    std::fprintf(stderr, "FAIL (scratch=0x%08x, %llu cycles)\n", result, cycles);
+    return 1;
 }
 
 int test_command(SocTestbench& testbench, Jtag& jtag, const char* path) {
@@ -335,6 +407,7 @@ bool valid_command(int argc, char** argv) {
     return server_command(argc, argv) ||
            (argc == 3 && !std::strcmp(argv[1], "load")) ||
            (argc == 3 && !std::strcmp(argv[1], "test")) ||
+           (argc == 3 && !std::strcmp(argv[1], "qspiboot")) ||
            (argc == 4 && !std::strcmp(argv[1], "read")) ||
            (argc >= 4 && !std::strcmp(argv[1], "write"));
 }
@@ -348,6 +421,10 @@ int execute_command(SocTestbench& testbench, Jtag& jtag,
 
     if (!std::strcmp(argv[1], "test")) {
         return test_command(testbench, jtag, argv[2]);
+    }
+
+    if (!std::strcmp(argv[1], "qspiboot")) {
+        return qspiboot_command(testbench, jtag, argv[2]);
     }
 
     if (!std::strcmp(argv[1], "read")) {
@@ -364,10 +441,11 @@ void print_usage(const char* program) {
                  "usage:\n"
                  "  %s load <program.elf>\n"
                  "  %s test <program.elf>\n"
+                 "  %s qspiboot <image.bin>\n"
                  "  %s read <address> <size>\n"
                  "  %s write <address> <byte> [byte ...]\n"
                  "  %s server [port]\n",
-                 program, program, program, program, program);
+                 program, program, program, program, program, program);
 }
 
 }  // namespace

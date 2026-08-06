@@ -6,7 +6,7 @@ constexpr unsigned RESET_CYCLES = 20;
 
 }  // namespace
 
-SocTestbench::SocTestbench() : hyperram_(top_) {
+SocTestbench::SocTestbench() : hyperram_(top_), flash_(top_) {
     top_.i_clk = 0;
     top_.i_rstn = 0;
     top_.i_uart_rx = 1;
@@ -25,6 +25,7 @@ SocTestbench::~SocTestbench() {
 void SocTestbench::eval() {
     top_.eval();
     hyperram_.update();
+    flash_.update();
     top_.eval();
 }
 
