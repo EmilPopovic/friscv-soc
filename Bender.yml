@@ -13,7 +13,7 @@ dependencies:
   common_cells:          { git: "https://github.com/pulp-platform/common_cells.git",          version: 1.32.0 }
   riscv-dbg:             { git: "https://github.com/pulp-platform/riscv-dbg.git",             version: 0.10.0 }
   opentitan_peripherals: { git: "https://github.com/pulp-platform/opentitan_peripherals.git", version: 0.4.0  }
-  riscv-frac-aclint:     { git: "https://github.com/EmilPopovic/riscv-frac-aclint.git",       version: 0.1.0  }
+  riscv-frac-aclint:     { git: "https://github.com/EmilPopovic/riscv-frac-aclint.git",       version: 0.1.1  }
 
 vendor_package:
   - name: rv_plic
