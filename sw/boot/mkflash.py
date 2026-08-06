@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Pack a boot image for the QSPI flash: second stage, length, payload."""
+"""Pack a boot image for the QSPI flash: second stage, header, payload."""
 
 import sys
 from pathlib import Path
 
 BLOCK = 512
+MAGIC = 0x43535246  # "FRSC", must match stage2.S
 
 
 def main():
@@ -20,7 +21,11 @@ def main():
     image = payload.read_bytes()
     image += bytes(-len(image) % 4)
 
-    out.write_bytes(stage.ljust(BLOCK, b"\0") + len(image).to_bytes(4, "little") + image)
+    checksum = sum(int.from_bytes(image[i:i + 4], "little")
+                   for i in range(0, len(image), 4)) & 0xffffffff
+
+    header = b"".join(v.to_bytes(4, "little") for v in (MAGIC, len(image), checksum))
+    out.write_bytes(stage.ljust(BLOCK, b"\0") + header + image)
     print(f"{out}: {len(stage)} B stage + {len(image)} B payload")
 
 
