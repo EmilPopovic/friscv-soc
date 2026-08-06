@@ -13,6 +13,7 @@ dependencies:
   common_cells:          { git: "https://github.com/pulp-platform/common_cells.git",          version: 1.32.0 }
   riscv-dbg:             { git: "https://github.com/pulp-platform/riscv-dbg.git",             version: 0.10.0 }
   opentitan_peripherals: { git: "https://github.com/pulp-platform/opentitan_peripherals.git", version: 0.4.0  }
+  riscv-frac-aclint:     { git: "https://github.com/EmilPopovic/riscv-frac-aclint.git",       version: 0.1.0  }
 
 vendor_package:
   - name: rv_plic
@@ -118,13 +119,11 @@ sources:
 
   # SoC RTL files
   - rtl/soc/configurable_delay.sv
-  - rtl/soc/friscv_axi_lite_adapter.sv
-  - rtl/soc/friscv_axi_lite_adapter_intf.sv
   - rtl/soc/friscv_axi4_full_adapter.sv
   - rtl/soc/friscv_axi4_full_adapter_intf.sv
   - rtl/soc/friscv_from_mem.sv
   - rtl/soc/friscv_to_mem.sv
-  - rtl/soc/friscv_clint.v
+  - rtl/soc/mem_to_reg.sv
   - rtl/soc/friscv_pinmux.sv
   - rtl/soc/friscv_scb.sv
   - rtl/soc/friscv_hb_guard.sv

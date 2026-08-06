@@ -32,7 +32,6 @@ module friscv_soc #(
     parameter bit          HyperClockDelayed = 1'b1,
     parameter int unsigned NumPads           = 25,
     parameter bit          EnablePlic        = 1,
-    parameter int unsigned ClkFreqHz         = 50_000_000,
     parameter int unsigned ZsblRomSizeBytes  = 144
 ) (
     input  logic  i_clk,
@@ -141,7 +140,7 @@ friscv_mem_hub #(
 );
 
 // ============================================================
-// Interconnect: flat AXI-Lite -> AXI_LITE -> lite xbar -> {RAM, peripherals}
+// Interconnect: mem_if -> mem -> reg_bus -> reg demux -> peripherals
 // ============================================================
 
 localparam int unsigned AxiAddrWidth = 32;
@@ -149,117 +148,65 @@ localparam int unsigned AxiDataWidth = 32;
 localparam int unsigned AxiIdWidth   = 1;
 localparam int unsigned AxiUserWidth = 1;
 
-// Lite crossbar port map:
-//  Slave  port 0: MEM hub
-//  ---------------------
-//  Master port 0: CLINT
-//  Master port 1: Peripheral regs
-localparam int unsigned NumAxiLiteSlv   = 1;
-localparam int unsigned CpuPort         = 0;
-
-localparam int unsigned NumAxiLiteMst   = 2;
-localparam int unsigned NumAxiLiteRules = 1;
-localparam int unsigned ClintPort       = 0;
-localparam int unsigned RegsPort        = 1;
-
-localparam int unsigned LiteMstIdxW = $clog2(NumAxiLiteMst);
-
-localparam axi_pkg::xbar_cfg_t AxiLiteXbarCfg = '{
-    NoSlvPorts:         NumAxiLiteSlv,
-    NoMstPorts:         NumAxiLiteMst,
-    MaxMstTrans:        1,
-    MaxSlvTrans:        1,
-    FallThrough:        1'b0,
-    LatencyMode:        axi_pkg::NO_LATENCY,
-    PipelineStages:     0,
-    AxiIdWidthSlvPorts: 0,
-    AxiIdUsedSlvPorts:  0,
-    UniqueIds:          1'b0,
-    AxiAddrWidth:       AxiAddrWidth,
-    AxiDataWidth:       AxiDataWidth,
-    NoAddrRules:        NumAxiLiteRules
-};
-
-// Address decode
-// idx is the target master-port index
-// To keep the address decoder small, all transfers that are not for the CLINT or SRAM are
-// sent to the peripheral regs port.
-localparam axi_pkg::xbar_rule_32_t [NumAxiLiteRules-1:0] AxiLiteAddrMap = '{
-    '{ idx: ClintPort, start_addr: 32'h0200_0000, end_addr: 32'h0201_0000 }     // CLINT
-};
-
 // Struct types for the reg/apb
 typedef logic [AxiAddrWidth-1:0]   addr_t;
 typedef logic [AxiDataWidth-1:0]   data_t;
 typedef logic [AxiDataWidth/8-1:0] strb_t;
-`AXI_LITE_TYPEDEF_ALL(axi_lite, addr_t, data_t, strb_t)  // axi_lite_req_t, axi_lite_resp_t
 `REG_BUS_TYPEDEF_ALL (reg_bus,  addr_t, data_t, strb_t)  // reg_bus_req_t, reg_bus_rsp_t
 `APB_TYPEDEF_ALL     (apb,      addr_t, data_t, strb_t)  // apb_req_t, apb_resp_t
 
-// Masters -> AXI-Lite xbar Slave ports
-AXI_LITE #(
-    .AXI_ADDR_WIDTH ( AxiAddrWidth ),
-    .AXI_DATA_WIDTH ( AxiDataWidth )
-) axi_lite_xbar_slv[NumAxiLiteSlv-1:0] ();
+// mem_if -> mem
+logic        soc_req, soc_gnt, soc_we, soc_rvalid, soc_err;
+addr_t       soc_addr;
+data_t       soc_wdata, soc_rdata;
+logic [3:0]  soc_be;
 
-// AXI-Lite xbar Master -> peripheral Slaves
-AXI_LITE #(
-    .AXI_ADDR_WIDTH ( AxiAddrWidth ),
-    .AXI_DATA_WIDTH ( AxiDataWidth )
-) axi_lite_xbar_mst[NumAxiLiteMst-1:0] ();
-
-friscv_axi_lite_adapter_intf m_soc (
-    .clk_i   ( i_clk                      ),
-    .rst_ni  ( soc_rstn                   ),
-    .mem_slv ( soc_if                     ),
-    .mst     ( axi_lite_xbar_slv[CpuPort] )
+friscv_to_mem soc_to_mem (
+    .i_clk       ( i_clk      ),
+    .i_rstn      ( soc_rstn   ),
+    .req_o       ( soc_req    ),
+    .addr_o      ( soc_addr   ),
+    .we_o        ( soc_we     ),
+    .wdata_o     ( soc_wdata  ),
+    .be_o        ( soc_be     ),
+    .gnt_i       ( soc_gnt    ),
+    .rvalid_i    ( soc_rvalid ),
+    .err_i       ( soc_err    ),
+    .other_err_i ( 1'b0       ),
+    .rdata_i     ( soc_rdata  ),
+    .mem_if      ( soc_if     )
 );
 
-// The AXI-Lite xbar
-axi_lite_xbar_intf #(
-    .Cfg    ( AxiLiteXbarCfg          ),
-    .rule_t ( axi_pkg::xbar_rule_32_t )
-) axi_lite_xbar (
-    .clk_i                 ( i_clk                                   ),
-    .rst_ni                ( soc_rstn                                ),
-    .test_i                ( 1'b0                                    ),
-    .slv_ports             ( axi_lite_xbar_slv                       ),
-    .mst_ports             ( axi_lite_xbar_mst                       ),
-    .addr_map_i            ( AxiLiteAddrMap                          ),
-    .en_default_mst_port_i ( '1                                      ),
-    .default_mst_port_i    ( {NumAxiLiteSlv{LiteMstIdxW'(RegsPort)}} )  // Send everything else to regs
-);
-
-// ============================================================
-// Reg demux from Lite xbar
-// ============================================================
-
-axi_lite_req_t  regs_lite_req;
-axi_lite_resp_t regs_lite_rsp;
-`AXI_LITE_ASSIGN_TO_REQ   (regs_lite_req, axi_lite_xbar_mst[RegsPort])
-`AXI_LITE_ASSIGN_FROM_RESP(axi_lite_xbar_mst[RegsPort], regs_lite_rsp)
-
-// AXI-Lite -> reg_bus
+// mem -> reg_bus
 reg_bus_req_t regs_reg_req;
 reg_bus_rsp_t regs_reg_rsp;
-axi_lite_to_reg #(
-    .ADDR_WIDTH     ( AxiAddrWidth    ),
-    .DATA_WIDTH     ( AxiDataWidth    ),
-    .BUFFER_DEPTH   ( 1               ),
-    .axi_lite_req_t ( axi_lite_req_t  ),
-    .axi_lite_rsp_t ( axi_lite_resp_t ),
-    .reg_req_t      ( reg_bus_req_t   ),
-    .reg_rsp_t      ( reg_bus_rsp_t   )
-) lite_to_reg (
-    .clk_i          ( i_clk         ),
-    .rst_ni         ( soc_rstn      ),
-    .axi_lite_req_i ( regs_lite_req ),
-    .axi_lite_rsp_o ( regs_lite_rsp ),
-    .reg_req_o      ( regs_reg_req  ),
-    .reg_rsp_i      ( regs_reg_rsp  )
+
+mem_to_reg #(
+    .AW        ( AxiAddrWidth  ),
+    .DW        ( AxiDataWidth  ),
+    .reg_req_t ( reg_bus_req_t ),
+    .reg_rsp_t ( reg_bus_rsp_t )
+) soc_mem_to_reg (
+    .clk_i     ( i_clk        ),
+    .rst_ni    ( soc_rstn     ),
+    .req_i     ( soc_req      ),
+    .gnt_o     ( soc_gnt      ),
+    .we_i      ( soc_we       ),
+    .addr_i    ( soc_addr     ),
+    .wdata_i   ( soc_wdata    ),
+    .be_i      ( soc_be       ),
+    .rdata_o   ( soc_rdata    ),
+    .rvalid_o  ( soc_rvalid   ),
+    .err_o     ( soc_err      ),
+    .reg_req_o ( regs_reg_req ),
+    .reg_rsp_i ( regs_reg_rsp )
 );
 
-localparam int unsigned NoRegPorts   = 9;
+// ============================================================
+// Reg demux
+// ============================================================
+
+localparam int unsigned NoRegPorts   = 10;
 localparam int unsigned RegPortWidth = $clog2(NoRegPorts);
 
 localparam int unsigned DmPort       = 0;
@@ -270,7 +217,12 @@ localparam int unsigned PlicPort     = 4;
 localparam int unsigned PinmuxPort   = 5;
 localparam int unsigned HyperCfgPort = 6;
 localparam int unsigned Qspi0Port    = 7;
-localparam int unsigned ErrPort      = 8;
+localparam int unsigned ClintPort    = 8;
+localparam int unsigned ErrPort      = 9;
+
+// MSWI + MTIMER + tick generator config + SSWI, the whole ACLINT map
+localparam logic [31:0] ClintBaseAddr = 32'h0200_0000;
+localparam logic [31:0] ClintSize     = 32'h0002_0000;
 
 reg_bus_req_t [NoRegPorts-1:0] reg_dev_req;
 reg_bus_rsp_t [NoRegPorts-1:0] reg_dev_rsp;
@@ -280,9 +232,10 @@ reg_bus_rsp_t [NoRegPorts-1:0] reg_dev_rsp;
     assign reg_dev_rsp[port].error = 1'b1;  \
     assign reg_dev_rsp[port].ready = 1'b1;
 
-localparam int unsigned NoRegRules = 8;
+localparam int unsigned NoRegRules = 9;
 localparam axi_pkg::xbar_rule_32_t [NoRegRules-1:0] RegAddrMap = '{
     '{ idx: DmPort,       start_addr: DmBaseAddr,    end_addr: DmBaseAddr + DmSize },
+    '{ idx: ClintPort,    start_addr: ClintBaseAddr, end_addr: ClintBaseAddr + ClintSize },
     '{ idx: PlicPort,     start_addr: 32'h0C00_0000, end_addr: 32'h0C20_2000 },
     '{ idx: Uart0Port,    start_addr: 32'h1000_0000, end_addr: 32'h1000_1000 },
     '{ idx: GpioAPort,    start_addr: 32'h2000_0000, end_addr: 32'h2000_0040 },
@@ -859,39 +812,31 @@ end else begin : gen_no_plic
 end
 
 // ============================================================
-// CLINT: Lite xbar port -> AXI-Lite -> CLINT
+// CLINT: reg demux -> reg_bus -> ACLINT
 // ============================================================
 
-axi_lite_req_t  clint_lite_req;
-axi_lite_resp_t clint_lite_rsp;
-`AXI_LITE_ASSIGN_TO_REQ   (clint_lite_req, axi_lite_xbar_mst[ClintPort])
-`AXI_LITE_ASSIGN_FROM_RESP(axi_lite_xbar_mst[ClintPort], clint_lite_rsp)
+reg_bus_req_t clint_reg_req;
+always_comb begin
+    clint_reg_req      = reg_dev_req[ClintPort];
+    clint_reg_req.addr = reg_dev_req[ClintPort].addr & (ClintSize - 1);
+end
 
-friscv_clint #(
-    .CLK_FREQ_HZ   ( ClkFreqHz  ),
-    .MTIME_FREQ_HZ ( 10_000_000 )
+// The tick generator comes out of reset at a 1:1 ratio
+aclint #(
+    .NumHarts      ( 1             ),
+    .DefaultTarget ( 1             ),
+    .DefaultSource ( 1             ),
+    .reg_req_t     ( reg_bus_req_t ),
+    .reg_rsp_t     ( reg_bus_rsp_t )
 ) clint (
-    .clk_in        ( i_clk                   ),
-    .rstn_in       ( soc_rstn                ),
-    .time_out      ( mtime                   ),
-    .msip_out      ( msip                    ),
-    .mtip_out      ( mtip                    ),
-    .s_axi_awaddr  ( clint_lite_req.aw.addr  ),
-    .s_axi_awvalid ( clint_lite_req.aw_valid ),
-    .s_axi_awready ( clint_lite_rsp.aw_ready ),
-    .s_axi_wdata   ( clint_lite_req.w.data   ),
-    .s_axi_wvalid  ( clint_lite_req.w_valid  ),
-    .s_axi_wready  ( clint_lite_rsp.w_ready  ),
-    .s_axi_bresp   ( clint_lite_rsp.b.resp   ),
-    .s_axi_bvalid  ( clint_lite_rsp.b_valid  ),
-    .s_axi_bready  ( clint_lite_req.b_ready  ),
-    .s_axi_araddr  ( clint_lite_req.ar.addr  ),
-    .s_axi_arvalid ( clint_lite_req.ar_valid ),
-    .s_axi_arready ( clint_lite_rsp.ar_ready ),
-    .s_axi_rdata   ( clint_lite_rsp.r.data   ),
-    .s_axi_rresp   ( clint_lite_rsp.r.resp   ),
-    .s_axi_rvalid  ( clint_lite_rsp.r_valid  ),
-    .s_axi_rready  ( clint_lite_req.r_ready  )
+    .clk_i      ( i_clk                  ),
+    .rst_ni     ( soc_rstn               ),
+    .reg_req_i  ( clint_reg_req          ),
+    .reg_rsp_o  ( reg_dev_rsp[ClintPort] ),
+    .mtip_o     ( mtip                   ),
+    .msip_o     ( msip                   ),
+    .ssip_set_o (                        ),
+    .mtime_o    ( mtime                  )
 );
 
 endmodule
