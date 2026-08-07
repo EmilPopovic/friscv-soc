@@ -74,7 +74,7 @@ module spi_host_data_fifos #(
 
   prim_fifo_sync #(
     .Width(36),
-    .Pass(1),
+    .Pass(0),
     .Depth(TxDepth)
   ) u_tx_fifo (
     .clk_i,

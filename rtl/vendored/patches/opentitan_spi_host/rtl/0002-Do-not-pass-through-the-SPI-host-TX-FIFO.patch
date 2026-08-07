@@ -1,0 +1,25 @@
+From d03a5ea810bebec585b1784aaec54c8a9c7a42ac Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Emil=20Popovi=C4=87?= <mail@emilpopovic.me>
+Date: Fri, 7 Aug 2026 12:45:56 +0200
+Subject: [PATCH] Do not pass-through the SPI host TX FIFO
+
+---
+ spi_host_data_fifos.sv | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/spi_host_data_fifos.sv b/spi_host_data_fifos.sv
+index 0f1e36e..94dd5a7 100644
+--- a/spi_host_data_fifos.sv
++++ b/spi_host_data_fifos.sv
+@@ -74,7 +74,7 @@ module spi_host_data_fifos #(
+ 
+   prim_fifo_sync #(
+     .Width(36),
+-    .Pass(1),
++    .Pass(0),
+     .Depth(TxDepth)
+   ) u_tx_fifo (
+     .clk_i,
+-- 
+2.53.0
+

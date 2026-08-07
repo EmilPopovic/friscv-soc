@@ -87,20 +87,19 @@ always_ff @(posedge i_clk) begin
     end
 end
 
-// Calculate op result using w_load_data, which is stable throughout S_STORE
 always_comb begin
     case (r_amo_op)
-        AMO_NONE: o_mem_store_data = w_load_data;
+        AMO_NONE: o_mem_store_data = r_load_data;
         AMO_SWAP: o_mem_store_data = r_rs2_val;
-        AMO_ADD:  o_mem_store_data = w_load_data + r_rs2_val;
-        AMO_XOR:  o_mem_store_data = w_load_data ^ r_rs2_val;
-        AMO_AND:  o_mem_store_data = w_load_data & r_rs2_val;
-        AMO_OR:   o_mem_store_data = w_load_data | r_rs2_val;
-        AMO_MIN:  o_mem_store_data = ($signed(w_load_data) < $signed(r_rs2_val)) ? w_load_data : r_rs2_val;
-        AMO_MAX:  o_mem_store_data = ($signed(w_load_data) > $signed(r_rs2_val)) ? w_load_data : r_rs2_val;
-        AMO_MINU: o_mem_store_data = (w_load_data < r_rs2_val) ? w_load_data : r_rs2_val;
-        AMO_MAXU: o_mem_store_data = (w_load_data > r_rs2_val) ? w_load_data : r_rs2_val;
-        default:  o_mem_store_data = w_load_data;
+        AMO_ADD:  o_mem_store_data = r_load_data + r_rs2_val;
+        AMO_XOR:  o_mem_store_data = r_load_data ^ r_rs2_val;
+        AMO_AND:  o_mem_store_data = r_load_data & r_rs2_val;
+        AMO_OR:   o_mem_store_data = r_load_data | r_rs2_val;
+        AMO_MIN:  o_mem_store_data = ($signed(r_load_data) < $signed(r_rs2_val)) ? r_load_data : r_rs2_val;
+        AMO_MAX:  o_mem_store_data = ($signed(r_load_data) > $signed(r_rs2_val)) ? r_load_data : r_rs2_val;
+        AMO_MINU: o_mem_store_data = (r_load_data < r_rs2_val) ? r_load_data : r_rs2_val;
+        AMO_MAXU: o_mem_store_data = (r_load_data > r_rs2_val) ? r_load_data : r_rs2_val;
+        default:  o_mem_store_data = r_load_data;
     endcase
 end
 

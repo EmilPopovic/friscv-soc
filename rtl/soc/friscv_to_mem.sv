@@ -98,7 +98,7 @@ always_ff @(posedge i_clk) begin
         we_q    <= 1'b0;
     end else begin
         state_q <= state_d;
-        if (state_q == S_IDLE && mem_if.rw != RW_IDLE) begin
+        if (state_q == S_IDLE) begin
             addr_q  <= mem_if.addr;
             wdata_q <= mem_if.wdata;
             size_q  <= mem_if.size;

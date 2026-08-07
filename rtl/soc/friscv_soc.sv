@@ -57,11 +57,21 @@ module friscv_soc #(
     output logic [NumPads-1:0] pad_oe_o
 );
 
+logic por_rstn;  // power-on reset synchronizer
+
+rstgen i_rstgen (
+    .clk_i       ( i_clk    ),
+    .rst_ni      ( i_rstn   ),
+    .test_mode_i ( 1'b0     ),
+    .rst_no      ( por_rstn ),
+    .init_no     (          )
+);
+
 // Provide clock divided by 16 to the outside
 logic [3:0] clk_cnt;
-always_ff @(posedge i_clk or negedge i_rstn) begin
-    if (!i_rstn) clk_cnt <= '0;
-    else         clk_cnt <= clk_cnt + 1;
+always_ff @(posedge i_clk or negedge por_rstn) begin
+    if (!por_rstn) clk_cnt <= '0;
+    else           clk_cnt <= clk_cnt + 1;
 end
 assign o_clk_out = clk_cnt[3];
 
@@ -87,7 +97,7 @@ logic debug_req;  // async debug request to the hart
 // Everything except the debug module (dm_top) and the JTAG DTM (dmi_jtag) runs
 // on this reset, so an ndmreset resets the whole SoC while debug stays alive.
 logic soc_rstn;
-assign soc_rstn = i_rstn & ~ndmreset;
+assign soc_rstn = por_rstn & ~ndmreset;
 
 friscv_cpu_subsystem_core #(
     .RAM_BASE            ( MemBase          ),
@@ -161,7 +171,9 @@ addr_t       soc_addr;
 data_t       soc_wdata, soc_rdata;
 logic [3:0]  soc_be;
 
-friscv_to_mem soc_to_mem (
+friscv_to_mem #(
+    .REGISTER_REQ ( 1 )
+) soc_to_mem (
     .i_clk       ( i_clk      ),
     .i_rstn      ( soc_rstn   ),
     .req_o       ( soc_req    ),
@@ -443,7 +455,7 @@ dm_top #(
 ) dm (
     // Keep the DM and DTM on the power-on reset so debug survives an ndmreset
     .clk_i                ( i_clk          ),
-    .rst_ni               ( i_rstn         ),
+    .rst_ni               ( por_rstn       ),
 
     .next_dm_addr_i       ( '0             ),  // No next DM in the chain
     .testmode_i           ( 1'b0           ),
@@ -487,7 +499,7 @@ dmi_jtag #(
     .IdcodeValue ( 32'h00000DB3 )
 ) dmi (
     .clk_i            ( i_clk          ),
-    .rst_ni           ( i_rstn         ),
+    .rst_ni           ( por_rstn       ),
     .testmode_i       ( 1'b0           ),
 
     .dmi_rst_no       ( dmi_rst        ),
@@ -647,7 +659,7 @@ friscv_pinmux #(
     .reg_rsp_t( reg_bus_rsp_t )
  ) pinmux (
     .clk_i      ( i_clk                     ),
-    .rst_ni     ( i_rstn                    ),
+    .rst_ni     ( por_rstn                  ),
     .reg_req_i  ( pinmux_req                ),
     .reg_rsp_o  ( reg_dev_rsp[PinmuxPort]   ),
     .pad_in_i   ( pad_in_i[NumMuxPads-1:0]  ),
