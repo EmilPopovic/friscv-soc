@@ -1,5 +1,5 @@
 {
-  description = "FRISC-V tapeout toolchain";
+  description = "FRISC-V SoC toolchain";
 
   nixConfig = {
     extra-substituters = [ "https://nix-cache.fossi-foundation.org" ];
@@ -12,14 +12,9 @@
     nix-eda.url = "github:fossi-foundation/nix-eda";
 
     nixpkgs.follows = "nix-eda/nixpkgs";
-
-    librelane = {
-      url = "github:librelane/librelane";
-      inputs.nix-eda.follows = "nix-eda";
-    };
   };
 
-  outputs = { self, nixpkgs, nix-eda, librelane }:
+  outputs = { self, nixpkgs, nix-eda }:
     let
       systems = [ "x86_64-linux" ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
@@ -29,20 +24,6 @@
           pkgs = import nixpkgs {
             inherit system;
             overlays = [ nix-eda.overlays.default ];
-          };
-          openroad = librelane.packages.${system}.openroad
-            or librelane.legacyPackages.${system}.openroad;
-          librelane-pkg = librelane.packages.${system}.librelane
-            or librelane.packages.${system}.default;
-          librelane-manual-pdk = pkgs.symlinkJoin {
-            name = "librelane-manual-pdk";
-            paths = [ librelane-pkg ];
-            nativeBuildInputs = [ pkgs.makeWrapper ];
-            postBuild = ''
-              rm $out/bin/librelane
-              makeWrapper ${librelane-pkg}/bin/librelane $out/bin/librelane \
-                --add-flags "--manual-pdk"
-            '';
           };
           riscv-toolchain = pkgs.stdenv.mkDerivation rec {
             pname = "riscv64-unknown-elf-toolchain";
@@ -108,99 +89,24 @@
               runHook postInstall
             '';
           };
-          morty = pkgs.stdenv.mkDerivation rec {
-            pname = "morty";
-            version = "0.9.0";
-            src = pkgs.fetchurl {
-              url = "https://github.com/pulp-platform/morty/releases/download/v${version}/morty-ubuntu.22.04-x86_64.tar.gz";
-              hash = "sha256-/EZl0ynsGLEGgl37sdDM9gDR0FJQi6M87IlwlEj7sys=";
-            };
-            nativeBuildInputs = [ pkgs.autoPatchelfHook ];
-            buildInputs = [ pkgs.stdenv.cc.cc.lib ];
-            sourceRoot = ".";
-            dontConfigure = true;
-            dontBuild = true;
-            installPhase = ''
-              runHook preInstall
-              install -Dm755 morty $out/bin/morty
-              runHook postInstall
-            '';
-          };
-          svase = pkgs.stdenv.mkDerivation rec {
-            pname = "svase";
-            version = "0.1.0-alpha";
-            src = pkgs.fetchurl {
-              url = "https://github.com/pulp-platform/svase/releases/download/v${version}/svase-linux_v${version}.zip";
-              hash = "sha256-6btwL2y5znNgQmN0CwcsTUAXckQORuRfWT9WTHuqAIM=";
-            };
-            nativeBuildInputs = [ pkgs.unzip pkgs.patchelf ];
-            sourceRoot = ".";
-            dontConfigure = true;
-            dontBuild = true;
-            installPhase = ''
-              runHook preInstall
-              install -Dm755 svase $out/bin/svase
-              runHook postInstall
-            '';
-            postFixup = ''
-              patchelf \
-                --set-interpreter ${pkgs.musl}/lib/ld-musl-x86_64.so.1 \
-                --set-rpath ${pkgs.musl}/lib \
-                $out/bin/svase
-            '';
-          };
           yosys-full = nix-eda.packages.${system}.yosysFull;
-          ihp-pdk = pkgs.fetchFromGitHub {
-            owner = "IHP-GmbH";
-            repo = "IHP-Open-PDK";
-            rev = "22f2a25f1734796de3debbbf29cf697cbbc54081";
-            fetchSubmodules = true;
-            hash = "sha256-BUf7DgUm2mMScw524Hbnq2viHY+DMm5i68Eqqlik3g8=";
-          };
-          ihp-sg13g2-liberty = "${ihp-pdk}/ihp-sg13g2/libs.ref/sg13g2_stdcell/lib/sg13g2_stdcell_typ_1p20V_25C.lib";
-          ihp-sg13g2-sram-liberty = "${ihp-pdk}/ihp-sg13g2/libs.ref/sg13g2_sram/lib/RM_IHPSG13_1P_1024x32_c2_bm_bist_typ_1p20V_25C.lib";
-          ihp-cmos5l-pdk = pkgs.fetchFromGitHub {
-            owner = "IHP-GmbH";
-            repo = "ihp-sg13cmos5l";
-            rev = "33fd51900e07260ad0044ae4af22dd15ed10c764"; # v0.2.0
-            hash = "sha256-IhidmbbWyxWduV4ZuZSUAPN+LBl34s1l3WuVRd2AVlM=";
-          };
-          ihp-sg13cmos5l-liberty = "${ihp-cmos5l-pdk}/libs.ref/sg13cmos5l_stdcell/lib/sg13cmos5l_stdcell_typ_1p20V_25C.lib";
-          pdk-root = pkgs.runCommand "ihp-pdk-root" { } ''
-            mkdir -p $out
-            ln -s ${ihp-pdk}/ihp-sg13g2 $out/ihp-sg13g2
-            cp -a ${ihp-cmos5l-pdk} $out/ihp-sg13cmos5l
-          '';
         in {
           default = pkgs.mkShell {
-            name = "friscv-tapeout";
-            LIBERTY = ihp-sg13cmos5l-liberty;
-            SRAM_LIBERTY = ihp-sg13g2-sram-liberty;
-            LIBERTY_SG13CMOS5L = ihp-sg13cmos5l-liberty;
-            LIBERTY_SG13G2 = ihp-sg13g2-liberty;
-            PDK_ROOT = "${pdk-root}";
-            PDK = "ihp-sg13cmos5l";
+            name = "friscv-soc";
             packages = (with pkgs; [
               iverilog
               verilator
               bender
-              ngspice
               gtkwave
-              klayout
-              magic
-              netgen
               openocd
               uv
+              sv-lang
               haskellPackages.sv2v
             ]) ++ [
               mise
               yosys-full
-              openroad
-              librelane-manual-pdk
               riscv-toolchain
               sail-riscv
-              morty
-              svase
             ];
           };
 

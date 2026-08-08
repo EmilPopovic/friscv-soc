@@ -1,13 +1,12 @@
-sources.f: Bender.yml Bender.lock $(wildcard target/ihp-sg13cmos5l/src/*.sv)
+sources.f: Bender.yml Bender.lock $(wildcard target/sim/rtl/*.sv)
 	bender script flist-plus -t rtl -t synthesis > $@
-	sed -i '\|/tech_cells_generic-[^/]*/src/rtl/tc_sram\.sv$$|d' $@
-	sed -i '\|/tech_cells_generic-[^/]*/src/rtl/tc_clk\.sv$$|d' $@
 	sed -i '\|/opentitan_peripherals-[^/]*/src/spi_host/rtl/|d' $@
 	sed -i '\|/obi_peripherals-[^/]*/hw/obi_uart/|d' $@
-	echo "$(CURDIR)/target/ihp-sg13cmos5l/src/RM_IHPSG13_1P_1024x32_c2_bm_bist.sv" >> $@
-	echo "$(CURDIR)/target/ihp-sg13cmos5l/src/sg13cmos5l_stdcell_stubs.sv" >> $@
-	echo "$(CURDIR)/target/ihp-sg13cmos5l/src/tc_sram.sv" >> $@
-	echo "$(CURDIR)/target/ihp-sg13cmos5l/src/tc_clk.sv" >> $@
+	echo "$(CURDIR)/target/sim/rtl/friscv_soc_sim.sv" >> $@
+
+.PHONY: sim
+sim:
+	make -C target/sim all
 
 .PHONY: act-run-core
 act-run-core:
@@ -17,18 +16,7 @@ act-run-core:
 act-run-soc:
 	make -C verif/riscv-arch-test run-soc
 
-.PHONY: report-area
-report-area:
-	make -C target/ihp-sg13cmos5l area
-
-.PHONY: librelane
-librelane:
-	make -C target/ihp-sg13cmos5l librelane
-
-.PHONY: librelane-openroad
-librelane-openroad:
-	make -C target/ihp-sg13cmos5l librelane-openroad
-
-.PHONY: librelane-klayout
-librelane-klayout:
-	make -C target/ihp-sg13cmos5l librelane-klayout
+.PHONY: clean
+clean:
+	make -C target/sim clean
+	rm -f sources.f

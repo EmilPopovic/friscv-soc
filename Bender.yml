@@ -1,8 +1,8 @@
 package:
-  name: friscv-tapeout
+  name: friscv-soc
   authors:
-    - "Emil Popović"
-    - "Matej Jurasić"
+    - "Emil Popović <mail@emilpopovic.me>"
+    - "Matej Jurasić <matej.jurasic@cappig.dev>"
 
 dependencies:
   axi:                   { git: "https://github.com/pulp-platform/axi.git",                   version: 0.39.1 }
@@ -22,12 +22,6 @@ vendor_package:
       git: "https://github.com/pulp-platform/rv_plic.git"
       rev: "5b5c5a4c1c15c3d7bb833071d344b2c2bc5f599d"
     patch_dir: "rtl/vendored/patches/pulp_rv_plic"
-  - name: hyperbus
-    target_dir: "rtl/vendored/pulp_hyperbus"
-    upstream:
-      git: "https://github.com/pulp-platform/hyperbus.git"
-      rev: "2a14bd8f9a985b488ee23d240764f52f129f7729"
-    patch_dir: "rtl/vendored/patches/pulp_hyperbus"
   - name: obi_uart
     target_dir: "rtl/vendored/pulp_obi_uart"
     upstream:
@@ -52,20 +46,6 @@ sources:
   - rtl/vendored/pulp_rv_plic/rtl/rv_plic_target.sv
   - rtl/vendored/pulp_rv_plic/rtl/plic_regmap.sv
   - rtl/vendored/pulp_rv_plic/rtl/plic_top.sv
-  # PULP HyperBus
-  - rtl/vendored/pulp_hyperbus/src/hyperbus_pkg.sv
-  - rtl/vendored/pulp_hyperbus/src/hyperbus_delay.sv
-  - rtl/vendored/pulp_hyperbus/src/hyperbus_clock_diff_out.sv
-  - rtl/vendored/pulp_hyperbus/src/hyperbus_ddr_out.sv
-  - rtl/vendored/pulp_hyperbus/src/hyperbus_trx.sv
-  - rtl/vendored/pulp_hyperbus/src/hyperbus_cfg_regs.sv
-  - rtl/vendored/pulp_hyperbus/src/hyperbus_phy2r.sv
-  - rtl/vendored/pulp_hyperbus/src/hyperbus_w2phy.sv
-  - rtl/vendored/pulp_hyperbus/src/hyperbus_axi.sv
-  - rtl/vendored/pulp_hyperbus/src/hyperbus_phy.sv
-  - rtl/vendored/pulp_hyperbus/src/hyperbus_phy_if.sv
-  - rtl/vendored/pulp_hyperbus/src/hyperbus_clk_gen.sv
-  - rtl/vendored/pulp_hyperbus/src/hyperbus.sv
   # OpenTitan SPI host
   - rtl/vendored/opentitan_spi_host/rtl/spi_host_reg_pkg.sv
   - rtl/vendored/opentitan_spi_host/rtl/spi_host_reg_top.sv
@@ -118,19 +98,14 @@ sources:
   - rtl/core/friscv_zsbl_rom.sv
 
   # SoC RTL files
-  - rtl/soc/configurable_delay.sv
   - rtl/soc/friscv_soc_pkg.sv
   - rtl/soc/friscv_axi4_full_adapter.sv
   - rtl/soc/friscv_axi4_full_adapter_intf.sv
   - rtl/soc/friscv_from_mem.sv
   - rtl/soc/friscv_to_mem.sv
   - rtl/soc/mem_to_reg.sv
-  - rtl/soc/friscv_pinmux.sv
   - rtl/soc/friscv_scb.sv
   - rtl/soc/friscv_ext_guard.sv
   - rtl/soc/friscv_ocm_llc.sv
   - rtl/soc/friscv_mem_hub.sv
   - rtl/soc/friscv_soc.sv
-
-  # Target wrapper
-  - hw/friscv_chip_soc.sv

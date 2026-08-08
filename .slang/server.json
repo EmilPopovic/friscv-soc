@@ -1,13 +1,12 @@
 {
-  "flags": "--top friscv_chip_soc --timescale 1ns/1ps -Wno-duplicate-definition",
+  "flags": "--top friscv_soc --timescale 1ns/1ps -Wno-duplicate-definition",
   "build": "sources.f",
   "index": [
     {
       "dirs": [
         "rtl",
         "target/sim/rtl",
-        "target/ihp-sg13cmos5l/src/stubs",
-        "target/ihp-sg13cmos5l/src",
+        "target/xilinx/pynq-z2-soc/src",
         "verif",
         ".bender/git/checkouts"
       ],

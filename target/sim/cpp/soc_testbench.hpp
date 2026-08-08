@@ -2,17 +2,10 @@
 
 #include <cstdint>
 
+#include "axi_mem.hpp"
 #include "dut.hpp"
 #include "qspi_flash.hpp"
 #include "uart_tx_monitor.hpp"
-
-#ifdef FRISCV_TB_CHIP
-#include "hyperram.hpp"
-using ExtMem = Hyperram;
-#else
-#include "axi_mem.hpp"
-using ExtMem = AxiMem;
-#endif
 
 class SocTestbench {
   public:
@@ -20,7 +13,7 @@ class SocTestbench {
     ~SocTestbench();
 
     Dut& top() { return top_; }
-    ExtMem& ext_mem() { return ext_mem_; }
+    AxiMem& ext_mem() { return ext_mem_; }
     QspiFlash& flash() { return flash_; }
     UartTxMonitor& uart() { return uart_; }
 
@@ -32,7 +25,7 @@ class SocTestbench {
     void eval();
 
     Dut top_;
-    ExtMem ext_mem_;
+    AxiMem ext_mem_;
     QspiFlash flash_;
     UartTxMonitor uart_;
     uint64_t cycles_ = 0;

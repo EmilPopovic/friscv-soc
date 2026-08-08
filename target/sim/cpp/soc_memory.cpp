@@ -2,13 +2,9 @@
 
 #include <stdexcept>
 
-#ifdef FRISCV_TB_CHIP
-#include "Vfriscv_chip_soc___024root.h"
-using DutRoot = Vfriscv_chip_soc___024root;
-#else
 #include "Vfriscv_soc_sim___024root.h"
+
 using DutRoot = Vfriscv_soc_sim___024root;
-#endif
 
 #include "elf_loader.hpp"
 
@@ -30,21 +26,12 @@ static_assert(WAY_WORDS * WAYS * 4 == FRISCV_SOC_SRAM_SIZE_BYTES,
 uint32_t& sram_word(Dut& top, uint32_t index) {
     DutRoot& root = *top.rootp;
 
-#ifdef FRISCV_TB_CHIP
-    uint32_t* const way_words[WAYS] = {
-        &root.friscv_chip_soc__DOT__i_friscv_soc__DOT__friscv_mem_hub__DOT__ocm_llc__DOT__gen_ways__BRA__0__KET____DOT__way_sram__DOT__sram[0],
-        &root.friscv_chip_soc__DOT__i_friscv_soc__DOT__friscv_mem_hub__DOT__ocm_llc__DOT__gen_ways__BRA__1__KET____DOT__way_sram__DOT__sram[0],
-        &root.friscv_chip_soc__DOT__i_friscv_soc__DOT__friscv_mem_hub__DOT__ocm_llc__DOT__gen_ways__BRA__2__KET____DOT__way_sram__DOT__sram[0],
-        &root.friscv_chip_soc__DOT__i_friscv_soc__DOT__friscv_mem_hub__DOT__ocm_llc__DOT__gen_ways__BRA__3__KET____DOT__way_sram__DOT__sram[0],
-    };
-#else
     uint32_t* const way_words[WAYS] = {
         &root.friscv_soc_sim__DOT__i_friscv_soc__DOT__friscv_mem_hub__DOT__ocm_llc__DOT__gen_ways__BRA__0__KET____DOT__way_sram__DOT__sram[0],
         &root.friscv_soc_sim__DOT__i_friscv_soc__DOT__friscv_mem_hub__DOT__ocm_llc__DOT__gen_ways__BRA__1__KET____DOT__way_sram__DOT__sram[0],
         &root.friscv_soc_sim__DOT__i_friscv_soc__DOT__friscv_mem_hub__DOT__ocm_llc__DOT__gen_ways__BRA__2__KET____DOT__way_sram__DOT__sram[0],
         &root.friscv_soc_sim__DOT__i_friscv_soc__DOT__friscv_mem_hub__DOT__ocm_llc__DOT__gen_ways__BRA__3__KET____DOT__way_sram__DOT__sram[0],
     };
-#endif
 
     if (index >= WAYS * WAY_WORDS) {
         throw std::runtime_error("SRAM preload past the end of the OCM");
