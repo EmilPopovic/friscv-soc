@@ -60,7 +60,7 @@ set_property -dict [list \
     CONFIG.SramSize $::env(SRAM_SIZE) \
     CONFIG.MemBase $::env(MEM_BASE) \
     CONFIG.MemSize $::env(MEM_SIZE) \
-    CONFIG.MemOffset $::env(MEM_OFFSET) \
+    CONFIG.MemPsBase $::env(MEM_PS_BASE) \
     CONFIG.ZsblRom $::env(ZSBL) \
 ] [get_bd_cells soc]
 

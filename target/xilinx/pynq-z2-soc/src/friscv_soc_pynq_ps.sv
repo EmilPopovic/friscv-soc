@@ -13,7 +13,7 @@ module friscv_soc_pynq_ps import friscv_soc_pkg::*; #(
     parameter int unsigned SramSize  = 32'h0008_0000,
     parameter int unsigned MemBase   = 32'h8000_0000,
     parameter int unsigned MemSize   = 32'h0100_0000,
-    parameter int unsigned MemOffset = 32'h8000_0000,
+    parameter int unsigned MemPsBase = 32'h0010_0000,
     parameter int unsigned ZsblRom   = 1,
     parameter int unsigned NumGpio   = 17,
     parameter int unsigned NumStraps = 13
@@ -193,7 +193,7 @@ friscv_soc #(
     .o_gpio_oe     ( gpio_oe                )
 );
 
-assign m_axi_awaddr  = axi_req.aw.addr - MemOffset;
+assign m_axi_awaddr  = axi_req.aw.addr - MemBase + MemPsBase;
 assign m_axi_awlen   = axi_req.aw.len;
 assign m_axi_awsize  = axi_req.aw.size;
 assign m_axi_awburst = axi_req.aw.burst;
@@ -211,7 +211,7 @@ assign m_axi_wvalid = axi_req.w_valid;
 
 assign m_axi_bready = axi_req.b_ready;
 
-assign m_axi_araddr  = axi_req.ar.addr - MemOffset;
+assign m_axi_araddr  = axi_req.ar.addr - MemBase + MemPsBase;
 assign m_axi_arlen   = axi_req.ar.len;
 assign m_axi_arsize  = axi_req.ar.size;
 assign m_axi_arburst = axi_req.ar.burst;
