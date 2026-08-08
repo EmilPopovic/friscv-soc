@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-class Vfriscv_soc;
+#include "dut.hpp"
 class SocTestbench;
 
 class RemoteBitbang {
@@ -18,5 +18,5 @@ class RemoteBitbang {
     void reset(char command);
 
     SocTestbench& testbench_;
-    Vfriscv_soc& top_;
+    Dut& top_;
 };

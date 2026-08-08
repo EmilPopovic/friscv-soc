@@ -8,10 +8,8 @@
 
 `timescale 1ns/1ps
 
-import friscv_pkg::*;
-
-module friscv_hb_guard (
-    input  logic         i_hb_en,
+module friscv_ext_guard import friscv_pkg::*; (
+    input  logic         i_en,
     friscv_mem_if.slave  s_if,
     friscv_mem_if.master m_if
 );
@@ -22,10 +20,10 @@ always_comb begin
     m_if.size     = s_if.size;
     m_if.wdata    = s_if.wdata;
     m_if.burst_en = s_if.burst_en;
-    m_if.rw       = i_hb_en ? s_if.rw : RW_IDLE;
+    m_if.rw       = i_en ? s_if.rw : RW_IDLE;
 
     // Response path
-    if (i_hb_en) begin
+    if (i_en) begin
         s_if.rdata      = m_if.rdata;
         s_if.wait_req   = m_if.wait_req;
         s_if.beat_valid = m_if.beat_valid;

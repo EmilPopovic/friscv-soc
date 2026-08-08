@@ -6,14 +6,14 @@ constexpr unsigned RESET_CYCLES = 20;
 
 }  // namespace
 
-SocTestbench::SocTestbench() : hyperram_(top_), flash_(top_) {
+SocTestbench::SocTestbench() : ext_mem_(top_), flash_(top_) {
     top_.i_clk = 0;
     top_.i_rstn = 0;
     top_.i_uart_rx = 1;
     top_.i_jtag_tck = 0;
     top_.i_jtag_tms = 1;
     top_.i_jtag_tdi = 0;
-    top_.pad_in_i = 0;
+    dut::clear_inputs(top_);
 
     eval();
 }
@@ -24,7 +24,7 @@ SocTestbench::~SocTestbench() {
 
 void SocTestbench::eval() {
     top_.eval();
-    hyperram_.update();
+    ext_mem_.update();
     flash_.update();
     top_.eval();
 }

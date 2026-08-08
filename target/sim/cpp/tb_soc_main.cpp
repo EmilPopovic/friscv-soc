@@ -281,7 +281,7 @@ void load_command(SocTestbench& testbench, Jtag& jtag, const char* path) {
 
 // image in the flash, PA0 high, nothing preloaded
 int qspiboot_command(SocTestbench& testbench, Jtag& jtag, const char* path) {
-    Vfriscv_soc& top = testbench.top();
+    Dut& top = testbench.top();
 
     std::vector<uint8_t> image = read_file(path);
     testbench.flash().preload(0, image);
@@ -292,7 +292,7 @@ int qspiboot_command(SocTestbench& testbench, Jtag& jtag, const char* path) {
         testbench.uart().set_divisor(uint32_t(std::strtoul(div, nullptr, 0)));
     }
 
-    top.pad_in_i |= 1;  // PA0 high selects the flash path
+    dut::set_strap(top, 0);
     testbench.reset();
     jtag.initialize();  // the reset above took the debug module with it
 
@@ -319,13 +319,13 @@ int qspiboot_command(SocTestbench& testbench, Jtag& jtag, const char* path) {
 }
 
 int test_command(SocTestbench& testbench, Jtag& jtag, const char* path) {
-    Vfriscv_soc& top = testbench.top();
+    Dut& top = testbench.top();
     ElfImage image = prepare_image(testbench, jtag, path);
 
     // An image outside the SRAM belongs to the external memory
     if (is_external(image.entry)) {
         for (const ElfSegment& segment : image.segments) {
-            testbench.hyperram().preload(segment.address - MEM_BASE, segment.data);
+            testbench.ext_mem().preload(segment.address - MEM_BASE, segment.data);
         }
     } else {
         preload_sram(top, image, SRAM_BASE);

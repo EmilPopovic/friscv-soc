@@ -11,7 +11,7 @@
 #include <unistd.h>
 #include <utility>
 
-#include "Vfriscv_soc.h"
+#include "dut.hpp"
 #include "soc_testbench.hpp"
 
 namespace {

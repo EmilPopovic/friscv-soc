@@ -5,12 +5,12 @@
 
 #include "paged_mem.hpp"
 
-class Vfriscv_soc;
+#include "dut.hpp"
 
 // SPI NOR on QSPI0 CS0. JEDEC ID and single-bit reads, mode 0; no quad, no writes.
 class QspiFlash {
   public:
-    explicit QspiFlash(Vfriscv_soc& top);
+    explicit QspiFlash(Dut& top);
 
     void update();
     void preload(uint32_t address, const std::vector<uint8_t>& data);
@@ -30,7 +30,7 @@ class QspiFlash {
     void drive_bit();
     void finish_byte();
 
-    Vfriscv_soc& top_;
+    Dut& top_;
     PagedMem memory_;
     Phase phase_ = Phase::Command;
     uint8_t shift_in_ = 0;

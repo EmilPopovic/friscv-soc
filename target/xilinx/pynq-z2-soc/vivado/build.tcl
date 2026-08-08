@@ -1,0 +1,119 @@
+set here   [file dirname [file normalize [info script]]]
+set target [file dirname $here]
+set outdir $::env(OUTDIR)
+set top    $::env(TOP)
+set part   $::env(PART)
+set board  $::env(BOARD)
+
+file mkdir $outdir/reports
+
+# Split the bender flist into include dirs, defines and sources
+set incdirs {}
+set defines {}
+set files   {}
+set fh [open $::env(FLIST)]
+foreach line [split [read $fh] "\n"] {
+    set line [string trim $line]
+    if {$line eq ""} continue
+    if {[string match "+incdir+*" $line]} {
+        lappend incdirs [string range $line 8 end]
+    } elseif {[string match "+define+*" $line]} {
+        lappend defines -verilog_define [string range $line 8 end]
+    } else {
+        lappend files $line
+    }
+}
+close $fh
+
+create_project -in_memory -part $part
+set_property board_part $board [current_project]
+set_property XPM_LIBRARIES {XPM_MEMORY} [current_project]
+set_property include_dirs $incdirs [current_fileset]
+foreach d $defines {
+    if {$d ne "-verilog_define"} {
+        set_property verilog_define \
+            [concat [get_property verilog_define [current_fileset]] $d] \
+            [current_fileset]
+    }
+}
+
+read_verilog -sv $files
+read_xdc $target/constraints/friscv_soc_pynq_ps.xdc
+
+create_bd_design bd
+update_compile_order -fileset sources_1
+
+create_bd_cell -type ip -vlnv xilinx.com:ip:processing_system7 ps7
+apply_bd_automation -rule xilinx.com:bd_rule:processing_system7 \
+    -config {make_external "FIXED_IO, DDR" apply_board_preset "1" \
+             Master "Disable" Slave "Disable"} [get_bd_cells ps7]
+set_property -dict [list \
+    CONFIG.PCW_USE_M_AXI_GP0 {0} \
+    CONFIG.PCW_USE_S_AXI_HP0 {1} \
+    CONFIG.PCW_S_AXI_HP0_DATA_WIDTH {32} \
+    CONFIG.PCW_FPGA0_PERIPHERAL_FREQMHZ $::env(SOC_FREQ_MHZ) \
+] [get_bd_cells ps7]
+
+create_bd_cell -type module -reference $top soc
+set_property -dict [list \
+    CONFIG.SramBase $::env(SRAM_BASE) \
+    CONFIG.SramSize $::env(SRAM_SIZE) \
+    CONFIG.MemBase $::env(MEM_BASE) \
+    CONFIG.MemSize $::env(MEM_SIZE) \
+    CONFIG.MemOffset $::env(MEM_OFFSET) \
+    CONFIG.ZsblRom $::env(ZSBL) \
+] [get_bd_cells soc]
+
+create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect sc
+set_property -dict [list CONFIG.NUM_SI {1} CONFIG.NUM_MI {1}] [get_bd_cells sc]
+
+connect_bd_net [get_bd_pins ps7/FCLK_CLK0] \
+    [get_bd_pins soc/clk_i] [get_bd_pins sc/aclk] [get_bd_pins ps7/S_AXI_HP0_ACLK]
+connect_bd_net [get_bd_pins ps7/FCLK_RESET0_N] \
+    [get_bd_pins soc/rstn_i] [get_bd_pins sc/aresetn]
+
+connect_bd_intf_net [get_bd_intf_pins soc/m_axi] [get_bd_intf_pins sc/S00_AXI]
+connect_bd_intf_net [get_bd_intf_pins sc/M00_AXI] [get_bd_intf_pins ps7/S_AXI_HP0]
+
+foreach p {led_o jtag_tck_i jtag_tms_i jtag_tdi_i jtag_tdo_o uart_rx_i uart_tx_o
+           qspi_sck_o qspi_cs_o qspi_sd_io gpio_io} {
+    make_bd_pins_external -name $p [get_bd_pins soc/$p]
+}
+
+assign_bd_address
+validate_bd_design
+save_bd_design
+
+set bd_file [get_files bd.bd]
+generate_target all $bd_file
+make_wrapper -files $bd_file -top -import
+
+synth_design -top bd_wrapper -part $part
+
+write_checkpoint -force $outdir/post_synth.dcp
+report_utilization -file $outdir/reports/synth_util.rpt
+if {$::env(STAGE) eq "synth"} { exit 0 }
+
+opt_design
+place_design
+phys_opt_design
+route_design
+
+write_checkpoint -force $outdir/post_route.dcp
+report_utilization    -file $outdir/reports/util.rpt
+report_timing_summary -file $outdir/reports/timing.rpt
+report_drc            -file $outdir/reports/drc.rpt
+
+set wns [get_property SLACK [get_timing_paths -delay_type max]]
+set whs [get_property SLACK [get_timing_paths -delay_type min]]
+set met [expr {$wns >= 0 && $whs >= 0}]
+
+set fh [open $outdir/reports/summary.txt w]
+puts $fh "part $part  board $board  freq $::env(SOC_FREQ_MHZ) MHz  zsbl $::env(ZSBL)"
+puts $fh "WNS $wns  WHS $whs  [expr {$met ? {MET} : {VIOLATED}}]"
+close $fh
+
+if {$::env(STAGE) eq "bitstream"} { write_bitstream -force $outdir/$top.bit }
+
+puts "WNS $wns  WHS $whs  [expr {$met ? {TIMING MET} : {TIMING VIOLATED}}]"
+if {!$met} { exit 1 }

@@ -3,10 +3,10 @@
 
 #include <cstdint>
 
-class Vfriscv_soc;
+#include "dut.hpp"
 struct ElfImage;
 
-void preload_sram(Vfriscv_soc& top, const ElfImage& image,
+void preload_sram(Dut& top, const ElfImage& image,
                   uint32_t sram_base);
 
 #endif

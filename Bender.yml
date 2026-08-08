@@ -119,6 +119,7 @@ sources:
 
   # SoC RTL files
   - rtl/soc/configurable_delay.sv
+  - rtl/soc/friscv_soc_pkg.sv
   - rtl/soc/friscv_axi4_full_adapter.sv
   - rtl/soc/friscv_axi4_full_adapter_intf.sv
   - rtl/soc/friscv_from_mem.sv
@@ -126,7 +127,10 @@ sources:
   - rtl/soc/mem_to_reg.sv
   - rtl/soc/friscv_pinmux.sv
   - rtl/soc/friscv_scb.sv
-  - rtl/soc/friscv_hb_guard.sv
+  - rtl/soc/friscv_ext_guard.sv
   - rtl/soc/friscv_ocm_llc.sv
   - rtl/soc/friscv_mem_hub.sv
   - rtl/soc/friscv_soc.sv
+
+  # Target wrapper
+  - hw/friscv_chip_soc.sv

@@ -5,7 +5,7 @@
 #include <initializer_list>
 #include <vector>
 
-class Vfriscv_soc;
+#include "dut.hpp"
 class SocTestbench;
 
 class Jtag {
@@ -39,5 +39,5 @@ class Jtag {
     void wait_sba();
 
     SocTestbench& testbench_;
-    Vfriscv_soc& top_;
+    Dut& top_;
 };

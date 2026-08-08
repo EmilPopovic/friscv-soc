@@ -5,7 +5,7 @@
 
 #include "paged_mem.hpp"
 
-class Vfriscv_soc;
+#include "dut.hpp"
 
 // FRISCV_HRAM_<FIELD> overrides each field, so sweeps need no rebuild
 struct HyperramTiming {
@@ -26,7 +26,7 @@ struct HyperramTiming {
 
 class Hyperram {
   public:
-    explicit Hyperram(Vfriscv_soc& top);
+    explicit Hyperram(Dut& top);
 
     void update();
     void preload(uint32_t address, const std::vector<uint8_t>& data);
@@ -53,7 +53,7 @@ class Hyperram {
     void drive_read_data(bool rising_edge);
     void sample_write_data(bool rising_edge);
 
-    Vfriscv_soc& top_;
+    Dut& top_;
     PagedMem memory_;
     HyperramTiming timing_;
     Phase phase_ = Phase::Idle;

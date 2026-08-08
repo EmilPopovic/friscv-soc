@@ -14,32 +14,50 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-`include "axi/typedef.svh"
 `include "axi/assign.svh"
-`include "register_interface/typedef.svh"
 `include "apb/typedef.svh"
 
 `timescale 1ns/1ps
 
-module friscv_soc #(
-    parameter int unsigned SramBase          = 32'h0000_0000,
-    parameter int unsigned SramSize          = 32'h0000_2000,
-    parameter int unsigned MemBase           = 32'h8000_0000,
-    parameter int unsigned MemSize           = 32'h0100_0000,
-    parameter int unsigned LineBytes         = 32,
-    parameter int unsigned Ways              = 4,
-    parameter bit          SramTags          = 1'b1,
-    parameter bit          HyperClockDelayed = 1'b1,
-    parameter int unsigned NumPads           = 25,
-    parameter bit          EnablePlic        = 1,
-    parameter int unsigned ZsblRomSizeBytes  = 144
+module friscv_soc import friscv_soc_pkg::*; #(
+    parameter int unsigned SramBase         = 32'h0000_0000,
+    parameter int unsigned SramSize         = 32'h0000_2000,
+    parameter int unsigned MemBase          = 32'h8000_0000,
+    parameter int unsigned MemSize          = 32'h0100_0000,
+    parameter int unsigned LineBytes        = 32,
+    parameter int unsigned Ways             = 4,
+    parameter bit          SramTags         = 1'b1,
+    parameter bit          EnablePlic       = 1,
+    parameter int unsigned ZsblRomSizeBytes = 144,
+    parameter int unsigned NumStraps        = 13,
+    parameter int unsigned NumExtRegSlv     = 1,
+    parameter axi_pkg::xbar_rule_32_t [NumExtRegSlv-1:0] ExtRegSlvRules = '{default: '0},
+    parameter type axi_req_t = friscv_axi_req_t,
+    parameter type axi_rsp_t = friscv_axi_resp_t,
+    parameter type reg_req_t = friscv_reg_req_t,
+    parameter type reg_rsp_t = friscv_reg_rsp_t
 ) (
     input  logic  i_clk,
     input  logic  i_rstn,
 
+    output logic  o_por_rstn,
+    output logic  o_soc_rstn,
+
     output logic  o_clk_out,
 
     output logic  o_end,
+
+    // External memory
+    output axi_req_t o_axi_mem_req,
+    input  axi_rsp_t i_axi_mem_rsp,
+    output logic     o_axi_mem_en,
+
+    // External register slaves
+    output reg_req_t [NumExtRegSlv-1:0] o_reg_ext_req,
+    input  reg_rsp_t [NumExtRegSlv-1:0] i_reg_ext_rsp,
+
+    // Straps
+    input  logic [NumStraps-1:0] i_strap,
 
     // UART
     input  logic  i_uart_rx,
@@ -51,10 +69,19 @@ module friscv_soc #(
     input  logic  i_jtag_tdi,
     output logic  o_jtag_tdo,
 
-    // GPIO Port A muxed pads (PA0..PA24)
-    input  logic [NumPads-1:0] pad_in_i,
-    output logic [NumPads-1:0] pad_out_o,
-    output logic [NumPads-1:0] pad_oe_o
+    // QSPI0
+    output logic       o_qspi_sck,
+    output logic       o_qspi_sck_oe,
+    output logic [2:0] o_qspi_cs,
+    output logic [2:0] o_qspi_cs_oe,
+    output logic [3:0] o_qspi_sd,
+    output logic [3:0] o_qspi_sd_oe,
+    input  logic [3:0] i_qspi_sd,
+
+    // GPIO Port A
+    input  logic [31:0] i_gpio,
+    output logic [31:0] o_gpio,
+    output logic [31:0] o_gpio_oe
 );
 
 logic por_rstn;  // power-on reset synchronizer
@@ -85,8 +112,6 @@ logic [63:0] mtime;
 logic        msip, mtip, meip, seip;
 
 // Debug module base address
-localparam int unsigned NumMuxPads = 13;
-
 localparam logic [31:0] DmBaseAddr = 32'h0001_0000;
 localparam logic [31:0] DmSize     = 32'h0000_1000;
 
@@ -98,6 +123,9 @@ logic debug_req;  // async debug request to the hart
 // on this reset, so an ndmreset resets the whole SoC while debug stays alive.
 logic soc_rstn;
 assign soc_rstn = por_rstn & ~ndmreset;
+
+assign o_por_rstn = por_rstn;
+assign o_soc_rstn = soc_rstn;
 
 friscv_cpu_subsystem_core #(
     .RAM_BASE            ( MemBase          ),
@@ -153,17 +181,7 @@ friscv_mem_hub #(
 // Interconnect: mem_if -> mem -> reg_bus -> reg demux -> peripherals
 // ============================================================
 
-localparam int unsigned AxiAddrWidth = 32;
-localparam int unsigned AxiDataWidth = 32;
-localparam int unsigned AxiIdWidth   = 1;
-localparam int unsigned AxiUserWidth = 1;
-
-// Struct types for the reg/apb
-typedef logic [AxiAddrWidth-1:0]   addr_t;
-typedef logic [AxiDataWidth-1:0]   data_t;
-typedef logic [AxiDataWidth/8-1:0] strb_t;
-`REG_BUS_TYPEDEF_ALL (reg_bus,  addr_t, data_t, strb_t)  // reg_bus_req_t, reg_bus_rsp_t
-`APB_TYPEDEF_ALL     (apb,      addr_t, data_t, strb_t)  // apb_req_t, apb_resp_t
+`APB_TYPEDEF_ALL(apb, addr_t, data_t, strb_t)
 
 // mem_if -> mem
 logic        soc_req, soc_gnt, soc_we, soc_rvalid, soc_err;
@@ -190,14 +208,14 @@ friscv_to_mem #(
 );
 
 // mem -> reg_bus
-reg_bus_req_t regs_reg_req;
-reg_bus_rsp_t regs_reg_rsp;
+reg_req_t regs_reg_req;
+reg_rsp_t regs_reg_rsp;
 
 mem_to_reg #(
-    .AW        ( AxiAddrWidth  ),
-    .DW        ( AxiDataWidth  ),
-    .reg_req_t ( reg_bus_req_t ),
-    .reg_rsp_t ( reg_bus_rsp_t )
+    .AW        ( AddrWidth ),
+    .DW        ( DataWidth ),
+    .reg_req_t ( reg_req_t ),
+    .reg_rsp_t ( reg_rsp_t )
 ) soc_mem_to_reg (
     .clk_i     ( i_clk        ),
     .rst_ni    ( soc_rstn     ),
@@ -218,46 +236,63 @@ mem_to_reg #(
 // Reg demux
 // ============================================================
 
-localparam int unsigned NoRegPorts   = 10;
-localparam int unsigned RegPortWidth = $clog2(NoRegPorts);
+localparam int unsigned DmPort    = 0;
+localparam int unsigned Uart0Port = 1;
+localparam int unsigned ScbPort   = 2;
+localparam int unsigned GpioAPort = 3;
+localparam int unsigned PlicPort  = 4;
+localparam int unsigned Qspi0Port = 5;
+localparam int unsigned ClintPort = 6;
+localparam int unsigned ErrPort   = 7;
 
-localparam int unsigned DmPort       = 0;
-localparam int unsigned Uart0Port    = 1;
-localparam int unsigned ScbPort      = 2;
-localparam int unsigned GpioAPort    = 3;
-localparam int unsigned PlicPort     = 4;
-localparam int unsigned PinmuxPort   = 5;
-localparam int unsigned HyperCfgPort = 6;
-localparam int unsigned Qspi0Port    = 7;
-localparam int unsigned ClintPort    = 8;
-localparam int unsigned ErrPort      = 9;
+localparam int unsigned NoRegPorts   = NumIntRegPorts + NumExtRegSlv;
+localparam int unsigned RegPortWidth = $clog2(NoRegPorts);
 
 // MSWI + MTIMER + tick generator config + SSWI, the whole ACLINT map
 localparam logic [31:0] ClintBaseAddr = 32'h0200_0000;
 localparam logic [31:0] ClintSize     = 32'h0002_0000;
 
-reg_bus_req_t [NoRegPorts-1:0] reg_dev_req;
-reg_bus_rsp_t [NoRegPorts-1:0] reg_dev_rsp;
+reg_req_t [NoRegPorts-1:0] reg_dev_req;
+reg_rsp_t [NoRegPorts-1:0] reg_dev_rsp;
 
 `define REG_TIE_OFF(port)                   \
     assign reg_dev_rsp[port].rdata = '0;    \
     assign reg_dev_rsp[port].error = 1'b1;  \
     assign reg_dev_rsp[port].ready = 1'b1;
 
-localparam int unsigned NoRegRules = 9;
-localparam axi_pkg::xbar_rule_32_t [NoRegRules-1:0] RegAddrMap = '{
-    '{ idx: DmPort,       start_addr: DmBaseAddr,    end_addr: DmBaseAddr + DmSize },
-    '{ idx: ClintPort,    start_addr: ClintBaseAddr, end_addr: ClintBaseAddr + ClintSize },
-    '{ idx: PlicPort,     start_addr: 32'h0C00_0000, end_addr: 32'h0C20_2000 },
-    '{ idx: Uart0Port,    start_addr: 32'h1000_0000, end_addr: 32'h1000_1000 },
-    '{ idx: GpioAPort,    start_addr: 32'h2000_0000, end_addr: 32'h2000_0040 },
-    '{ idx: ScbPort,      start_addr: 32'h4000_0000, end_addr: 32'h4000_1000 },
-    '{ idx: PinmuxPort,   start_addr: 32'h4000_1000, end_addr: 32'h4000_2000 },
-    '{ idx: HyperCfgPort, start_addr: 32'h5001_0000, end_addr: 32'h5001_1000 },
-    '{ idx: Qspi0Port,    start_addr: 32'h6000_0000, end_addr: 32'h6000_1000 }
+localparam int unsigned NoIntRegRules = 7;
+localparam int unsigned NoRegRules    = NoIntRegRules + NumExtRegSlv;
+
+localparam axi_pkg::xbar_rule_32_t [NoIntRegRules-1:0] IntRegRules = '{
+    '{ idx: DmPort,    start_addr: DmBaseAddr,    end_addr: DmBaseAddr + DmSize },
+    '{ idx: ClintPort, start_addr: ClintBaseAddr, end_addr: ClintBaseAddr + ClintSize },
+    '{ idx: PlicPort,  start_addr: 32'h0C00_0000, end_addr: 32'h0C20_2000 },
+    '{ idx: Uart0Port, start_addr: 32'h1000_0000, end_addr: 32'h1000_1000 },
+    '{ idx: GpioAPort, start_addr: 32'h2000_0000, end_addr: 32'h2000_0040 },
+    '{ idx: ScbPort,   start_addr: 32'h4000_0000, end_addr: 32'h4000_1000 },
+    '{ idx: Qspi0Port, start_addr: 32'h6000_0000, end_addr: 32'h6000_1000 }
 };
 
-logic [$clog2(NoRegPorts)-1:0] reg_select;
+function automatic axi_pkg::xbar_rule_32_t [NoRegRules-1:0] gen_reg_rules();
+    axi_pkg::xbar_rule_32_t rule;
+
+    gen_reg_rules = '0;
+
+    for (int i = 0; i < NoIntRegRules; i++) begin
+        gen_reg_rules[i] = IntRegRules[i];
+    end
+
+    for (int i = 0; i < NumExtRegSlv; i++) begin
+        rule     = ExtRegSlvRules[i];
+        rule.idx = rule.idx + 32'(NumIntRegPorts);
+
+        gen_reg_rules[NoIntRegRules + i] = rule;
+    end
+endfunction
+
+localparam axi_pkg::xbar_rule_32_t [NoRegRules-1:0] RegAddrMap = gen_reg_rules();
+
+logic [RegPortWidth-1:0] reg_select;
 addr_decode #(
     .NoIndices ( NoRegPorts              ),
     .NoRules   ( NoRegRules              ),
@@ -273,14 +308,12 @@ addr_decode #(
     .default_idx_i    ( (RegPortWidth)'(ErrPort) )
 );
 
-assign reg_dev_rsp[ErrPort].rdata = '0;
-assign reg_dev_rsp[ErrPort].error = 1'b1;
-assign reg_dev_rsp[ErrPort].ready = 1'b1;
+`REG_TIE_OFF(ErrPort)
 
 reg_demux #(
-    .NoPorts ( NoRegPorts    ),
-    .req_t   ( reg_bus_req_t ),
-    .rsp_t   ( reg_bus_rsp_t )
+    .NoPorts ( NoRegPorts ),
+    .req_t   ( reg_req_t  ),
+    .rsp_t   ( reg_rsp_t  )
 ) reg_demux (
     .clk_i       ( i_clk        ),
     .rst_ni      ( soc_rstn     ),
@@ -291,131 +324,68 @@ reg_demux #(
     .out_rsp_i   ( reg_dev_rsp  )
 );
 
+for (genvar i = 0; i < NumExtRegSlv; i++) begin : gen_ext_reg
+    assign o_reg_ext_req[i]                    = reg_dev_req[NumIntRegPorts + i];
+    assign reg_dev_rsp[NumIntRegPorts + i]     = i_reg_ext_rsp[i];
+end
+
 // ============================================================
 // System Control Block
 // ============================================================
 
-logic hb_en;
+logic ext_mem_en;
 
 friscv_scb #(
-    .NumPads    ( NumMuxPads    ),
-    .reg_req_t  ( reg_bus_req_t ),
-    .reg_rsp_t  ( reg_bus_rsp_t ),
-    .OcmLlcWays ( Ways          )
+    .NumPads    ( NumStraps ),
+    .reg_req_t  ( reg_req_t ),
+    .reg_rsp_t  ( reg_rsp_t ),
+    .OcmLlcWays ( Ways      )
 ) scb (
-    .clk_i     ( i_clk                     ),
-    .rst_ni    ( soc_rstn                  ),
-    .reg_req_i ( reg_dev_req[ScbPort]      ),
-    .reg_rsp_o ( reg_dev_rsp[ScbPort]      ),
-    .strap_i   ( pad_in_i[NumMuxPads-1:0]  ),
-    .o_hb_en   ( hb_en                     ),
-    .o_llcsel  ( llcsel                    ),
-    .o_crpsel  ( crpsel                    ),
-    .o_llcinv  ( llcinv                    )
+    .clk_i     ( i_clk                ),
+    .rst_ni    ( soc_rstn             ),
+    .reg_req_i ( reg_dev_req[ScbPort] ),
+    .reg_rsp_o ( reg_dev_rsp[ScbPort] ),
+    .strap_i   ( i_strap              ),
+    .o_hb_en   ( ext_mem_en           ),
+    .o_llcsel  ( llcsel               ),
+    .o_crpsel  ( crpsel               ),
+    .o_llcinv  ( llcinv               )
 );
+
+assign o_axi_mem_en = ext_mem_en;
 
 // ============================================================
 // External memory interface
 // ============================================================
 
-logic       hb_ck, hb_ck_n, hb_cs_n, hb_reset_n;
-logic       hb_rwds_o, hb_rwds_i, hb_rwds_oe;
-logic [7:0] hb_dq_o, hb_dq_i;
-logic       hb_dq_oe;
+friscv_mem_if ext_guarded_if ();
 
-// Guarded external port
-friscv_mem_if hyper_mem_if ();
-
-friscv_hb_guard hb_guard (
-    .i_hb_en ( hb_en        ),
-    .s_if    ( ext_if       ),
-    .m_if    ( hyper_mem_if )
+friscv_ext_guard ext_guard (
+    .i_en ( ext_mem_en     ),
+    .s_if ( ext_if         ),
+    .m_if ( ext_guarded_if )
 );
 
 AXI_BUS #(
-    .AXI_ADDR_WIDTH ( AxiAddrWidth ),
-    .AXI_DATA_WIDTH ( AxiDataWidth ),
+    .AXI_ADDR_WIDTH ( AddrWidth    ),
+    .AXI_DATA_WIDTH ( DataWidth    ),
     .AXI_ID_WIDTH   ( AxiIdWidth   ),
     .AXI_USER_WIDTH ( AxiUserWidth )
 ) mem_axi ();
 
 friscv_axi4_full_adapter_intf #(
-    .BURST_LEN      ( LineBytes / (AxiDataWidth/8) ),
-    .AXI_ID_WIDTH   ( AxiIdWidth                   ),
-    .AXI_USER_WIDTH ( AxiUserWidth                 )
+    .BURST_LEN      ( LineBytes / StrbWidth ),
+    .AXI_ID_WIDTH   ( AxiIdWidth            ),
+    .AXI_USER_WIDTH ( AxiUserWidth          )
 ) m_mem (
-    .clk_i          ( i_clk        ),
-    .rst_ni         ( soc_rstn     ),
-    .mem_slv        ( hyper_mem_if ),
-    .mst            ( mem_axi      )
+    .clk_i          ( i_clk          ),
+    .rst_ni         ( soc_rstn       ),
+    .mem_slv        ( ext_guarded_if ),
+    .mst            ( mem_axi        )
 );
 
-typedef logic [AxiIdWidth-1:0]   axi_id_t;
-typedef logic [AxiUserWidth-1:0] axi_user_t;
-typedef logic [3:0] axi_strb_t;
-
-`AXI_TYPEDEF_ALL(hyper_axi, addr_t, axi_id_t, data_t, axi_strb_t, axi_user_t)
-
-hyper_axi_req_t  hyper_axi_req;
-hyper_axi_resp_t hyper_axi_rsp;
-`AXI_ASSIGN_TO_REQ(hyper_axi_req,  mem_axi)
-`AXI_ASSIGN_FROM_RESP(mem_axi, hyper_axi_rsp)
-
-localparam int unsigned HyperNumPhys    = 1;
-localparam int unsigned HyperMinFreqMHz = 40;
-
-// Requests past the mask alias onto low addresses instead of faulting
-function automatic hyperbus_pkg::hyper_cfg_t hyper_rst_cfg();
-    hyper_rst_cfg = hyperbus_pkg::gen_RstCfg(HyperNumPhys, HyperMinFreqMHz);
-    hyper_rst_cfg.address_mask_msb = 5'($clog2(MemSize));
-endfunction
-
-hyperbus #(
-    .NumChips        ( 1                       ),
-    .NumPhys         ( HyperNumPhys            ),
-    .RstCfg          ( hyper_rst_cfg()         ),
-    .IsClockODelayed ( HyperClockDelayed       ),
-    .AxiAddrWidth    ( AxiAddrWidth            ),
-    .AxiDataWidth    ( AxiDataWidth            ),
-    .AxiIdWidth      ( AxiIdWidth              ),
-    .AxiUserWidth    ( AxiUserWidth            ),
-    .axi_req_t       ( hyper_axi_req_t         ),
-    .axi_rsp_t       ( hyper_axi_resp_t        ),
-    .axi_w_chan_t    ( hyper_axi_w_chan_t      ),
-    .axi_b_chan_t    ( hyper_axi_b_chan_t      ),
-    .axi_ar_chan_t   ( hyper_axi_ar_chan_t     ),
-    .axi_r_chan_t    ( hyper_axi_r_chan_t      ),
-    .axi_aw_chan_t   ( hyper_axi_aw_chan_t     ),
-    .RegAddrWidth    ( 32                      ),
-    .RegDataWidth    ( 32                      ),
-    .reg_req_t       ( reg_bus_req_t           ),
-    .reg_rsp_t       ( reg_bus_rsp_t           ),
-    .axi_rule_t      ( axi_pkg::xbar_rule_32_t ),
-    .MinFreqMHz      ( HyperMinFreqMHz         ),
-    .RstChipBase     ( MemBase                 ),
-    .RstChipSpace    ( MemSize                 ),
-    .AxiLogDepth     ( 1                       )
-) i_hyperbus (
-    .clk_phy_i       ( i_clk                     ),
-    .rst_phy_ni      ( soc_rstn                  ),
-    .clk_sys_i       ( i_clk                     ),
-    .rst_sys_ni      ( soc_rstn                  ),
-    .test_mode_i     ( 1'b0                      ),
-    .axi_req_i       ( hyper_axi_req             ),
-    .axi_rsp_o       ( hyper_axi_rsp             ),
-    .reg_req_i       ( reg_dev_req[HyperCfgPort] ),
-    .reg_rsp_o       ( reg_dev_rsp[HyperCfgPort] ),
-    .hyper_cs_no     ( hb_cs_n                   ),
-    .hyper_ck_o      ( hb_ck                     ),
-    .hyper_ck_no     ( hb_ck_n                   ),  // single-ended: no package pin
-    .hyper_rwds_o    ( hb_rwds_o                 ),
-    .hyper_rwds_i    ( hb_rwds_i                 ),
-    .hyper_rwds_oe_o ( hb_rwds_oe                ),
-    .hyper_dq_i      ( hb_dq_i                   ),
-    .hyper_dq_o      ( hb_dq_o                   ),
-    .hyper_dq_oe_o   ( hb_dq_oe                  ),
-    .hyper_reset_no  ( hb_reset_n                )
-);
+`AXI_ASSIGN_TO_REQ(o_axi_mem_req, mem_axi)
+`AXI_ASSIGN_FROM_RESP(mem_axi, i_axi_mem_rsp)
 
 // ============================================================
 // Debugger
@@ -520,10 +490,10 @@ dmi_jtag #(
 );
 
 reg_to_mem #(
-    .AW    ( 32            ),
-    .DW    ( 32            ),
-    .req_t ( reg_bus_req_t ),
-    .rsp_t ( reg_bus_rsp_t )
+    .AW    ( 32        ),
+    .DW    ( 32        ),
+    .req_t ( reg_req_t ),
+    .rsp_t ( reg_rsp_t )
 ) dm_reg_to_mem (
     .clk_i     ( i_clk               ),
     .rst_ni    ( soc_rstn            ),
@@ -571,10 +541,10 @@ friscv_from_mem dm_sba_mem (
 apb_req_t  uart0_apb_req;
 apb_resp_t uart0_apb_rsp;
 reg_to_apb #(
-    .reg_req_t ( reg_bus_req_t ),
-    .reg_rsp_t ( reg_bus_rsp_t ),
-    .apb_req_t ( apb_req_t     ),
-    .apb_rsp_t ( apb_resp_t    )
+    .reg_req_t ( reg_req_t  ),
+    .reg_rsp_t ( reg_rsp_t  ),
+    .apb_req_t ( apb_req_t  ),
+    .apb_rsp_t ( apb_resp_t )
 ) reg_to_apb (
     .clk_i     ( i_clk                  ),
     .rst_ni    ( soc_rstn               ),
@@ -609,176 +579,50 @@ apb_uart_wrap #(
 );
 
 // ============================================================
-// Pin mux
-// ============================================================
-
-/*
-Pad   AF0        AF1        Notes
-----  ---------  ---------  -------------------------
-PA0   gpio[0]    -
-PA1   gpio[1]    -          external interrupt
-PA2   gpio[2]    -          external interrupt
-PA3   gpio[3]    -          external interrupt
-PA4   gpio[4]    -          external interrupt
-PA5   gpio[5]    QSPI0_IO0
-PA6   gpio[6]    QSPI0_IO1
-PA7   gpio[7]    QSPI0_IO2  boot strap
-PA8   gpio[8]    QSPI0_IO3  boot strap
-PA9   gpio[9]    QSPI0_SCK
-PA10  gpio[10]   QSPI0_CS0
-PA11  gpio[11]   QSPI0_CS1
-PA12  gpio[12]   QSPI0_CS2
-*/
-
-localparam int unsigned NumAfs = 2;
-
-localparam int unsigned PadHbDqLsb = 13;  // PA13..PA20 = HB_DQ0..HB_DQ7
-localparam int unsigned PadHbRwds  = 21;  // PA21 = HB_RWDS
-localparam int unsigned PadHbCk    = 22;  // PA22 = HB_CK
-localparam int unsigned PadHbCsN   = 23;  // PA23 = HB_CS0_N
-localparam int unsigned PadHbRstN  = 24;  // PA24 = HB_RST_N
-
-logic [NumMuxPads-1:0][NumAfs-1:0] to_func;
-logic [NumMuxPads-1:0][NumAfs-1:0] from_func;
-logic [NumMuxPads-1:0][NumAfs-1:0] oe_func;
-
-logic [NumMuxPads-1:0] pm_pad_out, pm_pad_oe;
-
-// Region-relative pinmux register address
-reg_bus_req_t pinmux_req;
-always_comb begin
-    pinmux_req      = reg_dev_req[PinmuxPort];
-    pinmux_req.addr = reg_dev_req[PinmuxPort].addr & 32'h0000_0FFF;
-end
-
-friscv_pinmux #(
-    .NumPads  ( NumMuxPads    ),
-    .NumAfs   ( NumAfs        ),
-    .AfInIdle ( '0            ),  // Idle level presented to non-selected AFs, all 0
-    .reg_req_t( reg_bus_req_t ),
-    .reg_rsp_t( reg_bus_rsp_t )
- ) pinmux (
-    .clk_i      ( i_clk                     ),
-    .rst_ni     ( por_rstn                  ),
-    .reg_req_i  ( pinmux_req                ),
-    .reg_rsp_o  ( reg_dev_rsp[PinmuxPort]   ),
-    .pad_in_i   ( pad_in_i[NumMuxPads-1:0]  ),
-    .pad_out_o  ( pm_pad_out                ),
-    .pad_oe_o   ( pm_pad_oe                 ),
-    .func_out_i ( from_func                 ),  // peripheral -> pinmux
-    .func_in_o  ( to_func                   ),  // peripheral <- pinmux
-    .func_oe_i  ( oe_func                   )
-);
-
-// ============================================================
-// Pad drive
-// ============================================================
-
-assign hb_dq_i   = pad_in_i[PadHbDqLsb +: 8];
-assign hb_rwds_i = pad_in_i[PadHbRwds];
-
-always_comb begin
-    pad_out_o[NumMuxPads-1:0] = pm_pad_out;
-    pad_oe_o [NumMuxPads-1:0] = pm_pad_oe;
-
-    pad_out_o[PadHbDqLsb +: 8] = hb_dq_o;
-    pad_oe_o [PadHbDqLsb +: 8] = {8{hb_dq_oe}};
-    pad_out_o[PadHbRwds] = hb_rwds_o;
-    pad_oe_o [PadHbRwds] = hb_rwds_oe;
-    pad_out_o[PadHbCk]   = hb_ck;
-    pad_oe_o [PadHbCk]   = 1'b1;
-    pad_out_o[PadHbCsN]  = hb_cs_n;
-    pad_oe_o [PadHbCsN]  = 1'b1;
-    pad_out_o[PadHbRstN] = hb_reset_n;
-    pad_oe_o [PadHbRstN] = 1'b1;
-end
-
-// ============================================================
 // GPIO Port A
 // ============================================================
 
 logic [31:0] gpio_a_irq;
-logic [31:0] gpio_a_in;
-logic [31:0] gpio_a_out;
-logic [31:0] gpio_a_oe;
-
-for (genvar p = 0; p < NumMuxPads; p++) begin : gpio_a_af0
-    assign from_func[p][0] = gpio_a_out[p];
-    assign oe_func  [p][0] = gpio_a_oe [p];
-    assign gpio_a_in[p]    = to_func[p][0];
-end
-
-// Unused GPIO bits
-assign gpio_a_in[31:NumMuxPads] = '0;
 
 gpio #(
-    .reg_req_t   ( reg_bus_req_t ),
-    .reg_rsp_t   ( reg_bus_rsp_t ),
-    .GpioAsyncOn ( 1             )
+    .reg_req_t   ( reg_req_t ),
+    .reg_rsp_t   ( reg_rsp_t ),
+    .GpioAsyncOn ( 1         )
 ) gpio_a (
     .clk_i         ( i_clk                  ),
     .rst_ni        ( soc_rstn               ),
     .reg_req_i     ( reg_dev_req[GpioAPort] ),
     .reg_rsp_o     ( reg_dev_rsp[GpioAPort] ),
     .intr_gpio_o   ( gpio_a_irq             ),
-    .cio_gpio_i    ( gpio_a_in              ),
-    .cio_gpio_o    ( gpio_a_out             ),
-    .cio_gpio_en_o ( gpio_a_oe              )
+    .cio_gpio_i    ( i_gpio                 ),
+    .cio_gpio_o    ( o_gpio                 ),
+    .cio_gpio_en_o ( o_gpio_oe              )
 );
 
 // ============================================================
 // QSPI0
 // ============================================================
 
-localparam int unsigned Qspi0NumCs   = 3;  // CS0, CS1, CS2
-localparam int unsigned Qspi0PadBase = 5;  // First muxed pad (PA5 = IO0)
-
-logic                  qspi0_sck, qspi0_sck_oe;
-logic [Qspi0NumCs-1:0] qspi0_cs,  qspi0_cs_oe;
-logic [3:0]            qspi0_sd_i, qspi0_sd_o, qspi0_sd_oe;
-logic                  qspi0_irq_error, qspi0_irq_spi_event;
+logic qspi0_irq_error, qspi0_irq_spi_event;
 
 spi_host #(
-    .reg_req_t ( reg_bus_req_t ),
-    .reg_rsp_t ( reg_bus_rsp_t )
+    .reg_req_t ( reg_req_t ),
+    .reg_rsp_t ( reg_rsp_t )
 ) qspi0 (
     .clk_i            ( i_clk                  ),
     .rst_ni           ( soc_rstn               ),
     .reg_req_i        ( reg_dev_req[Qspi0Port] ),
     .reg_rsp_o        ( reg_dev_rsp[Qspi0Port] ),
-    .cio_sck_o        ( qspi0_sck              ),
-    .cio_sck_en_o     ( qspi0_sck_oe           ),
-    .cio_csb_o        ( qspi0_cs               ),
-    .cio_csb_en_o     ( qspi0_cs_oe            ),
-    .cio_sd_o         ( qspi0_sd_o             ),
-    .cio_sd_en_o      ( qspi0_sd_oe            ),
-    .cio_sd_i         ( qspi0_sd_i             ),
+    .cio_sck_o        ( o_qspi_sck             ),
+    .cio_sck_en_o     ( o_qspi_sck_oe          ),
+    .cio_csb_o        ( o_qspi_cs              ),
+    .cio_csb_en_o     ( o_qspi_cs_oe           ),
+    .cio_sd_o         ( o_qspi_sd              ),
+    .cio_sd_en_o      ( o_qspi_sd_oe           ),
+    .cio_sd_i         ( i_qspi_sd              ),
     .intr_error_o     ( qspi0_irq_error        ),
     .intr_spi_event_o ( qspi0_irq_spi_event    )
 );
-
-// Data lines PA5..PA8 (bidirectional)
-for (genvar i = 0; i < 4; i++) begin : gen_qspi0_io
-    assign from_func[Qspi0PadBase + i][1] = qspi0_sd_o [i];
-    assign oe_func  [Qspi0PadBase + i][1] = qspi0_sd_oe[i];
-    assign qspi0_sd_i[i]                  = to_func[Qspi0PadBase + i][1];
-end
-
-// SCK on PA9 (output only)
-assign from_func[9][1] = qspi0_sck;
-assign oe_func  [9][1] = qspi0_sck_oe;
-
-// Chip selects PA10..PA12 (outputs only)
-for (genvar i = 0; i < Qspi0NumCs; i++) begin : gen_qspi0_cs
-    assign from_func[10 + i][1] = qspi0_cs   [i];
-    assign oe_func  [10 + i][1] = qspi0_cs_oe[i];
-end
-
-// Pads PA0..PA4 have no alternate function, AF1 idle
-for (genvar p = 0; p < Qspi0PadBase; p++) begin : gen_no_af1
-    assign from_func[p][1] = 1'b0;
-    assign oe_func  [p][1] = 1'b0;
-end
 
 // ============================================================
 // PLIC
@@ -804,11 +648,11 @@ assign seip = plic_irq_targets[1];
 
 if (EnablePlic) begin : gen_plic
     plic_top #(
-        .N_SOURCE  ( NIrqSources   ),
-        .N_TARGET  ( NIrqTargets   ),
-        .MAX_PRIO  ( 1             ),
-        .reg_req_t ( reg_bus_req_t ),
-        .reg_rsp_t ( reg_bus_rsp_t )
+        .N_SOURCE  ( NIrqSources ),
+        .N_TARGET  ( NIrqTargets ),
+        .MAX_PRIO  ( 1           ),
+        .reg_req_t ( reg_req_t   ),
+        .reg_rsp_t ( reg_rsp_t   )
     ) plic (
         .clk_i         ( i_clk                 ),
         .rst_ni        ( soc_rstn              ),
@@ -827,7 +671,7 @@ end
 // CLINT: reg demux -> reg_bus -> ACLINT
 // ============================================================
 
-reg_bus_req_t clint_reg_req;
+reg_req_t clint_reg_req;
 always_comb begin
     clint_reg_req      = reg_dev_req[ClintPort];
     clint_reg_req.addr = reg_dev_req[ClintPort].addr & (ClintSize - 1);
@@ -835,11 +679,11 @@ end
 
 // The tick generator comes out of reset at a 1:1 ratio
 aclint #(
-    .NumHarts      ( 1             ),
-    .DefaultTarget ( 1             ),
-    .DefaultSource ( 1             ),
-    .reg_req_t     ( reg_bus_req_t ),
-    .reg_rsp_t     ( reg_bus_rsp_t )
+    .NumHarts      ( 1         ),
+    .DefaultTarget ( 1         ),
+    .DefaultSource ( 1         ),
+    .reg_req_t     ( reg_req_t ),
+    .reg_rsp_t     ( reg_rsp_t )
 ) clint (
     .clk_i      ( i_clk                  ),
     .rst_ni     ( soc_rstn               ),

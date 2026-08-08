@@ -5,7 +5,7 @@
 #include <stdexcept>
 #include <string>
 
-#include "Vfriscv_soc.h"
+#include "dut.hpp"
 
 namespace {
 
@@ -25,41 +25,41 @@ unsigned env_unsigned(const char* name, unsigned fallback) {
     return text != nullptr ? unsigned(std::strtoul(text, nullptr, 0)) : fallback;
 }
 
-uint8_t hb_dq_out(const Vfriscv_soc& top) {
+uint8_t hb_dq_out(const Dut& top) {
     return uint8_t((top.pad_out_o >> HB_DQ_LSB) & 0xFF);
 }
 
-bool hb_dq_oe(const Vfriscv_soc& top) {
+bool hb_dq_oe(const Dut& top) {
     return ((top.pad_oe_o >> HB_DQ_LSB) & 1) != 0;
 }
 
-bool hb_rwds_out(const Vfriscv_soc& top) {
+bool hb_rwds_out(const Dut& top) {
     return ((top.pad_out_o >> HB_RWDS_BIT) & 1) != 0;
 }
 
-bool hb_rwds_oe(const Vfriscv_soc& top) {
+bool hb_rwds_oe(const Dut& top) {
     return ((top.pad_oe_o >> HB_RWDS_BIT) & 1) != 0;
 }
 
-bool hb_ck(const Vfriscv_soc& top) {
+bool hb_ck(const Dut& top) {
     return ((top.pad_out_o >> HB_CK_BIT) & 1) != 0;
 }
 
 // PA23 carries HB_CS0_N, active low
-bool hb_cs_active(const Vfriscv_soc& top) {
+bool hb_cs_active(const Dut& top) {
     return ((top.pad_out_o >> HB_CS_BIT) & 1) == 0;
 }
 
-bool hb_reset_n(const Vfriscv_soc& top) {
+bool hb_reset_n(const Dut& top) {
     return ((top.pad_out_o >> HB_RST_BIT) & 1) != 0;
 }
 
-void set_hb_dq_in(Vfriscv_soc& top, uint8_t value) {
+void set_hb_dq_in(Dut& top, uint8_t value) {
     top.pad_in_i = (top.pad_in_i & ~(uint32_t(0xFF) << HB_DQ_LSB)) |
                    (uint32_t(value) << HB_DQ_LSB);
 }
 
-void set_hb_rwds_in(Vfriscv_soc& top, bool value) {
+void set_hb_rwds_in(Dut& top, bool value) {
     top.pad_in_i = (top.pad_in_i & ~(uint32_t(1) << HB_RWDS_BIT)) |
                    (uint32_t(value ? 1 : 0) << HB_RWDS_BIT);
 }
@@ -82,7 +82,7 @@ HyperramTiming HyperramTiming::from_env() {
     return timing;
 }
 
-Hyperram::Hyperram(Vfriscv_soc& top)
+Hyperram::Hyperram(Dut& top)
     : top_(top), memory_(0, MEMORY_SIZE), timing_(HyperramTiming::from_env()) {
     set_hb_dq_in(top_, 0);
     set_hb_rwds_in(top_, false);
