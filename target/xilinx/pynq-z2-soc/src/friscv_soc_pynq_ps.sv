@@ -15,7 +15,7 @@ module friscv_soc_pynq_ps import friscv_soc_pkg::*; #(
     parameter int unsigned MemSize   = 32'h0100_0000,
     parameter int unsigned MemPsBase = 32'h0010_0000,
     parameter int unsigned ZsblRom   = 1,
-    parameter int unsigned NumGpio   = 17,
+    parameter int unsigned NumGpio   = 27,
     parameter int unsigned NumStraps = 13
 ) (
     input  wire clk_i,
@@ -104,10 +104,10 @@ end
 
 logic soc_end;
 
-assign led_o[0] = soc_end;
-assign led_o[1] = 1'b1;
-assign led_o[2] = ~soc_rstn;
-assign led_o[3] = heartbeat_cnt[23];
+assign led_o[0] = soc_end;           // LD5 green: program signalled completion
+assign led_o[1] = 1'b1;              // LD4 blue:  bitstream configured
+assign led_o[2] = ~soc_rstn;         // LD4 red:   SoC held in reset
+assign led_o[3] = heartbeat_cnt[23]; // LD4 green: free-running heartbeat
 
 friscv_axi_req_t  axi_req;
 friscv_axi_resp_t axi_rsp;
@@ -129,12 +129,18 @@ logic       qspi_sck, qspi_sck_oe;
 logic [2:0] qspi_cs,  qspi_cs_oe;
 logic [3:0] qspi_sd_i, qspi_sd_o, qspi_sd_oe;
 
+// Disable the first 6 GPIOs (0-5) as inputs only to not damage the board
+localparam logic [31:0] GpioInOnly = 32'h0000_003F;
+
+logic [31:0] gpio_oe_eff;
+assign gpio_oe_eff = gpio_oe & ~GpioInOnly;
+
 for (genvar i = 0; i < NumGpio; i++) begin : gen_gpio_pads
     IOBUF i_iobuf (
-        .O  (  gpio_in [i] ),
-        .IO (  gpio_io [i] ),
-        .I  (  gpio_out[i] ),
-        .T  ( ~gpio_oe [i] )
+        .O  (  gpio_in    [i] ),
+        .IO (  gpio_io    [i] ),
+        .I  (  gpio_out   [i] ),
+        .T  ( ~gpio_oe_eff[i] )
     );
 end
 
