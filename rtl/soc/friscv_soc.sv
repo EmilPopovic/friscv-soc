@@ -19,7 +19,7 @@
 
 `timescale 1ns/1ps
 
-module friscv_soc import friscv_soc_pkg::*; #(
+module friscv_soc import friscv_soc_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t; #(
     parameter int unsigned SramBase         = 32'h0000_0000,
     parameter int unsigned SramSize         = 32'h0000_2000,
     parameter int unsigned MemBase          = 32'h8000_0000,
@@ -263,7 +263,7 @@ reg_rsp_t [NoRegPorts-1:0] reg_dev_rsp;
 localparam int unsigned NoIntRegRules = 7;
 localparam int unsigned NoRegRules    = NoIntRegRules + NumExtRegSlv;
 
-localparam axi_pkg::xbar_rule_32_t [NoIntRegRules-1:0] IntRegRules = '{
+localparam xbar_rule_32_t [NoIntRegRules-1:0] IntRegRules = '{
     '{ idx: DmPort,    start_addr: DmBaseAddr,    end_addr: DmBaseAddr + DmSize },
     '{ idx: ClintPort, start_addr: ClintBaseAddr, end_addr: ClintBaseAddr + ClintSize },
     '{ idx: PlicPort,  start_addr: 32'h0C00_0000, end_addr: 32'h0C20_2000 },
@@ -290,7 +290,7 @@ function automatic axi_pkg::xbar_rule_32_t [NoRegRules-1:0] gen_reg_rules();
     end
 endfunction
 
-localparam axi_pkg::xbar_rule_32_t [NoRegRules-1:0] RegAddrMap = gen_reg_rules();
+localparam xbar_rule_32_t [NoRegRules-1:0] RegAddrMap = gen_reg_rules();
 
 logic [RegPortWidth-1:0] reg_select;
 addr_decode #(
@@ -399,7 +399,7 @@ logic dmi_resp_valid, dmi_resp_ready;
 dm::dmi_resp_t dmi_resp;
 
 // 2 scratch regs, memory-mapped data regs at dm::DataAddr.
-localparam dm::hartinfo_t HARTINFO = '{
+localparam hartinfo_t HARTINFO = '{
     zero1:      '0,
     nscratch:   4'd2,
     zero0:      '0,

@@ -25,10 +25,18 @@ foreach line [split [read $fh] "\n"] {
 }
 close $fh
 
+set headers {}
+foreach d $incdirs {
+    foreach h [glob -nocomplain -directory $d */*.svh *.svh] {
+        lappend headers $h
+    }
+}
+
 create_project -in_memory -part $part
 set_property board_part $board [current_project]
 set_property XPM_LIBRARIES {XPM_MEMORY} [current_project]
 set_property include_dirs $incdirs [current_fileset]
+set_property source_mgmt_mode All [current_project]
 foreach d $defines {
     if {$d ne "-verilog_define"} {
         set_property verilog_define \
@@ -38,6 +46,12 @@ foreach d $defines {
 }
 
 read_verilog -sv $files
+if {[llength $headers]} {
+    read_verilog -sv $headers
+    set_property file_type {Verilog Header} [get_files $headers]
+    set_property is_global_include true [get_files $headers]
+}
+read_verilog $target/src/${top}_wrap.v
 read_xdc $target/constraints/friscv_soc_pynq_ps.xdc
 
 create_bd_design bd
@@ -54,7 +68,7 @@ set_property -dict [list \
     CONFIG.PCW_FPGA0_PERIPHERAL_FREQMHZ $::env(SOC_FREQ_MHZ) \
 ] [get_bd_cells ps7]
 
-create_bd_cell -type module -reference $top soc
+create_bd_cell -type module -reference ${top}_wrap soc
 set_property -dict [list \
     CONFIG.SramBase $::env(SRAM_BASE) \
     CONFIG.SramSize $::env(SRAM_SIZE) \
@@ -85,8 +99,11 @@ validate_bd_design
 save_bd_design
 
 set bd_file [get_files bd.bd]
+set_property synth_checkpoint_mode None $bd_file
 generate_target all $bd_file
 make_wrapper -files $bd_file -top -import
+
+set_property source_mgmt_mode None [current_project]
 
 synth_design -top bd_wrapper -part $part
 

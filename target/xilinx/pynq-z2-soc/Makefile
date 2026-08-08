@@ -37,7 +37,7 @@ $(FLIST): $(REPO_ROOT)/Bender.yml $(REPO_ROOT)/Bender.lock $(wildcard src/*.sv)
 $(BUILD):
 	mkdir -p $@
 
-DEPS := $(FLIST) $(wildcard src/*.sv) constraints/$(TOP).xdc
+DEPS := $(FLIST) $(wildcard src/*.sv src/*.v) constraints/$(TOP).xdc
 
 .PHONY: synth impl bitstream
 synth impl bitstream: $(DEPS) | $(BUILD)

@@ -1,0 +1,9 @@
+build/
+.gen/
+.srcs/
+.Xil/
+clockInfo.txt
+tight_setup_hold_pins.txt
+vivado*.log
+vivado*.jou
+NA/

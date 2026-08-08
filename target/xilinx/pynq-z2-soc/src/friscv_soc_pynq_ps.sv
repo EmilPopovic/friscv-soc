@@ -8,7 +8,7 @@
 
 `default_nettype none
 
-module friscv_soc_pynq_ps import friscv_soc_pkg::*; #(
+module friscv_soc_pynq_ps import friscv_soc_pkg::*, axi_pkg::xbar_rule_32_t; #(
     parameter int unsigned SramBase  = 32'h8000_0000,
     parameter int unsigned SramSize  = 32'h0008_0000,
     parameter int unsigned MemBase   = 32'h8000_0000,
@@ -119,7 +119,7 @@ assign reg_ext_rsp[0].rdata = '0;
 assign reg_ext_rsp[0].error = 1'b0;
 assign reg_ext_rsp[0].ready = 1'b1;
 
-localparam axi_pkg::xbar_rule_32_t [0:0] ExtRegSlvRules = '{
+localparam xbar_rule_32_t [0:0] ExtRegSlvRules = '{
     '{ idx: 0, start_addr: 32'h4000_1000, end_addr: 32'h4000_2000 }
 };
 

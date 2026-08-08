@@ -38,27 +38,57 @@ module tc_sram #(
   be_t wen;
   assign wen = be_i[0] & {BeWidth{we_i[0]}};
 
-  xpm_memory_spram #(
-    .ADDR_WIDTH_A       ( AddrWidth          ),
-    .BYTE_WRITE_WIDTH_A ( ByteWidth          ),
-    .MEMORY_INIT_FILE   ( InitFile           ),
-    .MEMORY_SIZE        ( NumWords*DataWidth ),  // bits
-    .READ_DATA_WIDTH_A  ( DataWidth          ),
-    .READ_LATENCY_A     ( Latency            ),
-    .WRITE_DATA_WIDTH_A ( DataWidth          ),
-    .WRITE_MODE_A       ( "no_change"        )
-  ) i_spram (
-    .clka   ( clk_i      ),
-    .rsta   ( ~rst_ni    ),
-    .ena    ( req_i[0]   ),
-    .wea    ( wen        ),
-    .addra  ( addr_i[0]  ),
-    .dina   ( wdata_i[0] ),
-    .douta  ( rdata_o[0] ),
-    .regcea ( 1'b1       ),
-    .sleep  ( 1'b0       ),
-    .injectsbiterra ( 1'b0 ),
-    .injectdbiterra ( 1'b0 )
-  );
+  localparam bit XpmByteOk = (ByteWidth == DataWidth) || (ByteWidth == 32'd1) ||
+                             (ByteWidth == 32'd2)     || (ByteWidth == 32'd4) ||
+                             (ByteWidth == 32'd8)     || (ByteWidth == 32'd9);
+
+  if (XpmByteOk) begin : gen_xpm
+
+    xpm_memory_spram #(
+      .ADDR_WIDTH_A       ( AddrWidth          ),
+      .BYTE_WRITE_WIDTH_A ( ByteWidth          ),
+      .MEMORY_INIT_FILE   ( InitFile           ),
+      .MEMORY_SIZE        ( NumWords*DataWidth ),  // bits
+      .READ_DATA_WIDTH_A  ( DataWidth          ),
+      .READ_LATENCY_A     ( Latency            ),
+      .WRITE_DATA_WIDTH_A ( DataWidth          ),
+      .WRITE_MODE_A       ( "no_change"        )
+    ) i_spram (
+      .clka   ( clk_i      ),
+      .rsta   ( ~rst_ni    ),
+      .ena    ( req_i[0]   ),
+      .wea    ( wen        ),
+      .addra  ( addr_i[0]  ),
+      .dina   ( wdata_i[0] ),
+      .douta  ( rdata_o[0] ),
+      .regcea ( 1'b1       ),
+      .sleep  ( 1'b0       ),
+      .injectsbiterra ( 1'b0 ),
+      .injectdbiterra ( 1'b0 )
+    );
+
+  end else begin : gen_infer
+
+    (* ram_style = "block" *) data_t mem [NumWords];
+    data_t r_rdata;
+
+    always_ff @(posedge clk_i) begin
+      if (req_i[0]) begin
+        if (we_i[0]) begin
+          for (int unsigned i = 0; i < BeWidth; i++) begin
+            if (wen[i]) begin
+              mem[addr_i[0]][i*ByteWidth +: ByteWidth] <=
+                  wdata_i[0][i*ByteWidth +: ByteWidth];
+            end
+          end
+        end else begin
+          r_rdata <= mem[addr_i[0]];
+        end
+      end
+    end
+
+    assign rdata_o[0] = r_rdata;
+
+  end
 
 endmodule
