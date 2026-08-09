@@ -1,4 +1,4 @@
-// Second stage, loaded into the OCM by the boot ROM. Brings up external memory,
+// First stage, loaded into the OCM by the boot rom. Brings up external memory,
 // streams the image into RAM and enters it. A bad header parks for the DM.
 //
 // Flash: this stage in the first block, then magic, length, checksum, image.

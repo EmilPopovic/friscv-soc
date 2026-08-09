@@ -5,15 +5,15 @@ import sys
 from pathlib import Path
 
 BLOCK = 512
-MAGIC = 0x43535246  # "FRSC", must match stage2.S
+MAGIC = 0x43535246  # "FRSC", must match stage1.S
 
 
 def main():
     if len(sys.argv) != 4:
-        raise SystemExit("usage: mkflash.py <stage2.bin> <payload> <out.bin>")
+        raise SystemExit("usage: mkflash.py <stage1.bin> <payload> <out.bin>")
 
-    stage2, payload, out = (Path(a) for a in sys.argv[1:])
-    stage = stage2.read_bytes()
+    stage1, payload, out = (Path(a) for a in sys.argv[1:])
+    stage = stage1.read_bytes()
 
     if len(stage) > BLOCK:
         raise SystemExit(f"second stage is {len(stage)} bytes, over the {BLOCK} the ROM reads")
