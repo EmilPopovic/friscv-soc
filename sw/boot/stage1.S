@@ -10,7 +10,11 @@
 #define UART_DLL    0x00
 #define UART_DLM    0x04
 #define UART_LCR    0x0c
-#define UART_DIV    27              // 115200 baud from 50 MHz
+#define F_CPU       50000000
+#define BAUD        115200
+#define MTIME_HZ    10000000        // must match timebase-frequency in the dtb
+#define UART_DIV    ((F_CPU + 8 * BAUD) / (16 * BAUD))
+#define ACLINT_TICK 0x0200c000      // TICKTARGET, TICKSOURCE follows
 #define SPI_STATUS  0x14
 #define SPI_COMMAND 0x28
 #define SPI_RXDATA  0x2c
@@ -30,6 +34,14 @@ _start:
     li      t0, SCB_HBCTL
     li      t1, 1
     sw      t1, 0(t0)
+
+    // mtime runs at MTIME_HZ whatever the core clock is, the aclint comes out
+    // of reset at 1:1
+    lui     t0, %hi(ACLINT_TICK)
+    li      t1, MTIME_HZ
+    sw      t1, 0(t0)
+    li      t1, F_CPU
+    sw      t1, 4(t0)
 
     // the apheleiaOS stub expects the divisor set
     li      t0, UART0
