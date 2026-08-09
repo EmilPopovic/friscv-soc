@@ -44,6 +44,10 @@ synth impl bitstream: $(DEPS) | $(BUILD)
 	$(VIV_ENV) STAGE=$@ $(VIVADO) -mode batch -notrace -nojournal \
 		-log $(BUILD)/vivado_$@.log -source vivado/build.tcl
 
+.PHONY: program
+program:
+	scripts/program.sh $(BIT)
+
 .PHONY: report
 report:
 	@cat $(BUILD)/reports/summary.txt
