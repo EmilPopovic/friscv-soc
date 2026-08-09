@@ -8,7 +8,7 @@
 
 `timescale 1ns/1ps
 
-module vernii_soc_sim import vernii_soc_pkg::*; #(
+module vernii_soc_sim import vernii_pkg::*; #(
     parameter int unsigned SramBase         = 32'h0000_0000,
     parameter int unsigned SramSize         = 32'h0000_2000,
     parameter int unsigned MemBase          = 32'h8000_0000,

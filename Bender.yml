@@ -98,7 +98,7 @@ sources:
   - rtl/core/friscv_zsbl_rom.sv
 
   # SoC RTL files
-  - rtl/soc/vernii_soc_pkg.sv
+  - rtl/soc/vernii_pkg.sv
   - rtl/soc/friscv_axi4_full_adapter.sv
   - rtl/soc/friscv_axi4_full_adapter_intf.sv
   - rtl/soc/friscv_from_mem.sv

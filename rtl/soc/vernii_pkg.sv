@@ -9,7 +9,7 @@
 `include "axi/typedef.svh"
 `include "register_interface/typedef.svh"
 
-package vernii_soc_pkg;
+package vernii_pkg;
 
 localparam int unsigned AddrWidth    = 32;
 localparam int unsigned DataWidth    = 32;

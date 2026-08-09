@@ -8,7 +8,7 @@
 
 `default_nettype none
 
-module vernii_soc_pynq_ps import vernii_soc_pkg::*, axi_pkg::xbar_rule_32_t; #(
+module vernii_soc_pynq_ps import vernii_pkg::*, axi_pkg::xbar_rule_32_t; #(
     parameter int unsigned SramBase  = 32'h0000_0000,
     parameter int unsigned SramSize  = 32'h0008_0000,
     parameter int unsigned MemBase   = 32'h8000_0000,
