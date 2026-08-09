@@ -1,5 +1,5 @@
 package:
-  name: friscv-soc
+  name: vernii
   authors:
     - "Emil Popović <mail@emilpopovic.me>"
     - "Matej Jurasić <matej.jurasic@cappig.dev>"
