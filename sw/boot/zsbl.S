@@ -1,3 +1,6 @@
+// Copyright 2026 FER, HPC Architecture and Application Research Center
+// SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+//
 // Zero stage boot loader. PA0 low parks for the debug module, high loads a
 // second stage from QSPI flash and runs it from zero.
 

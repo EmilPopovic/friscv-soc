@@ -1,3 +1,6 @@
+// Copyright 2026 FER, HPC Architecture and Application Research Center
+// SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+//
 // First stage, loaded into the OCM by the boot rom. Brings up external memory,
 // streams the image into RAM and enters it. A bad header parks for the DM.
 //

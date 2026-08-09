@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright 2026 FER, HPC Architecture and Application Research Center
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+#
 """Assemble the ZSBL and emit the package friscv_zsbl_rom.sv reads its words from."""
 
 import re
