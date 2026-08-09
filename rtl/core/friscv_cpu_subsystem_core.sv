@@ -21,7 +21,7 @@ import friscv_pkg::*;
 module friscv_cpu_subsystem_core #(
     parameter int unsigned RAM_BASE           = 32'h8000_0000,
     parameter int unsigned ZSBL_ROM_SIZE_BYTES = 0,
-    parameter int unsigned ZSBL_BASE           = 32'h20000,
+    parameter int unsigned ZSBL_BASE           = 32'h0020_0000,
     parameter int unsigned DM_BASE             = 32'h0000_0000,
     parameter int unsigned DM_HALT_OFFSET      = 32'h800,
     parameter int unsigned DM_EXC_OFFSET       = 32'h810,

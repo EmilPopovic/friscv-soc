@@ -13,7 +13,7 @@ import friscv_zsbl_rom_pkg::*;
 
 module friscv_zsbl_rom #(
     parameter int unsigned SIZE_BYTES = 64,
-    parameter int unsigned BASE_ADDR  = 32'h20000
+    parameter int unsigned BASE_ADDR  = 32'h0020_0000
 ) (
     input  logic  i_clk,
     input  addr_t i_addr,

@@ -111,9 +111,9 @@ friscv_mem_if cpu_if ();
 logic [63:0] mtime;
 logic        msip, mtip, meip, seip;
 
-// Debug module base address
-localparam logic [31:0] DmBaseAddr = 32'h0001_0000;
-localparam logic [31:0] DmSize     = 32'h0000_1000;
+localparam logic [31:0] DmBaseAddr   = 32'h0010_0000;
+localparam logic [31:0] DmSize       = 32'h0000_1000;
+localparam logic [31:0] ZsblBaseAddr = 32'h0020_0000;
 
 logic ndmreset;   // non-debug-module reset request from the DM
 logic debug_req;  // async debug request to the hart
@@ -130,7 +130,7 @@ assign o_soc_rstn = soc_rstn;
 friscv_cpu_subsystem_core #(
     .RAM_BASE            ( MemBase          ),
     .ZSBL_ROM_SIZE_BYTES ( ZsblRomSizeBytes ),
-    .ZSBL_BASE           ( 32'h20000        ),
+    .ZSBL_BASE           ( ZsblBaseAddr     ),
     .DM_BASE             ( DmBaseAddr       )
 ) cpu_subsystem (
     .i_clk     ( i_clk     ),
@@ -148,6 +148,17 @@ friscv_cpu_subsystem_core #(
 // ============================================================
 // Memory hub {cpu, dm} -> {soc, mem}
 // ============================================================
+
+if (SramBase < DmBaseAddr + DmSize &&
+    DmBaseAddr < SramBase + SramSize) begin : gen_chk_sram_dm
+    $error("the SRAM window (%08x + %08x) covers the debug module at %08x",
+           SramBase, SramSize, DmBaseAddr);
+end
+if (ZsblRomSizeBytes > 0 && SramBase < ZsblBaseAddr + ZsblRomSizeBytes &&
+    ZsblBaseAddr < SramBase + SramSize) begin : gen_chk_sram_zsbl
+    $error("the SRAM window (%08x + %08x) covers the ZSBL ROM at %08x",
+           SramBase, SramSize, ZsblBaseAddr);
+end
 
 logic [Ways-1:0] llcsel;
 logic            crpsel;

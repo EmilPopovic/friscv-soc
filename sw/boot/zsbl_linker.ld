@@ -7,7 +7,7 @@ ENTRY( _start )
 
 SECTIONS
 {
-  . = 0x20000;
+  . = 0x200000;
 
   .text : {
     *(.text)

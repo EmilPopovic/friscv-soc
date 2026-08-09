@@ -7,8 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Moved ocm from `0x8000_0000` (aliasing external memory) to `0x0000_0000`.
+
 ### Changed
 
+- The debug module moves from `0x0001_0000` to `0x0010_0000` and the ZSBL ROM
+  from `0x0002_0000` to `0x0020_0000`, above the largest OCM any target builds
+  with.
 - The PYNQ-Z2 target now remaps its external memory window to PS address
   `0x0010_0000` instead of `0x0000_0000`, keeping clear of the first 1 MiB of
   DRAM, which is reserved.
