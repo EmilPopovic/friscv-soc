@@ -20,9 +20,9 @@ make jtag ELF=/path/to/program.elf
 Direct JTAG memory access:
 
 ```bash
-obj_dir_soc/friscv_soc read <address> <size>
-obj_dir_soc/friscv_soc write <address> <byte> [byte ...]
-obj_dir_soc/friscv_soc load <program.elf>
+obj_dir_soc/vernii_soc read <address> <size>
+obj_dir_soc/vernii_soc write <address> <byte> [byte ...]
+obj_dir_soc/vernii_soc load <program.elf>
 ```
 
 ## HyperRAM model
@@ -45,7 +45,7 @@ environment, so changing them needs no rebuild:
 ```bash
 for lat in 3 4 5 6 7; do
     FRISCV_HRAM_LATENCY=$lat FRISCV_HB_CFG=0:$lat \
-        obj_dir_soc/friscv_soc test program.elf
+        obj_dir_soc/vernii_soc test program.elf
 done
 ```
 

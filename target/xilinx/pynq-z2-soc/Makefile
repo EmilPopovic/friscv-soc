@@ -2,7 +2,7 @@ REPO_ROOT := $(abspath ../../..)
 BUILD     ?= build
 PART      ?= xc7z020clg400-1
 BOARD     ?= tul.com.tw:pynq-z2:part0:1.0
-TOP       ?= friscv_soc_pynq_ps
+TOP       ?= vernii_soc_pynq_ps
 VIVADO    ?= vivado
 
 SOC_FREQ_MHZ ?= 50
@@ -32,7 +32,7 @@ $(FLIST): $(REPO_ROOT)/Bender.yml $(REPO_ROOT)/Bender.lock $(wildcard src/*.sv)
 	sed -i '\|/obi_peripherals-[^/]*/hw/obi_uart/|d' $@
 	sed -i '\|/tech_cells_generic-[^/]*/src/fpga/tc_sram_xilinx\.sv$$|d' $@
 	echo "$(CURDIR)/src/tc_sram.sv" >> $@
-	echo "$(CURDIR)/src/friscv_soc_pynq_ps.sv" >> $@
+	echo "$(CURDIR)/src/vernii_soc_pynq_ps.sv" >> $@
 
 $(BUILD):
 	mkdir -p $@

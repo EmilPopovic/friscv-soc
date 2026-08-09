@@ -15,12 +15,12 @@
 
 namespace {
 
-#ifndef FRISCV_SOC_SRAM_BASE
-#define FRISCV_SOC_SRAM_BASE 0
+#ifndef VERNII_SRAM_BASE
+#define VERNII_SRAM_BASE 0
 #endif
 
-#ifndef FRISCV_SOC_SRAM_SIZE_BYTES
-#define FRISCV_SOC_SRAM_SIZE_BYTES 0x2000
+#ifndef VERNII_SRAM_SIZE_BYTES
+#define VERNII_SRAM_SIZE_BYTES 0x2000
 #endif
 
 constexpr uint32_t MEM_BASE = 0x80000000;
@@ -31,8 +31,8 @@ constexpr uint32_t HYPER_CFG_BASE = 0x50010000;
 constexpr uint32_t SCRATCH_ADDRESS = 0x40000000;
 constexpr uint32_t PARKED = 1;
 constexpr uint32_t PASS_VALUE = 0xaabbccdd;
-constexpr uint32_t SRAM_BASE = FRISCV_SOC_SRAM_BASE;
-constexpr uint32_t SRAM_SIZE = FRISCV_SOC_SRAM_SIZE_BYTES;
+constexpr uint32_t SRAM_BASE = VERNII_SOC_SRAM_BASE;
+constexpr uint32_t SRAM_SIZE = VERNII_SOC_SRAM_SIZE_BYTES;
 constexpr uint16_t RISCV_MACHINE = 243;
 constexpr uint64_t RUN_CYCLES = 2000;
 constexpr uint64_t TEST_CYCLES = 10000000;

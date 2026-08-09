@@ -19,7 +19,7 @@
 
 `timescale 1ns/1ps
 
-module friscv_soc import friscv_soc_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t; #(
+module vernii_soc import vernii_soc_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t; #(
     parameter int unsigned SramBase         = 32'h0000_0000,
     parameter int unsigned SramSize         = 32'h0000_2000,
     parameter int unsigned MemBase          = 32'h8000_0000,
@@ -32,10 +32,10 @@ module friscv_soc import friscv_soc_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinf
     parameter int unsigned NumStraps        = 13,
     parameter int unsigned NumExtRegSlv     = 1,
     parameter axi_pkg::xbar_rule_32_t [NumExtRegSlv-1:0] ExtRegSlvRules = '{default: '0},
-    parameter type axi_req_t = friscv_axi_req_t,
-    parameter type axi_rsp_t = friscv_axi_resp_t,
-    parameter type reg_req_t = friscv_reg_req_t,
-    parameter type reg_rsp_t = friscv_reg_rsp_t
+    parameter type axi_req_t = vernii_axi_req_t,
+    parameter type axi_rsp_t = vernii_axi_resp_t,
+    parameter type reg_req_t = vernii_reg_req_t,
+    parameter type reg_rsp_t = vernii_reg_rsp_t
 ) (
     input  logic  i_clk,
     input  logic  i_rstn,
@@ -346,7 +346,7 @@ end
 
 logic ext_mem_en;
 
-friscv_scb #(
+vernii_scb #(
     .NumPads    ( NumStraps ),
     .reg_req_t  ( reg_req_t ),
     .reg_rsp_t  ( reg_rsp_t ),

@@ -9,7 +9,7 @@
 `include "axi/typedef.svh"
 `include "register_interface/typedef.svh"
 
-package friscv_soc_pkg;
+package vernii_soc_pkg;
 
 localparam int unsigned AddrWidth    = 32;
 localparam int unsigned DataWidth    = 32;
@@ -23,8 +23,8 @@ typedef logic [StrbWidth-1:0]    strb_t;
 typedef logic [AxiIdWidth-1:0]   id_t;
 typedef logic [AxiUserWidth-1:0] user_t;
 
-`AXI_TYPEDEF_ALL(friscv_axi, addr_t, id_t, data_t, strb_t, user_t)
-`REG_BUS_TYPEDEF_ALL(friscv_reg, addr_t, data_t, strb_t)
+`AXI_TYPEDEF_ALL(vernii_axi, addr_t, id_t, data_t, strb_t, user_t)
+`REG_BUS_TYPEDEF_ALL(vernii_reg, addr_t, data_t, strb_t)
 
 localparam int unsigned NumIntRegPorts = 8;
 

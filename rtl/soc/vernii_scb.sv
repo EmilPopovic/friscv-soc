@@ -12,7 +12,7 @@
 
 `timescale 1ns/1ps
 
-module friscv_scb #(
+module vernii_scb #(
     parameter int unsigned NumPads    = 25,
     parameter int unsigned OcmLlcWays = 4,
     parameter type         reg_req_t  = logic,

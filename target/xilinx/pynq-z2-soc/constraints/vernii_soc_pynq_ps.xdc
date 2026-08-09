@@ -1,4 +1,4 @@
-# Design constraints for friscv_soc_pynq_ps.
+# Design constraints for vernii_soc_pynq_ps.
 
 # ---------------------------------------------------------------------------
 # Status indicators

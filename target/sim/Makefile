@@ -11,16 +11,16 @@ SOC_SRAM_BASE ?= 0
 SOC_SRAM_SIZE_BYTES ?= 8192
 SOC_MEM_SIZE ?= 16777216
 
-SOC_TOP = friscv_soc_sim
+SOC_TOP = vernii_soc_sim
 SOC_DIR ?= obj_dir_soc
-SOC_BIN = $(SOC_DIR)/friscv_soc
+SOC_BIN = $(SOC_DIR)/vernii_soc
 SOC_CPP = cpp/elf_loader.cpp cpp/paged_mem.cpp $(SOC_ONLY_CPP)
 
 sources.f: ../../Bender.yml ../../Bender.lock $(wildcard rtl/*.sv)
 	bender script flist-plus -t rtl -t synthesis > $@
 	sed -i '\|/opentitan_peripherals-[^/]*/src/spi_host/rtl/|d' $@
 	sed -i '\|/obi_peripherals-[^/]*/hw/obi_uart/|d' $@
-	echo "$(CURDIR)/rtl/friscv_soc_sim.sv" >> $@
+	echo "$(CURDIR)/rtl/vernii_soc_sim.sv" >> $@
 
 $(CORE_DIR):
 	mkdir -p $@
@@ -33,13 +33,13 @@ $(SOC_DIR):
 	mkdir -p $@
 
 soc: sources.f | $(SOC_DIR)
-	verilator --cc --exe --build -j 0 --top-module $(SOC_TOP) -Wno-fatal \
+	verilator --cc --exe --build --timescale 1ns/1ps -j 0 --top-module $(SOC_TOP) -Wno-fatal \
 		+define+ASSERTS_OFF \
 		-GSramBase=$(SOC_SRAM_BASE) -GSramSize=$(SOC_SRAM_SIZE_BYTES) \
 		-GMemSize=$(SOC_MEM_SIZE) $(SOC_PARAMS) \
-		-CFLAGS -DFRISCV_SOC_SRAM_BASE=$(SOC_SRAM_BASE) \
-		-CFLAGS -DFRISCV_SOC_SRAM_SIZE_BYTES=$(SOC_SRAM_SIZE_BYTES) \
-		--Mdir $(SOC_DIR) -f sources.f $(SOC_CPP) -o friscv_soc
+		-CFLAGS -DVERNII_SOC_SRAM_BASE=$(SOC_SRAM_BASE) \
+		-CFLAGS -DVERNII_SOC_SRAM_SIZE_BYTES=$(SOC_SRAM_SIZE_BYTES) \
+		--Mdir $(SOC_DIR) -f sources.f $(SOC_CPP) -o vernii_soc
 
 jtag: soc
 	@test -n "$(ELF)" || { echo "usage: make jtag ELF=<program.elf>" >&2; exit 1; }

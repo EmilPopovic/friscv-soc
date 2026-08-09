@@ -13,7 +13,7 @@
 .equ SCB_SCRATCH0, 0x00
 .equ SCB_STRAPA,   0x04
 
-# gen_zsbl_rom.py checks these against friscv_soc.sv
+# gen_zsbl_rom.py checks these against vernii_soc.sv
 .equ PINMUX_BASE,  0x40001000    # one word per pad
 .equ QSPI_PAD_BASE, 5            # Qspi0PadBase, PA5 = IO0
 .equ PAD_IO0,      (QSPI_PAD_BASE + 0) * 4

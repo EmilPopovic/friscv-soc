@@ -2,9 +2,9 @@
 
 #include <cstdint>
 
-#include "Vfriscv_soc_sim.h"
+#include "Vvernii_soc_sim.h"
 
-using Dut = Vfriscv_soc_sim;
+using Dut = Vvernii_soc_sim;
 
 namespace dut {
 

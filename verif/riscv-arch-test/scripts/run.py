@@ -15,7 +15,7 @@ TARGETS = {
     ),
     "soc": (
         ROOT / "elfs-soc",
-        SIM_ROOT / "obj_dir_soc_act" / "friscv_soc",
+        SIM_ROOT / "obj_dir_soc_act" / "vernii_soc",
     ),
 }
 

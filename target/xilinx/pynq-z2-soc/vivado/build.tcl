@@ -52,7 +52,7 @@ if {[llength $headers]} {
     set_property is_global_include true [get_files $headers]
 }
 read_verilog $target/src/${top}_wrap.v
-read_xdc $target/constraints/friscv_soc_pynq_ps.xdc
+read_xdc $target/constraints/vernii_soc_pynq_ps.xdc
 
 create_bd_design bd
 update_compile_order -fileset sources_1

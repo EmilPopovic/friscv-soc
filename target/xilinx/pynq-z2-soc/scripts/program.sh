@@ -3,14 +3,14 @@
 # SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 
 # Set JP4 to JTAG, connect the PROG micro-USB and power on, then:
-#   scripts/program.sh                  program build/friscv_soc_pynq_ps.bit
+#   scripts/program.sh                  program build/vernii_soc_pynq_ps.bit
 #   scripts/program.sh other.bit        program another bitstream
 
 set -euo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 cd "$HERE/.."
 
-BIT=${1:-build/friscv_soc_pynq_ps.bit}
+BIT=${1:-build/vernii_soc_pynq_ps.bit}
 
 [ -f "$BIT" ] || {
     echo "no bitstream at $BIT, run 'make bitstream' first" >&2

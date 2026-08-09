@@ -45,15 +45,15 @@ if [ "${BOOT:-jtag}" = qspi ]; then
     python3 "$BOOT_SRC/mkflash.py" "$DIR/stage1.bin" "$IMAGE" "$DIR/flash.bin"
 
     # The first stage sets the divisor and the cache ways itself
-    exec env FRISCV_UART_DIV="$UART_DIV" FRISCV_TEST_CYCLES="$CYCLES" \
-        "./$DIR/friscv_soc" qspiboot "$DIR/flash.bin"
+    exec env VERNII_UART_DIV="$UART_DIV" VERNII_TEST_CYCLES="$CYCLES" \
+        "./$DIR/vernii_soc" qspiboot "$DIR/flash.bin"
 fi
 
 python3 "$HERE/flat2elf.py" "$IMAGE" "$DIR/aos.elf"
 
 # The boot stub expects the baud rate to be set already, as a real boot ROM
 # would, and never programs the divisor itself
-FRISCV_LLCSEL="$LLCSEL" \
-FRISCV_UART_DIV="$UART_DIV" \
-FRISCV_TEST_CYCLES="$CYCLES" \
-    "./$DIR/friscv_soc" test "$DIR/aos.elf"
+VERNII_LLCSEL="$LLCSEL" \
+VERNII_UART_DIV="$UART_DIV" \
+VERNII_TEST_CYCLES="$CYCLES" \
+    "./$DIR/vernii_soc" test "$DIR/aos.elf"

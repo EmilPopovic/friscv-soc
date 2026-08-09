@@ -2,7 +2,7 @@ sources.f: Bender.yml Bender.lock $(wildcard target/sim/rtl/*.sv)
 	bender script flist-plus -t rtl -t synthesis > $@
 	sed -i '\|/opentitan_peripherals-[^/]*/src/spi_host/rtl/|d' $@
 	sed -i '\|/obi_peripherals-[^/]*/hw/obi_uart/|d' $@
-	echo "$(CURDIR)/target/sim/rtl/friscv_soc_sim.sv" >> $@
+	echo "$(CURDIR)/target/sim/rtl/vernii_soc_sim.sv" >> $@
 
 .PHONY: sim
 sim:

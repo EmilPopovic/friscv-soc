@@ -8,7 +8,7 @@
 
 `default_nettype none
 
-module friscv_soc_pynq_ps import friscv_soc_pkg::*, axi_pkg::xbar_rule_32_t; #(
+module vernii_soc_pynq_ps import vernii_soc_pkg::*, axi_pkg::xbar_rule_32_t; #(
     parameter int unsigned SramBase  = 32'h0000_0000,
     parameter int unsigned SramSize  = 32'h0008_0000,
     parameter int unsigned MemBase   = 32'h8000_0000,
@@ -109,11 +109,11 @@ assign led_o[1] = 1'b1;              // LD4 blue:  bitstream configured
 assign led_o[2] = ~soc_rstn;         // LD4 red:   SoC held in reset
 assign led_o[3] = heartbeat_cnt[23]; // LD4 green: free-running heartbeat
 
-friscv_axi_req_t  axi_req;
-friscv_axi_resp_t axi_rsp;
+vernii_axi_req_t  axi_req;
+vernii_axi_resp_t axi_rsp;
 
-friscv_reg_req_t [0:0] reg_ext_req;
-friscv_reg_rsp_t [0:0] reg_ext_rsp;
+vernii_reg_req_t [0:0] reg_ext_req;
+vernii_reg_rsp_t [0:0] reg_ext_rsp;
 
 assign reg_ext_rsp[0].rdata = '0;
 assign reg_ext_rsp[0].error = 1'b0;
@@ -158,7 +158,7 @@ end
 assign qspi_sck_o = qspi_sck;
 assign qspi_cs_o  = qspi_cs;
 
-friscv_soc #(
+vernii_soc #(
     .SramBase         ( SramBase                        ),
     .SramSize         ( SramSize                        ),
     .MemBase          ( MemBase                         ),
@@ -168,7 +168,7 @@ friscv_soc #(
     .NumStraps        ( NumStraps                       ),
     .NumExtRegSlv     ( 1                               ),
     .ExtRegSlvRules   ( ExtRegSlvRules                  )
-) i_friscv_soc (
+) i_vernii_soc (
     .i_clk         ( clk_i                  ),
     .i_rstn        ( soc_rstn               ),
     .o_por_rstn    (                        ),

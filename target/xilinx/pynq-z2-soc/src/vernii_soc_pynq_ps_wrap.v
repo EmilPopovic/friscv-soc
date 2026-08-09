@@ -6,7 +6,7 @@
 // at your option, the Apache License version 2.0.
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
 
-module friscv_soc_pynq_ps_wrap #(
+module vernii_soc_pynq_ps_wrap #(
     parameter SramBase  = 32'h8000_0000,
     parameter SramSize  = 32'h0008_0000,
     parameter MemBase   = 32'h8000_0000,
@@ -84,7 +84,7 @@ module friscv_soc_pynq_ps_wrap #(
     output wire        m_axi_rready
 );
 
-friscv_soc_pynq_ps #(
+vernii_soc_pynq_ps #(
     .SramBase  ( SramBase  ),
     .SramSize  ( SramSize  ),
     .MemBase   ( MemBase   ),
@@ -93,7 +93,7 @@ friscv_soc_pynq_ps #(
     .ZsblRom   ( ZsblRom   ),
     .NumGpio   ( NumGpio   ),
     .NumStraps ( NumStraps )
-) i_friscv_soc_pynq_ps (
+) i_vernii_soc_pynq_ps (
     .clk_i  ( clk_i  ),
     .rstn_i ( rstn_i ),
 

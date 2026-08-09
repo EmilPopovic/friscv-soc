@@ -8,7 +8,7 @@
 
 `timescale 1ns/1ps
 
-module friscv_soc_sim import friscv_soc_pkg::*; #(
+module vernii_soc_sim import vernii_soc_pkg::*; #(
     parameter int unsigned SramBase         = 32'h0000_0000,
     parameter int unsigned SramSize         = 32'h0000_2000,
     parameter int unsigned MemBase          = 32'h8000_0000,
@@ -92,11 +92,11 @@ localparam axi_pkg::xbar_rule_32_t [NumExtRegSlv-1:0] ExtRegSlvRules = '{
     '{ idx: PinmuxSlv,   start_addr: 32'h4000_1000, end_addr: 32'h4000_2000 }
 };
 
-friscv_axi_req_t  axi_req;
-friscv_axi_resp_t axi_rsp;
+vernii_axi_req_t  axi_req;
+vernii_axi_resp_t axi_rsp;
 
-friscv_reg_req_t [NumExtRegSlv-1:0] reg_ext_req;
-friscv_reg_rsp_t [NumExtRegSlv-1:0] reg_ext_rsp;
+vernii_reg_req_t [NumExtRegSlv-1:0] reg_ext_req;
+vernii_reg_rsp_t [NumExtRegSlv-1:0] reg_ext_rsp;
 
 for (genvar i = 0; i < NumExtRegSlv; i++) begin : gen_reg_ext_sink
     assign reg_ext_rsp[i].rdata = '0;
@@ -104,7 +104,7 @@ for (genvar i = 0; i < NumExtRegSlv; i++) begin : gen_reg_ext_sink
     assign reg_ext_rsp[i].ready = 1'b1;
 end
 
-friscv_soc #(
+vernii_soc #(
     .SramBase         ( SramBase         ),
     .SramSize         ( SramSize         ),
     .MemBase          ( MemBase          ),
@@ -117,7 +117,7 @@ friscv_soc #(
     .NumStraps        ( NumStraps        ),
     .NumExtRegSlv     ( NumExtRegSlv     ),
     .ExtRegSlvRules   ( ExtRegSlvRules   )
-) i_friscv_soc (
+) i_vernii_soc (
     .i_clk         ( i_clk         ),
     .i_rstn        ( i_rstn        ),
     .o_por_rstn    (               ),

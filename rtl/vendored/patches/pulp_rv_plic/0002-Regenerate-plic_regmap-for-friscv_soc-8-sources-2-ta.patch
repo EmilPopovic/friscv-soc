@@ -1,7 +1,7 @@
 From ec47324981b33acfbd092f317aa6c2e5ca87606d Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Emil=20Popovi=C4=87?= <mail@emilpopovic.me>
 Date: Mon, 13 Jul 2026 14:20:56 +0200
-Subject: [PATCH 2/2] Regenerate plic_regmap for friscv_soc (8 sources, 2
+Subject: [PATCH 2/2] Regenerate plic_regmap for vernii_soc (8 sources, 2
  targets, max-prio 1)
 
 Generated with: gen_plic_addrmap.py -s 8 -t 2 -p 1
