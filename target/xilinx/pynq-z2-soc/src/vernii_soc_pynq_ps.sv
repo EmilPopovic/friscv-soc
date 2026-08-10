@@ -173,7 +173,6 @@ vernii_soc #(
     .i_rstn        ( soc_rstn               ),
     .o_por_rstn    (                        ),
     .o_soc_rstn    (                        ),
-    .o_clk_out     (                        ),
     .o_end         ( soc_end                ),
     .o_axi_mem_req ( axi_req                ),
     .i_axi_mem_rsp ( axi_rsp                ),

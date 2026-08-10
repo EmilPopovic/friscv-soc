@@ -23,7 +23,6 @@ module vernii_soc_sim import vernii_pkg::*; #(
     input  logic i_clk,
     input  logic i_rstn,
 
-    output logic o_clk_out,
     output logic o_end,
 
     input  logic i_uart_rx,
@@ -122,7 +121,6 @@ vernii_soc #(
     .i_rstn        ( i_rstn        ),
     .o_por_rstn    (               ),
     .o_soc_rstn    (               ),
-    .o_clk_out     ( o_clk_out     ),
     .o_end         ( o_end         ),
     .o_axi_mem_req ( axi_req       ),
     .i_axi_mem_rsp ( axi_rsp       ),
