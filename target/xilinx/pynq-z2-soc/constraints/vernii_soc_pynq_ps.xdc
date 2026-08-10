@@ -1,12 +1,6 @@
-# Design constraints for vernii_soc_pynq_ps.
+# Design constraints for vernii_soc_pynq_ps
 
-# ---------------------------------------------------------------------------
 # Status indicators
-#
-# The four discrete LEDs (LD0-LD3) belong to the SoC GPIO block, so the
-# bring-up indicators live on the two RGB LEDs instead. Out of reset LD4 shows
-# blue plus a blinking green; it turns red while the SoC is held in reset.
-# ---------------------------------------------------------------------------
 set_property -dict { PACKAGE_PIN L14 IOSTANDARD LVCMOS33 } [get_ports {led_o[0]}] ;# LD5 green: program signalled completion
 set_property -dict { PACKAGE_PIN L15 IOSTANDARD LVCMOS33 } [get_ports {led_o[1]}] ;# LD4 blue:  bitstream configured
 set_property -dict { PACKAGE_PIN N15 IOSTANDARD LVCMOS33 } [get_ports {led_o[2]}] ;# LD4 red:   SoC held in reset
@@ -91,10 +85,57 @@ set_property -dict { PACKAGE_PIN U8  IOSTANDARD LVCMOS33 } [get_ports {gpio_io[2
 set_property PULLDOWN true [get_ports {gpio_io[*]}]
 set_property PULLUP   true [get_ports {qspi_sd_io[*]}]
 
-# JTAG TCK, 10 MHz
+# Clocks
 create_clock -period 100.000 -name jtag_tck [get_ports jtag_tck_i]
-set_clock_groups -asynchronous -group [get_clocks jtag_tck]
 
+set jtag_clk [get_clocks jtag_tck]
+
+set soc_clk [get_clocks -quiet clk_fpga_0]
+if {[llength $soc_clk] == 0} {
+    # Name-independent fallback: every clock in the design that is not TCK.
+    set soc_clk [remove_from_collection [all_clocks] $jtag_clk]
+}
+
+if {[llength $soc_clk] == 0} {
+    send_msg_id {VERNII 1-1} CRITICAL_WARNING \
+        "SoC clock not found; CDC, JTAG and QSPI timing constraints were NOT applied."
+} else {
+
+set soc_clk_ref [lindex $soc_clk 0]
+
+set jtag_period [get_property PERIOD $jtag_clk]
+set soc_period  [get_property PERIOD $soc_clk_ref]
+set cdc_budget  [expr {$jtag_period < $soc_period ? $jtag_period : $soc_period}]
+
+set dft_tck_sel [get_pins -quiet -hier -filter {NAME =~ *i_dft_tck_mux*/S}]
+if {[llength $dft_tck_sel]} { set_case_analysis 0 $dft_tck_sel }
+
+# JTAG <-> SoC clock domain crossing
+set_max_delay -datapath_only -from $jtag_clk -to $soc_clk  $cdc_budget
+set_max_delay -datapath_only -from $soc_clk  -to $jtag_clk $cdc_budget
+
+set_bus_skew -from $jtag_clk -to $soc_clk  $soc_period
+set_bus_skew -from $soc_clk  -to $jtag_clk $jtag_period
+
+# JTAG interface timing
+set_input_delay  -clock $jtag_clk -clock_fall -max 20.000 [get_ports {jtag_tms_i jtag_tdi_i}]
+set_input_delay  -clock $jtag_clk -clock_fall -min  0.000 [get_ports {jtag_tms_i jtag_tdi_i}]
+
+set_output_delay -clock $jtag_clk -max 20.000 [get_ports jtag_tdo_o]
+set_output_delay -clock $jtag_clk -min  0.000 [get_ports jtag_tdo_o]
+
+# QSPI0 interface timing
+set qspi_outputs [get_ports {qspi_sck_o qspi_cs_o[*] qspi_sd_io[*]}]
+
+set_output_delay -clock $soc_clk_ref -max  3.000 $qspi_outputs
+set_output_delay -clock $soc_clk_ref -min -3.000 $qspi_outputs
+
+set_input_delay  -clock $soc_clk_ref -max  8.000 [get_ports {qspi_sd_io[*]}]
+set_input_delay  -clock $soc_clk_ref -min  1.000 [get_ports {qspi_sd_io[*]}]
+
+}
+
+# Asynchronous I/O
 set_false_path -from [get_ports {gpio_io[*]}]
 set_false_path -to   [get_ports {gpio_io[*]}]
 set_false_path -from [get_ports uart_rx_i]

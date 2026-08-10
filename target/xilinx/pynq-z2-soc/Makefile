@@ -27,7 +27,8 @@ VIV_ENV = OUTDIR=$(CURDIR)/$(BUILD) FLIST=$(CURDIR)/$(FLIST) PART=$(PART) \
 all: bitstream
 
 $(FLIST): $(REPO_ROOT)/Bender.yml $(REPO_ROOT)/Bender.lock $(wildcard src/*.sv)
-	bender script flist-plus -t rtl -t synthesis -t fpga -t xilinx > $@
+	bender script flist-plus -t rtl -t synthesis -t fpga -t xilinx \
+		-t tech_cells_generic_include_tc_sync > $@
 	sed -i '\|/opentitan_peripherals-[^/]*/src/spi_host/rtl/|d' $@
 	sed -i '\|/obi_peripherals-[^/]*/hw/obi_uart/|d' $@
 	sed -i '\|/tech_cells_generic-[^/]*/src/fpga/tc_sram_xilinx\.sv$$|d' $@

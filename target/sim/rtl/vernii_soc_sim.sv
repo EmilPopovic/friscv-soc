@@ -125,7 +125,6 @@ vernii_soc #(
     .o_end         ( o_end         ),
     .o_axi_mem_req ( axi_req       ),
     .i_axi_mem_rsp ( axi_rsp       ),
-    .o_axi_mem_en  (               ),
     .o_reg_ext_req ( reg_ext_req   ),
     .i_reg_ext_rsp ( reg_ext_rsp   ),
     .i_strap       ( i_strap       ),

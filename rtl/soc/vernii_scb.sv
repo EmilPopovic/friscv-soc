@@ -54,28 +54,47 @@ assign do_write = reg_req_i.valid && reg_req_i.write;
 logic [31:0]           r_scratch0;  // SCRATCH0
 logic                  r_hb_en;     // HBCTL.HB_EN
 logic                  r_strapped;  // STRAPA sampled flag
+logic [2:0]            r_strap_dly;
 logic [NumPads-1:0]    r_strapa;    // STRAPA
 logic [OcmLlcWays-1:0] r_llcsel;    // LLCSEL
 logic                  r_crpsel;    // CRPSEL
 logic                  r_llcinv;    // LLCINV
 
+logic [NumPads-1:0] strap_sync;
+
+for (genvar i = 0; i < NumPads; i++) begin : gen_strap_sync
+    tc_sync #(
+        .Stages     ( 2    ),
+        .ResetValue ( 1'b0 )
+    ) sync_strap (
+        .clk_i,
+        .rst_ni,
+        .serial_i ( strap_i[i]   ),
+        .serial_o ( strap_sync[i])
+    );
+end
+
 always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
-        r_scratch0 <= 32'h0;
-        r_hb_en    <= 1'b0;
-        r_strapped <= 1'b0;
-        r_strapa   <= '0;
-        r_llcsel   <= '0;
-        r_crpsel   <= '0;
-        r_llcinv   <= 1'b0;
+        r_scratch0  <= 32'h0;
+        r_hb_en     <= 1'b0;
+        r_strapped  <= 1'b0;
+        r_strap_dly <= 3'h0;
+        r_strapa    <= '0;
+        r_llcsel    <= '0;
+        r_crpsel    <= '0;
+        r_llcinv    <= 1'b0;
     end else begin
         // Write one to request an invalidate, then self-clear
         r_llcinv <= do_write && off == OFF_LLCINV && reg_req_i.wstrb[0] && reg_req_i.wdata[0];
 
         // Capture the pad inputs once, on the first cycle out of reset
         if (!r_strapped) begin
-            r_strapa   <= strap_i;
-            r_strapped <= 1'b1;
+            r_strap_dly <= r_strap_dly + 1'b1;
+            if (&r_strap_dly) begin
+                r_strapa   <= strap_sync;
+                r_strapped <= 1'b1;
+            end
         end
 
         if (do_write && off == OFF_SCRATCH0) begin

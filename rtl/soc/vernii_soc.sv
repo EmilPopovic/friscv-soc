@@ -47,7 +47,6 @@ module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t;
     // External memory
     output axi_req_t o_axi_mem_req,
     input  axi_rsp_t i_axi_mem_rsp,
-    output logic     o_axi_mem_en,
 
     // External register slaves
     output reg_req_t [NumExtRegSlv-1:0] o_reg_ext_req,
@@ -360,8 +359,6 @@ vernii_scb #(
     .o_crpsel  ( crpsel               ),
     .o_llcinv  ( llcinv               )
 );
-
-assign o_axi_mem_en = ext_mem_en;
 
 // ============================================================
 // External memory interface
