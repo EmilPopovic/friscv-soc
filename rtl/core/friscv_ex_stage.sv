@@ -169,7 +169,7 @@ generate if ((ENABLE_MUL && !ENABLE_FAST_MUL) || ENABLE_DIV) begin : gen_muldiv
     assign start = muldiv_en && !started && !done_hold;
     assign flush = stage_flush_in || trap_commit_in;
 
-    always_ff @(posedge clk_in) begin
+    always_ff @(posedge clk_in or negedge rst_n_in) begin
         if (!rst_n_in || flush || !muldiv_en || (done_hold && !stage_stall_in)) begin
             started   <= 1'b0;
             done_hold <= 1'b0;

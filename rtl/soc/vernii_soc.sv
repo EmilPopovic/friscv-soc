@@ -29,6 +29,7 @@ module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t;
     parameter int unsigned ZsblRomSizeBytes = 144,
     parameter int unsigned NumStraps        = 13,
     parameter int unsigned NumExtRegSlv     = 1,
+    parameter bit          HaltOnEnd        = 0,
     parameter axi_pkg::xbar_rule_32_t [NumExtRegSlv-1:0] ExtRegSlvRules = '{default: '0},
     parameter type axi_req_t = vernii_axi_req_t,
     parameter type axi_rsp_t = vernii_axi_resp_t,
@@ -81,13 +82,22 @@ module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t;
 );
 
 logic por_rstn;  // power-on reset synchronizer
+logic soc_rstn, soc_rstn_async;
 
-rstgen i_rstgen (
+rstgen i_rstgen_por (
     .clk_i       ( i_clk    ),
     .rst_ni      ( i_rstn   ),
     .test_mode_i ( 1'b0     ),
     .rst_no      ( por_rstn ),
     .init_no     (          )
+);
+
+rstgen i_rstgen_soc (
+    .clk_i       ( i_clk          ),
+    .rst_ni      ( soc_rstn_async ),
+    .test_mode_i ( 1'b0           ),
+    .rst_no      ( soc_rstn       ),
+    .init_no     (                )
 );
 
 // ============================================================
@@ -109,17 +119,17 @@ logic debug_req;  // async debug request to the hart
 // System reset asserted by the power-on reset or by the debugger's ndmreset.
 // Everything except the debug module (dm_top) and the JTAG DTM (dmi_jtag) runs
 // on this reset, so an ndmreset resets the whole SoC while debug stays alive.
-logic soc_rstn;
-assign soc_rstn = por_rstn & ~ndmreset;
+assign soc_rstn_async = por_rstn & ~ndmreset;
 
 assign o_por_rstn = por_rstn;
 assign o_soc_rstn = soc_rstn;
 
 friscv_cpu_subsystem_core #(
-    .RAM_BASE            ( MemBase          ),
-    .ZSBL_ROM_SIZE_BYTES ( ZsblRomSizeBytes ),
-    .ZSBL_BASE           ( ZsblBaseAddr     ),
-    .DM_BASE             ( DmBaseAddr       )
+    .RAM_BASE                   ( MemBase          ),
+    .ZSBL_ROM_SIZE_BYTES        ( ZsblRomSizeBytes ),
+    .ZSBL_BASE                  ( ZsblBaseAddr     ),
+    .DM_BASE                    ( DmBaseAddr       ),
+    .ENABLE_HALT_ON_END_ADDRESS ( HaltOnEnd        )
 ) cpu_subsystem (
     .i_clk     ( i_clk     ),
     .i_rstn    ( soc_rstn  ),

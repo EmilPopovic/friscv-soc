@@ -115,7 +115,8 @@ vernii_soc #(
     .ZsblRomSizeBytes ( ZsblRomSizeBytes ),
     .NumStraps        ( NumStraps        ),
     .NumExtRegSlv     ( NumExtRegSlv     ),
-    .ExtRegSlvRules   ( ExtRegSlvRules   )
+    .ExtRegSlvRules   ( ExtRegSlvRules   ),
+    .HaltOnEnd        ( 1                )
 ) i_vernii_soc (
     .i_clk         ( i_clk         ),
     .i_rstn        ( i_rstn        ),

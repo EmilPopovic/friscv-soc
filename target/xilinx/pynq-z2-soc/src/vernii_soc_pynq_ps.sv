@@ -159,15 +159,16 @@ assign qspi_sck_o = qspi_sck;
 assign qspi_cs_o  = qspi_cs;
 
 vernii_soc #(
-    .SramBase         ( SramBase                        ),
-    .SramSize         ( SramSize                        ),
-    .MemBase          ( MemBase                         ),
-    .MemSize          ( MemSize                         ),
-    .EnablePlic       ( 1'b1                            ),
+    .SramBase         ( SramBase                         ),
+    .SramSize         ( SramSize                         ),
+    .MemBase          ( MemBase                          ),
+    .MemSize          ( MemSize                          ),
+    .EnablePlic       ( 1'b1                             ),
     .ZsblRomSizeBytes ( (ZsblRom != 0) ? 32'd144 : 32'd0 ),
-    .NumStraps        ( NumStraps                       ),
-    .NumExtRegSlv     ( 1                               ),
-    .ExtRegSlvRules   ( ExtRegSlvRules                  )
+    .NumStraps        ( NumStraps                        ),
+    .NumExtRegSlv     ( 1                                ),
+    .ExtRegSlvRules   ( ExtRegSlvRules                   ),
+    .HaltOnEnd        ( 1'b1                             )
 ) i_vernii_soc (
     .i_clk         ( clk_i                  ),
     .i_rstn        ( soc_rstn               ),
