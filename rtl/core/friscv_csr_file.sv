@@ -177,13 +177,20 @@ assign dcsr_out       = csr.dcsr;
 
 assign ssip_out = csr.ssip;
 
+// Registered output of 64-bit compare
+logic stimecmp_result;
+always_ff @(posedge clk_in or negedge rst_n_in) begin
+    if (!rst_n_in) stimecmp_result <= 1'b0;
+    else           stimecmp_result <= (mtime_in >= {csr.stimecmph, csr.stimecmp});
+end
+
 // STIP has two sources:
 //  1) Hardware: when mtime >= stimecmp, and menvcfgh[31] enables this behavior
 //  2) Software: when M-mode or S-mode writes to the STIP bit in mip
 // stip_eff is the effective STIP value taking both into account. SEIP likewise
 // combines the mip bit with the external pin.
 logic stip_eff, seip_eff;
-assign stip_eff = csr.stip || (csr.menvcfgh[31] && (mtime_in >= {csr.stimecmph, csr.stimecmp}));
+assign stip_eff = csr.stip || (csr.menvcfgh[31] && stimecmp_result);
 assign seip_eff = csr.seip || seip_in;
 
 assign stip_eff_out = stip_eff;

@@ -28,6 +28,23 @@ module friscv_mem_hub import friscv_mem_pkg::*; #(
     input  logic            i_llcinv
 );
 
+`ifndef SYNTHESIS
+    initial begin : p_param_check
+        // MEM_BASE aligned to LINE_BYTES
+        assert (MEM_BASE % LINE_BYTES == 0)
+            else $fatal(1, "MEM_BASE must be aligned to LINE_BYTES, got %0x", MEM_BASE);
+        // SRAM_BASE aligned to LINE_BYTES
+        assert (SRAM_BASE % LINE_BYTES == 0)
+            else $fatal(1, "SRAM_BASE must be aligned to LINE_BYTES, got %0x", SRAM_BASE);
+        // MEM_SIZE is a power of 2
+        assert (MEM_SIZE != 0 && MEM_SIZE == 1 << $clog2(MEM_SIZE)) 
+            else $fatal(1, "MEM_SIZE must be a power of 2, got %0x", MEM_SIZE);
+        // SRAM_SIZE is a power of 2
+        assert (SRAM_SIZE != 0 && SRAM_SIZE == 1 << $clog2(SRAM_SIZE)) 
+            else $fatal(1, "SRAM_SIZE must be a power of 2, got %0x", SRAM_SIZE);
+    end
+`endif
+
 friscv_mem_if granted_if ();
 
 // ============================================================
