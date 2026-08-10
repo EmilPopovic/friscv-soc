@@ -1,5 +1,6 @@
 set here   [file dirname [file normalize [info script]]]
 set target [file dirname $here]
+set root   [file dirname [file dirname [file dirname $target]]]
 set outdir $::env(OUTDIR)
 set top    $::env(TOP)
 set part   $::env(PART)
@@ -52,7 +53,9 @@ if {[llength $headers]} {
     set_property is_global_include true [get_files $headers]
 }
 read_verilog $target/src/${top}_wrap.v
-read_xdc $target/constraints/vernii_soc_pynq_ps.xdc
+
+source $root/constraints/vernii_soc_cdc.tcl
+read_xdc -unmanaged $target/constraints/vernii_soc_pynq_ps.xdc
 
 create_bd_design bd
 update_compile_order -fileset sources_1

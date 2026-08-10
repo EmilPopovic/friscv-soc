@@ -92,8 +92,7 @@ set jtag_clk [get_clocks jtag_tck]
 
 set soc_clk [get_clocks -quiet clk_fpga_0]
 if {[llength $soc_clk] == 0} {
-    # Name-independent fallback: every clock in the design that is not TCK.
-    set soc_clk [remove_from_collection [all_clocks] $jtag_clk]
+    set soc_clk [get_clocks -quiet -filter {NAME != jtag_tck}]
 }
 
 if {[llength $soc_clk] == 0} {
@@ -103,19 +102,14 @@ if {[llength $soc_clk] == 0} {
 
 set soc_clk_ref [lindex $soc_clk 0]
 
-set jtag_period [get_property PERIOD $jtag_clk]
-set soc_period  [get_property PERIOD $soc_clk_ref]
-set cdc_budget  [expr {$jtag_period < $soc_period ? $jtag_period : $soc_period}]
-
 set dft_tck_sel [get_pins -quiet -hier -filter {NAME =~ *i_dft_tck_mux*/S}]
 if {[llength $dft_tck_sel]} { set_case_analysis 0 $dft_tck_sel }
 
 # JTAG <-> SoC clock domain crossing
-set_max_delay -datapath_only -from $jtag_clk -to $soc_clk  $cdc_budget
-set_max_delay -datapath_only -from $soc_clk  -to $jtag_clk $cdc_budget
-
-set_bus_skew -from $jtag_clk -to $soc_clk  $soc_period
-set_bus_skew -from $soc_clk  -to $jtag_clk $jtag_period
+if {[llength [info commands vernii_soc_cdc_constraints]] == 0} {
+    send_msg_id {VERNII 1-4} ERROR "constraints/vernii_soc_cdc.tcl was not sourced, the TCK crossing is undeclared."
+}
+vernii_soc_cdc_constraints $soc_clk $jtag_clk
 
 # JTAG interface timing
 set_input_delay  -clock $jtag_clk -clock_fall -max 20.000 [get_ports {jtag_tms_i jtag_tdi_i}]
@@ -129,6 +123,9 @@ set qspi_outputs [get_ports {qspi_sck_o qspi_cs_o[*] qspi_sd_io[*]}]
 
 set_output_delay -clock $soc_clk_ref -max  3.000 $qspi_outputs
 set_output_delay -clock $soc_clk_ref -min -3.000 $qspi_outputs
+
+set_multicycle_path -setup 2 -to $qspi_outputs
+set_multicycle_path -hold  1 -to $qspi_outputs
 
 set_input_delay  -clock $soc_clk_ref -max  8.000 [get_ports {qspi_sd_io[*]}]
 set_input_delay  -clock $soc_clk_ref -min  1.000 [get_ports {qspi_sd_io[*]}]
