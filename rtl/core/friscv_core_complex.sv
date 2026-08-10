@@ -11,8 +11,6 @@
  * Never instantiate a core without this wrapper.
  */
 
-`timescale 1ns / 1ps
-
 import friscv_pkg::*;
 
 module friscv_core_complex import friscv_mem_pkg::*; #(

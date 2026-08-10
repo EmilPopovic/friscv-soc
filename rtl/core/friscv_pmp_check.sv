@@ -13,8 +13,6 @@
  * If no i_access_* is set, o_fault will never assert.
  */
 
-`timescale 1ns / 1ps
-
 import friscv_pkg::*;
 
 module friscv_pmp_check import friscv_mem_pkg::*; #(

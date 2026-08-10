@@ -13,8 +13,6 @@
  * - Taking redirects (jumps, traps, mret/sret) and flushing in-flight fetches
  */
 
-`timescale 1ns / 1ps
-
 import friscv_pkg::*;
 
 module friscv_if_stage import friscv_mem_pkg::*; #(

@@ -13,8 +13,6 @@
  * for division. Inputs and outputs must be registered across pipeline stalls.
  */
 
-`timescale 1ns / 1ps
-
 import friscv_pkg::*;
 
 module friscv_muldiv import friscv_mem_pkg::*; (

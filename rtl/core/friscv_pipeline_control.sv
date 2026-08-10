@@ -13,8 +13,6 @@
  * This module mainly controls interactions between multiple stages, where the context of the entire pipeline is needed.
  */
 
-`timescale 1ns / 1ps
-
 import friscv_pkg::*;
 
 module friscv_pipeline_control import friscv_mem_pkg::*; (

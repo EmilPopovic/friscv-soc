@@ -12,8 +12,6 @@
  * Resets to 0.
  */
 
-`timescale 1ns / 1ps
-
 import friscv_pkg::*;
 
 module friscv_id_regfile import friscv_mem_pkg::*; (

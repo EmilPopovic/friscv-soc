@@ -19,8 +19,6 @@
  * xret_commit_out) that the CSR file executes without any trap knowledge of its own.
  */
 
-`timescale 1ns / 1ps
-
 import friscv_pkg::*;
 
 module friscv_trap_controller import friscv_mem_pkg::*; #(

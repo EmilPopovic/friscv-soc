@@ -20,8 +20,6 @@
  * the retiring CSR write on those cycles.
  */
 
-`timescale 1ns / 1ps
-
 import friscv_pkg::*;
 
 module friscv_csr_file import friscv_mem_pkg::*; #(

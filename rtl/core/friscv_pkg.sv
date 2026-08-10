@@ -38,8 +38,6 @@ v 2.3.0     Borna Janezic, Emil Popovic 2026_06, new gpio, qspi, prepare for pub
  * Do not put any module definitions in this package, only types and parameters.
  */
 
-`timescale 1ns / 1ps
-
 package friscv_pkg;
 
     import friscv_mem_pkg::*;

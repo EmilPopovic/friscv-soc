@@ -12,8 +12,6 @@
  * In a multi-core system, make sure that each core has a unique HART_ID, and that one core has HART_ID=0.
  */
 
-`timescale 1ns / 1ps
-
 import friscv_pkg::*;
 
 module friscv_core import friscv_mem_pkg::*; #(

@@ -12,8 +12,6 @@
  * and produces the data to be written back to the register file, as well as control signals for writing to CSRs and updating instret.
  */
 
-`timescale 1ns / 1ps
-
 import friscv_pkg::*;
 
 module friscv_wb_stage import friscv_mem_pkg::*; (

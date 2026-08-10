@@ -12,8 +12,6 @@
  * It asserts misaligned_out if the target address is not properly aligned, and the redirect should otherwise be taken.
  */
 
-`timescale 1ns / 1ps
-
 import friscv_pkg::*;
 
 module friscv_ex_stage_branch_unit import friscv_mem_pkg::*; (

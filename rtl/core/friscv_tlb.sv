@@ -22,8 +22,6 @@
  * This module is parametrized for both 32-bit and 64-bit implementations.
  */
 
-`timescale 1ns / 1ps
-
 import friscv_pkg::*;
 
 module friscv_tlb import friscv_mem_pkg::*; #(

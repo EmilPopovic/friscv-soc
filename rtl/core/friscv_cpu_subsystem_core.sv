@@ -14,8 +14,6 @@
  * See: friscv_cpu_subsystem_axi.sv for an example of using this core with an AXI4 external bus.
  */
 
-`timescale 1ns / 1ps
-
 import friscv_pkg::*;
 
 module friscv_cpu_subsystem_core import friscv_mem_pkg::*; #(

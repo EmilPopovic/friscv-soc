@@ -19,8 +19,6 @@
  * for one cycle to avoid repeat flushes that cause a livelock.
  */
 
-`timescale 1ns / 1ps
-
 import friscv_pkg::*;
 
 module friscv_ex_stage import friscv_mem_pkg::*; #(

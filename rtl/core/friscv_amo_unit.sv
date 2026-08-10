@@ -12,8 +12,6 @@
  * In the case of an error, wait will be deasserted immediately, and the upstream sees the error signal on the same cycle.
  */
 
-`timescale 1ns / 1ps
-
 import friscv_pkg::*;
 
 module friscv_amo_unit import friscv_mem_pkg::*; (

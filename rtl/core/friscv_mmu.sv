@@ -11,8 +11,6 @@
  * It handles virtual to physical address translation, TLB management, page fault generation, and memory interface arbitration.
  */
 
-`timescale 1ns / 1ps
-
 import friscv_pkg::*;
 
 module friscv_mmu import friscv_mem_pkg::*; #(
