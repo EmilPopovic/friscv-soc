@@ -17,8 +17,6 @@
 `include "axi/assign.svh"
 `include "apb/typedef.svh"
 
-`timescale 1ns/1ps
-
 module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t; #(
     parameter int unsigned SramBase         = 32'h0000_0000,
     parameter int unsigned SramSize         = 32'h0000_2000,

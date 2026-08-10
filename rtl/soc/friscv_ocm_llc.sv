@@ -6,8 +6,6 @@
 // at your option, the Apache License version 2.0.
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
 
-`timescale 1ns/1ps
-
 module friscv_ocm_llc import friscv_mem_pkg::*; #(
     parameter  int unsigned OCM_BASE    = 32'h0000_0000,
     parameter  int unsigned REGION_BASE = 32'h8000_0000,

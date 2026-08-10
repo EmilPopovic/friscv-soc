@@ -10,8 +10,6 @@
  * System Control Block
  */
 
-`timescale 1ns/1ps
-
 module vernii_scb #(
     parameter int unsigned NumPads    = 25,
     parameter int unsigned OcmLlcWays = 4,

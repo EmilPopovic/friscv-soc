@@ -6,8 +6,6 @@
 // at your option, the Apache License version 2.0.
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
 
-`timescale 1ns/1ps
-
 module friscv_mem_hub import friscv_mem_pkg::*; #(
     parameter int unsigned MEM_BASE   = 32'h8000_0000,
     parameter int unsigned MEM_SIZE   = 32'h8000_0000,
