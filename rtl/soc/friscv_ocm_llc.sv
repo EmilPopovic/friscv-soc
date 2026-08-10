@@ -134,9 +134,25 @@ end
 logic [WAYS-1:0] r_mode, w_mode_changed;
 assign w_mode_changed = i_way_is_cache ^ r_mode;
 
+// A way switching from cache to OCM is walked word by word and zeroed.
+// All other transactions are blocked until the zeroing is complete.
+logic [WAYS-1:0]       w_zero_ways;
+logic [WAY_ADDR_W-1:0] r_zero_addr;
+logic                  w_zero_busy, w_zero_last;
+
+assign w_zero_ways = r_mode & ~i_way_is_cache;
+assign w_zero_busy = |w_zero_ways;
+assign w_zero_last = w_zero_busy && (r_zero_addr == WAY_ADDR_W'(WAY_WORDS-1));
+
 always_ff @(posedge i_clk or negedge i_rstn) begin
-    if (!i_rstn) r_mode <= '0;
-    else         r_mode <= i_way_is_cache;
+    if (!i_rstn)          r_zero_addr <= '0;
+    else if (w_zero_last) r_zero_addr <= '0;
+    else if (w_zero_busy) r_zero_addr <= r_zero_addr + 1'b1;
+end
+
+always_ff @(posedge i_clk or negedge i_rstn) begin
+    if (!i_rstn)                          r_mode <= '0;
+    else if (!w_zero_busy || w_zero_last) r_mode <= i_way_is_cache;
 end
 
 logic [WAYS-1:0] w_inv_ways;
@@ -494,7 +510,14 @@ always_comb begin
                 w_way_be   [i] = w_be;
             end
         end else begin
-            if (w_ocm_way_sel == WAY_SEL_W'(i) && w_req && w_sel_ocm) begin
+            if (w_zero_ways[i]) begin
+                // Zeroing owns the port, no transaction can be granted meanwhile
+                w_way_req  [i] = 1'b1;
+                w_way_addr [i] = r_zero_addr;
+                w_way_we   [i] = 1'b1;
+                w_way_wdata[i] = '0;
+                w_way_be   [i] = '1;
+            end else if (w_ocm_way_sel == WAY_SEL_W'(i) && w_req && w_sel_ocm) begin
                 // OCM access
                 w_way_req  [i] = 1'b1;
                 w_way_addr [i] = w_ocm_addr;
