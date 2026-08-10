@@ -12,9 +12,7 @@
  * and produces the data to be written back to the register file, as well as control signals for writing to CSRs and updating instret.
  */
 
-import friscv_pkg::*;
-
-module friscv_wb_stage import friscv_mem_pkg::*; (
+module friscv_wb_stage import friscv_pkg::*, friscv_mem_pkg::*; (
     input  logic         clk_in,
     input  logic         rst_n_in,
 

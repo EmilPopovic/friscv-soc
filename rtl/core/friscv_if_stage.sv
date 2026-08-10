@@ -13,9 +13,7 @@
  * - Taking redirects (jumps, traps, mret/sret) and flushing in-flight fetches
  */
 
-import friscv_pkg::*;
-
-module friscv_if_stage import friscv_mem_pkg::*; #(
+module friscv_if_stage import friscv_pkg::*, friscv_mem_pkg::*; #(
     parameter int unsigned RESET_VEC = 32'h8000_0000
 ) (
     input  logic  clk_in,

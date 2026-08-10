@@ -11,9 +11,7 @@
  * It handles virtual to physical address translation, TLB management, page fault generation, and memory interface arbitration.
  */
 
-import friscv_pkg::*;
-
-module friscv_mmu import friscv_mem_pkg::*; #(
+module friscv_mmu import friscv_pkg::*, friscv_mem_pkg::*; #(
     parameter logic ENFORCE_PMP     = 0,
     parameter logic ENFORCE_PTW_PMP = 0,
     parameter int   PMP_ENTRIES     = 64,

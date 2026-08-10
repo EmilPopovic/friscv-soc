@@ -6,10 +6,7 @@
 // at your option, the Apache License version 2.0.
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
 
-import friscv_pkg::*;
-import friscv_zsbl_rom_pkg::*;
-
-module friscv_zsbl_rom import friscv_mem_pkg::*; #(
+module friscv_zsbl_rom import friscv_pkg::*, friscv_mem_pkg::*; #(
     parameter int unsigned SIZE_BYTES = 64,
     parameter int unsigned BASE_ADDR  = 32'h0020_0000
 ) (
@@ -17,6 +14,8 @@ module friscv_zsbl_rom import friscv_mem_pkg::*; #(
     input  addr_t i_addr,
     output inst_t o_data
 );
+
+import friscv_zsbl_rom_pkg::*;
 
 inst_t mem [SIZE_BYTES/4];
 

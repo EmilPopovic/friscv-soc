@@ -12,9 +12,7 @@
  * interface. A grant is held until the transaction completes, then priority rotates.
  */
 
-import friscv_pkg::*;
-
-module friscv_l1_arbiter import friscv_mem_pkg::*; (
+module friscv_l1_arbiter import friscv_pkg::*, friscv_mem_pkg::*; (
     input  logic       i_clk,
     input  logic       i_rstn,
 

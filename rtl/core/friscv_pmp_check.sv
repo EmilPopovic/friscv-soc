@@ -13,9 +13,7 @@
  * If no i_access_* is set, o_fault will never assert.
  */
 
-import friscv_pkg::*;
-
-module friscv_pmp_check import friscv_mem_pkg::*; #(
+module friscv_pmp_check import friscv_pkg::*, friscv_mem_pkg::*; #(
     parameter int PMP_ENTRIES = 64
 ) (
     input  addr_t                        i_pa,

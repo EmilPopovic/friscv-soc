@@ -12,9 +12,7 @@
  * In the case of an error, wait will be deasserted immediately, and the upstream sees the error signal on the same cycle.
  */
 
-import friscv_pkg::*;
-
-module friscv_amo_unit import friscv_mem_pkg::*; (
+module friscv_amo_unit import friscv_pkg::*, friscv_mem_pkg::*; (
     input  logic    i_clk,
     input  logic    i_rstn,
 

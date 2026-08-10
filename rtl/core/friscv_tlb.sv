@@ -22,9 +22,7 @@
  * This module is parametrized for both 32-bit and 64-bit implementations.
  */
 
-import friscv_pkg::*;
-
-module friscv_tlb import friscv_mem_pkg::*; #(
+module friscv_tlb import friscv_pkg::*, friscv_mem_pkg::*; #(
     parameter int   ENTRY_COUNT = 32,
     // If not enabled, any sfence.vma will flush all TLB entries
     parameter logic ENABLE_FINE_TLB_FLUSH = 0

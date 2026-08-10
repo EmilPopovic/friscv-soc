@@ -19,9 +19,7 @@
  * xret_commit_out) that the CSR file executes without any trap knowledge of its own.
  */
 
-import friscv_pkg::*;
-
-module friscv_trap_controller import friscv_mem_pkg::*; #(
+module friscv_trap_controller import friscv_pkg::*, friscv_mem_pkg::*; #(
     parameter int unsigned DM_BASE = 32'h0000_0000,
     parameter int unsigned DM_HALT_OFFSET = 32'h800,
     parameter int unsigned DM_EXC_OFFSET  = 32'h810,

@@ -21,9 +21,7 @@
  * friscv_csr_file, with the trap controller commanding CSR trap captures through a dedicated commit interface.
  */
 
-import friscv_pkg::*;
-
-module friscv_id_stage import friscv_mem_pkg::*; #(
+module friscv_id_stage import friscv_pkg::*, friscv_mem_pkg::*; #(
     parameter int unsigned HART_ID = 0,
     parameter int unsigned DM_BASE = 32'h0000_0000,
     parameter int unsigned DM_HALT_OFFSET = 32'h800,

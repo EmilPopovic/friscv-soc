@@ -12,9 +12,7 @@
  * Resets to 0.
  */
 
-import friscv_pkg::*;
-
-module friscv_id_regfile import friscv_mem_pkg::*; (
+module friscv_id_regfile import friscv_pkg::*, friscv_mem_pkg::*; (
     input  logic      clk_in,
     input  logic      rst_n_in,
 
@@ -32,7 +30,7 @@ data_t regfile [REGISTER_NUM];
 assign rs1_data_out  = regfile[rs1_sel_in];
 assign rs2_data_out  = regfile[rs2_sel_in];
 
-always @(posedge clk_in) begin
+always_ff @(posedge clk_in) begin
     if (!rst_n_in) for (int unsigned i = 0; i < REGISTER_NUM; i++) regfile[i] <= '0;
     else if (rd_sel_in != 0) regfile[rd_sel_in] <= rd_data_in;
 end

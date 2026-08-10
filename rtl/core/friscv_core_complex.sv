@@ -11,9 +11,7 @@
  * Never instantiate a core without this wrapper.
  */
 
-import friscv_pkg::*;
-
-module friscv_core_complex import friscv_mem_pkg::*; #(
+module friscv_core_complex import friscv_pkg::*, friscv_mem_pkg::*; #(
     parameter int unsigned HART_ID             = 0,
     parameter int unsigned RESET_VEC           = 32'h8000_0000,
     parameter int unsigned ZSBL_ROM_SIZE_BYTES = 0,

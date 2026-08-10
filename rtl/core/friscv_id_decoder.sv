@@ -6,12 +6,10 @@
 // at your option, the Apache License version 2.0.
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
 
-import friscv_pkg::*;
-
-module friscv_id_decoder import friscv_mem_pkg::*; #(
-    parameter logic ENABLE_EXTENSION_A        = 1,
-    parameter logic ENABLE_MUL                = 1,
-    parameter logic ENABLE_DIV                = 1
+module friscv_id_decoder import friscv_pkg::*, friscv_mem_pkg::*; #(
+    parameter logic ENABLE_EXTENSION_A = 1,
+    parameter logic ENABLE_MUL         = 1,
+    parameter logic ENABLE_DIV         = 1
 ) (
     input  instr_op_t ir_in,
     input  mode_e     mode_in,
