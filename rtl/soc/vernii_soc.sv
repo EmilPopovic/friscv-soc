@@ -636,15 +636,15 @@ spi_host #(
 
 localparam int unsigned NIrqSources = 8;
 logic [NIrqSources-1:0] plic_irq_sources;
-assign plic_irq_sources[0] = 1'b0;  // reserved
-assign plic_irq_sources[1] = uart0_irq;
-assign plic_irq_sources[2] = qspi0_irq_error;
-assign plic_irq_sources[3] = qspi0_irq_spi_event;
+assign plic_irq_sources[0] = uart0_irq;
+assign plic_irq_sources[1] = qspi0_irq_error;
+assign plic_irq_sources[2] = qspi0_irq_spi_event;
 // PA1..PA4 can be used as external interrupts
-assign plic_irq_sources[4] = gpio_a_irq[1];
-assign plic_irq_sources[5] = gpio_a_irq[2];
-assign plic_irq_sources[6] = gpio_a_irq[3];
-assign plic_irq_sources[7] = gpio_a_irq[4];
+assign plic_irq_sources[3] = gpio_a_irq[1];
+assign plic_irq_sources[4] = gpio_a_irq[2];
+assign plic_irq_sources[5] = gpio_a_irq[3];
+assign plic_irq_sources[6] = gpio_a_irq[4];
+assign plic_irq_sources[7] = 1'b0;  // unused
 
 // Two targets, context 0 is hart 0 M-mode (MEIP), context 1 is hart 0 S-mode (SEIP)
 localparam int unsigned NIrqTargets = 2;
