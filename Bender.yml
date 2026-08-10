@@ -9,7 +9,7 @@ dependencies:
   apb_uart:              { git: "https://github.com/pulp-platform/apb_uart.git",              version: 0.2.1  }
   axi:                   { git: "https://github.com/pulp-platform/axi.git",                   version: 0.39.1 }
   common_cells:          { git: "https://github.com/pulp-platform/common_cells.git",          version: 1.32.0 }
-  friscv-adapters:       { git: "https://github.com/EmilPopovic/friscv-adapters.git",         version: 0.1.1  }
+  friscv-adapters:       { git: "https://github.com/EmilPopovic/friscv-adapters.git",         version: 0.1.2  }
   friscv-mem-if:         { git: "https://github.com/EmilPopovic/friscv-mem-if.git",           version: 0.1.0  }
   opentitan_peripherals: { git: "https://github.com/pulp-platform/opentitan_peripherals.git", version: 0.4.0  }
   register_interface:    { git: "https://github.com/pulp-platform/register_interface.git",    version: 0.3.9  }

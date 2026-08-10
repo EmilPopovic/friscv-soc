@@ -32,12 +32,10 @@ logic  w_valid;
 inst_t r_data;
 
 assign w_word_offset = (i_addr - BASE_ADDR) >> 2;
-assign w_valid = (i_addr >= BASE_ADDR && w_word_offset < (SIZE_BYTES/4));
 
 always_ff @(posedge i_clk or negedge i_rstn) begin
-    if (!i_rstn)      r_data <= NOP;
-    else if (w_valid) r_data <= mem[w_word_offset];
-    else              r_data <= NOP;
+    if (!i_rstn) r_data <= NOP;
+    else         r_data <= mem[w_word_offset];
 end
 
 assign o_data = r_data;

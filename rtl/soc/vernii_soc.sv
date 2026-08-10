@@ -62,8 +62,10 @@ module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t;
     // JTAG
     input  logic  i_jtag_tck,
     input  logic  i_jtag_tms,
+    input  logic  i_jtag_trstn,
     input  logic  i_jtag_tdi,
     output logic  o_jtag_tdo,
+    output logic  o_jtag_tdo_oe,
 
     // QSPI0
     output logic       o_qspi_sck,
@@ -471,6 +473,18 @@ dm_top #(
     .dmi_resp_o           ( dmi_resp       )
 );
 
+logic jtag_trstn, jtag_trstn_async;
+
+assign jtag_trstn_async = i_rstn & i_jtag_trstn;
+
+rstgen i_rstgen_tck (
+    .clk_i       ( i_jtag_tck       ),
+    .rst_ni      ( jtag_trstn_async ),
+    .test_mode_i ( 1'b0             ),
+    .rst_no      ( jtag_trstn       ),
+    .init_no     (                  )
+);
+
 dmi_jtag #(
     .IdcodeValue ( 32'h00000DB3 )
 ) dmi (
@@ -489,10 +503,10 @@ dmi_jtag #(
 
     .tck_i            ( i_jtag_tck     ),
     .tms_i            ( i_jtag_tms     ),
-    .trst_ni          ( 1'b1           ),
+    .trst_ni          ( jtag_trstn     ),
     .td_i             ( i_jtag_tdi     ),
     .td_o             ( o_jtag_tdo     ),
-    .tdo_oe_o         (                )
+    .tdo_oe_o         ( o_jtag_tdo_oe  )
 );
 
 reg_to_mem #(

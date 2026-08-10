@@ -13,6 +13,7 @@ SocTestbench::SocTestbench() : ext_mem_(top_), flash_(top_) {
     top_.i_jtag_tck = 0;
     top_.i_jtag_tms = 1;
     top_.i_jtag_tdi = 0;
+    top_.i_jtag_trstn = 1;
     dut::clear_inputs(top_);
 
     eval();

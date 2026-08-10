@@ -122,8 +122,11 @@ void RemoteBitbang::set_pins(char command) {
 }
 
 void RemoteBitbang::reset(char command) {
-    bool system_reset = command == 's' || command == 'u';
+    unsigned pins = unsigned(command - 'r');
+    bool tap_reset = (pins >> 1) & 1;
+    bool system_reset = pins & 1;
 
+    top_.i_jtag_trstn = !tap_reset;
     top_.i_rstn = !system_reset;
     testbench_.run_cycles(JTAG_CYCLES);
 }
@@ -177,7 +180,7 @@ void RemoteBitbang::serve(uint16_t port) {
             if (command >= '0' && command <= '7') {
                 set_pins(command);
             } else if (command == 'R') {
-                response.push_back(top_.o_jtag_tdo ? '1' : '0');
+                response.push_back(dut::jtag_tdo(top_) ? '1' : '0');
             } else if (command >= 'r' && command <= 'u') {
                 reset(command);
             } else if (command == 'Q') {

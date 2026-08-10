@@ -30,8 +30,10 @@ module vernii_soc_sim import vernii_pkg::*; #(
 
     input  logic i_jtag_tck,
     input  logic i_jtag_tms,
+    input  logic i_jtag_trstn,
     input  logic i_jtag_tdi,
     output logic o_jtag_tdo,
+    output logic o_jtag_tdo_oe,
 
     input  logic [NumStraps-1:0] i_strap,
 
@@ -132,8 +134,10 @@ vernii_soc #(
     .o_uart_tx     ( o_uart_tx     ),
     .i_jtag_tck    ( i_jtag_tck    ),
     .i_jtag_tms    ( i_jtag_tms    ),
+    .i_jtag_trstn  ( i_jtag_trstn  ),
     .i_jtag_tdi    ( i_jtag_tdi    ),
     .o_jtag_tdo    ( o_jtag_tdo    ),
+    .o_jtag_tdo_oe ( o_jtag_tdo_oe ),
     .o_qspi_sck    ( o_qspi_sck    ),
     .o_qspi_sck_oe ( o_qspi_sck_oe ),
     .o_qspi_cs     ( o_qspi_cs     ),

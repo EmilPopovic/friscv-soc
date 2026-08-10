@@ -18,6 +18,10 @@ inline void set_strap(Dut& top, unsigned bit) {
     top.i_strap |= uint32_t(1) << bit;
 }
 
+inline bool jtag_tdo(const Dut& top) {
+    return top.o_jtag_tdo_oe != 0 && top.o_jtag_tdo != 0;
+}
+
 inline bool qspi_sck(const Dut& top) {
     return top.o_qspi_sck != 0;
 }
