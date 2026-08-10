@@ -10,7 +10,7 @@
 
 import friscv_pkg::*;
 
-module friscv_id_decoder #(
+module friscv_id_decoder import friscv_mem_pkg::*; #(
     parameter logic ENABLE_EXTENSION_A        = 1,
     parameter logic ENABLE_MUL                = 1,
     parameter logic ENABLE_DIV                = 1

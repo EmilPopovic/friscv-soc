@@ -24,7 +24,7 @@
 
 import friscv_pkg::*;
 
-module friscv_csr_file #(
+module friscv_csr_file import friscv_mem_pkg::*; #(
     parameter int unsigned HART_ID = 0,
 
     parameter logic ENFORCE_PMP = 0,

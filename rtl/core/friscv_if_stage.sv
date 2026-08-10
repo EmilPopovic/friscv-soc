@@ -17,7 +17,7 @@
 
 import friscv_pkg::*;
 
-module friscv_if_stage #(
+module friscv_if_stage import friscv_mem_pkg::*; #(
     parameter int unsigned RESET_VEC = 32'h8000_0000
 ) (
     input  logic  clk_in,

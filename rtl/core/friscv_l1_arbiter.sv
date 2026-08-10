@@ -16,7 +16,7 @@
 
 import friscv_pkg::*;
 
-module friscv_l1_arbiter (
+module friscv_l1_arbiter import friscv_mem_pkg::*; (
     input  logic       i_clk,
     input  logic       i_rstn,
 

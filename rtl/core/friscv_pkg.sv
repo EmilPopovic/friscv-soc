@@ -42,19 +42,16 @@ v 2.3.0     Borna Janezic, Emil Popovic 2026_06, new gpio, qspi, prepare for pub
 
 package friscv_pkg;
 
+    import friscv_mem_pkg::*;
+
     // Do not change to 64 yet, the core is still not parametrized everywhere correctly
     localparam int unsigned XLEN = 32;
-
-    localparam int unsigned ADDR_WIDTH = XLEN;
-    localparam int unsigned DATA_WIDTH = XLEN;
 
     localparam int unsigned REG_SEL_WIDTH = 5;
     localparam int unsigned REGISTER_NUM  = 32;
 
     localparam int unsigned NOP = 32'h00000013;  // addi x0,x0,0
 
-    typedef logic [ADDR_WIDTH-1:0]    addr_t;
-    typedef logic [DATA_WIDTH-1:0]    data_t;
     typedef logic [31:0]              inst_t;
     typedef logic [REG_SEL_WIDTH-1:0] reg_addr_t;
 
@@ -276,15 +273,6 @@ package friscv_pkg;
         NEXT_PC  // Used to jump to incremented PC to refetch on FENCE.I
     } imm_e;
 
-    // Load/Store instruction funct3, do not change mappings
-    typedef enum logic [2:0] {
-        WIDTH_I8  = 3'b000,
-        WIDTH_U8  = 3'b100,
-        WIDTH_I16 = 3'b001,
-        WIDTH_U16 = 3'b101,
-        WIDTH_I32 = 3'b010
-    } mem_width_e;
-
     // Instruction types, do not change mappings, keep in spec order for easier reference
     typedef enum logic [6:0] {
         LOAD     = 7'b0000011,
@@ -478,13 +466,5 @@ package friscv_pkg;
         csr_addr: CSR_ZERO,
         sfence_vma: 1'b0
     };
-
-    // Control signals for the downstream memory system
-    // Bit [1] is read enable, bit [0] is write enable, so 00 = no access, 01 = write, 10 = read, 11 is invalid
-    typedef enum logic [1:0] {
-        RW_IDLE  = 2'b00,
-        RW_WRITE = 2'b01,
-        RW_READ  = 2'b10
-    } rw_cmd_e;
 
 endpackage

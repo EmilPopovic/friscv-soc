@@ -17,7 +17,7 @@
 
 import friscv_pkg::*;
 
-module friscv_pmp_check #(
+module friscv_pmp_check import friscv_mem_pkg::*; #(
     parameter int PMP_ENTRIES = 64
 ) (
     input  addr_t                        i_pa,

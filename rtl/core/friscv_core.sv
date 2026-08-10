@@ -16,7 +16,7 @@
 
 import friscv_pkg::*;
 
-module friscv_core #(
+module friscv_core import friscv_mem_pkg::*; #(
     parameter int unsigned HART_ID        = 0,
     parameter int unsigned RESET_VEC      = 32'h8000_0000,
     parameter int unsigned DM_BASE        = 32'h0000_0000,

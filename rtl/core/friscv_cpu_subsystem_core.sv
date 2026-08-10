@@ -18,7 +18,7 @@
 
 import friscv_pkg::*;
 
-module friscv_cpu_subsystem_core #(
+module friscv_cpu_subsystem_core import friscv_mem_pkg::*; #(
     parameter int unsigned RAM_BASE           = 32'h8000_0000,
     parameter int unsigned ZSBL_ROM_SIZE_BYTES = 0,
     parameter int unsigned ZSBL_BASE           = 32'h0020_0000,

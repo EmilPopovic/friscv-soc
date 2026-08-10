@@ -23,7 +23,7 @@
 
 import friscv_pkg::*;
 
-module friscv_ex_stage #(
+module friscv_ex_stage import friscv_mem_pkg::*; #(
     parameter logic ENABLE_MUL = 1,
     parameter logic ENABLE_DIV = 1,
     // Use a single-cycle combinational multiplier instead of the iterative multiplier

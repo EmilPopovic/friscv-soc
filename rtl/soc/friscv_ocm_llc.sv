@@ -8,9 +8,7 @@
 
 `timescale 1ns/1ps
 
-import friscv_pkg::*;
-
-module friscv_ocm_llc #(
+module friscv_ocm_llc import friscv_mem_pkg::*; #(
     parameter  int unsigned OCM_BASE    = 32'h0000_0000,
     parameter  int unsigned REGION_BASE = 32'h8000_0000,
     parameter  int unsigned REGION_LOG2 = 25,  // 32MB

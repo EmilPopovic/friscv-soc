@@ -16,7 +16,7 @@
 
 import friscv_pkg::*;
 
-module friscv_wb_stage (
+module friscv_wb_stage import friscv_mem_pkg::*; (
     input  logic         clk_in,
     input  logic         rst_n_in,
 

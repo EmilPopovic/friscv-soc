@@ -14,7 +14,6 @@ rtl/core/friscv_id_decoder.sv
 rtl/core/friscv_id_stage.sv
 rtl/core/friscv_if_stage.sv
 rtl/core/friscv_l1_arbiter.sv
-rtl/core/friscv_mem_if.sv
 rtl/core/friscv_mem_stage.sv
 rtl/core/friscv_mmu.sv
 rtl/core/friscv_pipeline_control.sv

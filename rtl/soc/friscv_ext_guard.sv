@@ -8,7 +8,7 @@
 
 `timescale 1ns/1ps
 
-module friscv_ext_guard import friscv_pkg::*; (
+module friscv_ext_guard import friscv_mem_pkg::*; (
     input  logic         i_en,
     friscv_mem_if.slave  s_if,
     friscv_mem_if.master m_if

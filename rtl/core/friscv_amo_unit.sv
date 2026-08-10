@@ -16,7 +16,7 @@
 
 import friscv_pkg::*;
 
-module friscv_amo_unit (
+module friscv_amo_unit import friscv_mem_pkg::*; (
     input  logic    i_clk,
     input  logic    i_rstn,
 
@@ -64,13 +64,10 @@ assign o_core_wait = ((r_state == S_IDLE)  && (i_amo_op != AMO_NONE)) ||
 
 always_ff @(posedge i_clk) begin
     if (!i_rstn) begin
-        r_state     <= S_IDLE;
         r_load_data <= 32'b0;
         r_amo_op    <= AMO_NONE;
         r_rs2_val   <= 32'b0;
     end else begin
-        r_state <= w_next_state;
-
         // Freeze AMO op/operand for the whole LOAD-STORE sequence.
         if (r_state == S_IDLE && i_amo_op != AMO_NONE) begin
             r_amo_op  <= i_amo_op;
@@ -81,9 +78,8 @@ always_ff @(posedge i_clk) begin
             r_amo_op <= AMO_NONE;
 
         // Capture load data when load completes
-        if (r_state == S_LOAD && !i_mem_wait) begin
+        if (r_state == S_LOAD && !i_mem_wait)
             r_load_data <= i_mem_load_data;
-        end
     end
 end
 
@@ -103,23 +99,23 @@ always_comb begin
     endcase
 end
 
-// State transition logic
+// State machine
+always_ff @(posedge i_clk) begin
+    if (!i_rstn) r_state <= S_IDLE;
+    else         r_state <= w_next_state;
+end
+
 always_comb begin
     case (r_state)
-        S_IDLE: begin
+        S_IDLE:
             w_next_state = (i_amo_op != AMO_NONE) ? S_LOAD : S_IDLE;
-        end
-        S_LOAD: begin
+        S_LOAD:
             w_next_state = i_mem_wait ? S_LOAD :
                            i_mem_err  ? S_IDLE :
                                         S_STORE;
-        end
-        S_STORE: begin
+        S_STORE:
             w_next_state = i_mem_wait ? S_STORE : S_IDLE;
-        end
-        default: begin
-            w_next_state = r_state;
-        end
+        default: w_next_state = r_state;
     endcase
 end
 

@@ -15,7 +15,7 @@
 
 import friscv_pkg::*;
 
-module friscv_mmu #(
+module friscv_mmu import friscv_mem_pkg::*; #(
     parameter logic ENFORCE_PMP     = 0,
     parameter logic ENFORCE_PTW_PMP = 0,
     parameter int   PMP_ENTRIES     = 64,

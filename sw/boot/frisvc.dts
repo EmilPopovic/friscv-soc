@@ -1,0 +1,104 @@
+/dts-v1/;
+
+/ {
+    #address-cells = <1>;
+    #size-cells = <1>;
+    model = "Vernii FRISC-V";
+    compatible = "fer,vernii";
+
+    chosen {
+        bootargs = "earlycon=sbi console=ttyS0,115200";
+        stdout-path = &uart0;
+    };
+
+    cpus {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        timebase-frequency = <10000000>;
+
+        CPU0: cpu@0 {
+            device_type = "cpu";
+            compatible = "riscv";
+            reg = <0>;
+            status = "okay";
+            riscv,isa = "rv32ima_zifencei_zicsr";
+            mmu-type = "riscv,sv32";
+            clock-frequency = <50000000>;
+
+            cache-unified;
+            cache-size = <8192>;
+            cache-sets = <64>;
+            cache-block-size = <32>;
+
+            cpu0_intc: interrupt-controller {
+                #address-cells = <0>;
+                #interrupt-cells = <1>;
+                compatible = "riscv,cpu-intc";
+                interrupt-controller;
+            };
+        };
+    };
+
+    ocm: sram@0 {
+        compatible = "mmio-sram";
+        reg = <0x0 8192>;
+        no-memory-wc;
+
+        #address-cells = <1>;
+        #size-cells = <1>;
+        ranges = <0x0 0x0 8192>;
+
+        ocm_pool: pool@0 {
+            reg = <0x0 8192>;
+            pool;
+            export;
+            label = "ocm";
+        }
+    }
+
+    memory@80000000 {
+        device_type = "memory";
+        reg = <0x80000000 0x10000000>;
+    };
+
+    plic: interrupt-controller@c000000 {
+        compatible = "riscv,plic0";
+        reg = <0x0c000000 0x202000>;
+        interrupt-controller;
+        #address-cells = <0>;
+        #interrupt-cells = <1>;
+        interrupts-extended = <&cpu0_intc 11>, <&cpu0_intc 9>;
+        riscv,ndev = <7>;
+    };
+
+    clint@2000000 {
+        compatible = "riscv,clint0";
+        reg = <0x2000000 0x10000>;
+        interrupts-extended = <&cpu0_intc 3>, <&cpu0_intc 7>;
+    };
+
+    uart0: serial@10000000 {
+        compatible = "ns16550a";
+        reg = <0x10000000 0x100>;
+        reg-shift = <2>;
+        reg-io-width = <4>;
+        clock-frequency = <50000000>;
+        current-speed = <115200>;
+        interrupt-parent = <&plic>;
+        interrupts = <1>;
+    };
+
+    qspi0: spi@60000000 {
+        compatible = "lowrisc,opentitan-spi-host";
+        reg = <0x60000000 0x40>;
+
+        interrupt-parent = <&plic>;
+        interrupts = <2>, <3>;
+        interrupt-names = "error", "spi_event";
+
+        num-cs = <3>;
+
+        #address-cells = <1>;
+        #size-cells = <0>;
+    };
+};

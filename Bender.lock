@@ -39,6 +39,20 @@ packages:
     source:
       Git: https://github.com/pulp-platform/common_verification.git
     dependencies: []
+  friscv-adapters:
+    revision: 72f150232044ecf1b9e6071fa3d1aca6d45ed73a
+    version: 0.1.0
+    source:
+      Git: https://github.com/EmilPopovic/friscv-adapters.git
+    dependencies:
+    - axi
+    - friscv-mem-if
+  friscv-mem-if:
+    revision: 22690117aeb6f18e1a35d0b01146fcf142c4a0cb
+    version: 0.1.0
+    source:
+      Git: https://github.com/EmilPopovic/friscv-mem-if.git
+    dependencies: []
   obi:
     revision: 0155fc34e900c7c884e081c0a1114a247937ff69
     version: 0.1.7
@@ -74,8 +88,8 @@ packages:
     - axi
     - common_cells
   riscv-dbg:
-    revision: 1cd764a82d7d49c5e8679fbb70b540b2e274bab9
-    version: 0.10.0
+    revision: deed17e18c0d61ce8dc554300bb4dd5c39be2a13
+    version: 0.10.1
     source:
       Git: https://github.com/pulp-platform/riscv-dbg.git
     dependencies:

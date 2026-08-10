@@ -17,7 +17,7 @@
 
 import friscv_pkg::*;
 
-module friscv_pipeline_control (
+module friscv_pipeline_control import friscv_mem_pkg::*; (
     // Control signals
     output logic      flush_if_out,
     output logic      flush_id_out,

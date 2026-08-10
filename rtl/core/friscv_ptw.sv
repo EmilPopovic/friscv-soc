@@ -19,7 +19,7 @@
 
 import friscv_pkg::*;
 
-module friscv_ptw (
+module friscv_ptw import friscv_mem_pkg::*; (
     input  logic       i_clk,
     input  logic       i_rstn,
 

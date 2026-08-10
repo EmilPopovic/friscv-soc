@@ -16,7 +16,7 @@
 
 import friscv_pkg::*;
 
-module friscv_id_regfile (
+module friscv_id_regfile import friscv_mem_pkg::*; (
     input  logic      clk_in,
     input  logic      rst_n_in,
 

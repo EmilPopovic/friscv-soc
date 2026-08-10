@@ -17,7 +17,7 @@
 
 import friscv_pkg::*;
 
-module friscv_muldiv (
+module friscv_muldiv import friscv_mem_pkg::*; (
     input  logic        i_clk,
     input  logic        i_rstn,
     input  logic        i_flush,

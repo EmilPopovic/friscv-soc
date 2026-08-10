@@ -11,7 +11,7 @@
 import friscv_pkg::*;
 import friscv_zsbl_rom_pkg::*;
 
-module friscv_zsbl_rom #(
+module friscv_zsbl_rom import friscv_mem_pkg::*; #(
     parameter int unsigned SIZE_BYTES = 64,
     parameter int unsigned BASE_ADDR  = 32'h0020_0000
 ) (

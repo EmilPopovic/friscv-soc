@@ -16,7 +16,7 @@
 
 import friscv_pkg::*;
 
-module friscv_ex_stage_branch_unit (
+module friscv_ex_stage_branch_unit import friscv_mem_pkg::*; (
     input  jump_sel_e    branch_jal_sel_in,
     input  branch_cond_e branch_cond_in,
     input  data_t        src1_in,
