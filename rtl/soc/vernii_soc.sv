@@ -41,8 +41,6 @@ module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t;
     output logic  o_por_rstn,
     output logic  o_soc_rstn,
 
-    output logic  o_clk_out,
-
     output logic  o_end,
 
     // External memory
@@ -91,14 +89,6 @@ rstgen i_rstgen (
     .rst_no      ( por_rstn ),
     .init_no     (          )
 );
-
-// Provide clock divided by 16 to the outside
-logic [3:0] clk_cnt;
-always_ff @(posedge i_clk or negedge por_rstn) begin
-    if (!por_rstn) clk_cnt <= '0;
-    else           clk_cnt <= clk_cnt + 1;
-end
-assign o_clk_out = clk_cnt[3];
 
 // ============================================================
 // CPU subsystem
@@ -520,7 +510,7 @@ reg_to_mem #(
 );
 
 assign dbg_slv_gnt = 1'b1;
-always_ff @(posedge i_clk) begin
+always_ff @(posedge i_clk or negedge soc_rstn) begin
     if (!soc_rstn) dbg_slv_rvalid <= 1'b0;
     else           dbg_slv_rvalid <= dbg_slv_req & ~dbg_slv_we;
 end

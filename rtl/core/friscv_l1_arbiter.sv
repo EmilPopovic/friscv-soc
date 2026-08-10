@@ -60,9 +60,9 @@ typedef enum logic [1:0] {
     S_IDLE,
     S_HOLD_INST,
     S_HOLD_DATA
-} state_t;
+} state_e;
 
-state_t r_state, w_next_state;
+state_e r_state, w_next_state;
 logic   r_data_priority;
 
 addr_t      r_inst_addr;
@@ -123,7 +123,7 @@ end
 // ============================================================
 // Sequential
 // ============================================================
-always_ff @(posedge i_clk) begin
+always_ff @(posedge i_clk or negedge i_rstn) begin
     if (!i_rstn) begin
         r_state         <= S_IDLE;
         r_data_priority <= 1'b0;

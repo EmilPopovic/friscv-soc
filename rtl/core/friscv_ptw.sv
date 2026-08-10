@@ -93,7 +93,7 @@ logic  r_itlb_miss, r_dtlb_miss;
 addr_t r_req_va;
 logic  r_req_is_write;
 
-always_ff @(posedge i_clk) begin : capture_inputs
+always_ff @(posedge i_clk or negedge i_rstn) begin : capture_inputs
     if (!i_rstn) begin
         r_satp         <= '0;
         r_itlb_miss    <= 1'b0;
@@ -117,7 +117,7 @@ logic [2:0] w_max_level;
 logic       r_is_wide_vpn, w_is_wide_vpn;  // 1: 10-bit VPN fields (SV32), 0: 9-bit (SV39+)
 logic       r_is_wide_pte, w_is_wide_pte;  // 1: 8-byte PTEs (SV39+), 0: 4-byte (SV32)
 
-always_ff @(posedge i_clk) begin : geometry_capture
+always_ff @(posedge i_clk or negedge i_rstn) begin : geometry_capture
     if (!i_rstn) begin
         r_is_wide_vpn <= 1'b0;
         r_is_wide_pte <= 1'b0;
@@ -149,7 +149,7 @@ end : geometry_decode
 // State machine
 // ============================================================
 
-always_ff @(posedge i_clk) begin : transition_state
+always_ff @(posedge i_clk or negedge i_rstn) begin : transition_state
     if (!i_rstn) r_state <= S_IDLE;
     else         r_state <= w_next_state;
 end
@@ -158,7 +158,7 @@ end
 logic [2:0] r_level;
 logic       w_descend;
 
-always_ff @(posedge i_clk) begin : pte_capture
+always_ff @(posedge i_clk or negedge i_rstn) begin : pte_capture
     if (!i_rstn) begin
         r_pte   <= '0;
         r_level <= 3'b0;

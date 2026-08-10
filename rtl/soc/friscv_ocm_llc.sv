@@ -134,7 +134,7 @@ end
 logic [WAYS-1:0] r_mode, w_mode_changed;
 assign w_mode_changed = i_way_is_cache ^ r_mode;
 
-always_ff @(posedge i_clk) begin
+always_ff @(posedge i_clk or negedge i_rstn) begin
     if (!i_rstn) r_mode <= '0;
     else         r_mode <= i_way_is_cache;
 end
@@ -193,7 +193,7 @@ always_comb begin
     endcase
 end
 
-always_ff @(posedge i_clk) begin
+always_ff @(posedge i_clk or negedge i_rstn) begin
     if (!i_rstn) r_state <= S_LLC_IDLE;
     else         r_state <= w_next_state;
 end
@@ -257,7 +257,7 @@ if (SRAM_TAGS) begin : gen_tag_sram
                               (w_tag_rdata[i*TAG_W +: TAG_W] == w_tag);
     end
 
-    always_ff @(posedge i_clk) begin
+    always_ff @(posedge i_clk or negedge i_rstn) begin
         if (!i_rstn)                      r_hit_arr <= '0;
         else if (r_state == S_LLC_LOOKUP) r_hit_arr <= w_hit_arr;
     end
@@ -272,14 +272,14 @@ end else begin : gen_tag_flops
     end
 
     // r_hit_arr behaves like the SRAM output
-    always_ff @(posedge i_clk) begin
+    always_ff @(posedge i_clk or negedge i_rstn) begin
         if (!i_rstn)          r_hit_arr <= '0;
         else if (w_lookup_en) r_hit_arr <= w_hit_arr_d;
     end
 
     assign w_hit_arr = r_hit_arr;
 
-    always_ff @(posedge i_clk) begin
+    always_ff @(posedge i_clk or negedge i_rstn) begin
         if (!i_rstn)      r_tag_arr <= '0;
         else if (w_alloc) r_tag_arr[r_victim][w_idx] <= w_tag;
     end
@@ -299,7 +299,7 @@ logic [LFSR_W-1:0] r_lfsr;  // for random replacement
 logic w_lfsr_next;
 assign w_lfsr_next = ~^(r_lfsr & LFSR_POLY);
 
-always_ff @(posedge i_clk) begin
+always_ff @(posedge i_clk or negedge i_rstn) begin
     if (!i_rstn) r_lfsr <= '0;
     else         r_lfsr <= {r_lfsr[LFSR_W-2:0], w_lfsr_next};
 end
@@ -332,7 +332,7 @@ always_comb begin
     end
 end
 
-always_ff @(posedge i_clk) begin
+always_ff @(posedge i_clk or negedge i_rstn) begin
     if (!i_rstn) begin
         r_rr_ptr <= '0;
     end else if (r_state == S_LLC_REFILL && w_dn_done && !w_refill_err) begin
@@ -340,7 +340,7 @@ always_ff @(posedge i_clk) begin
     end
 end
 
-always_ff @(posedge i_clk) begin
+always_ff @(posedge i_clk or negedge i_rstn) begin
     if (!i_rstn) begin
         r_valid_arr <= '0;
     end else if (w_inv) begin
@@ -361,7 +361,7 @@ logic              r_refill_err;
 
 assign w_refill_err = (r_state == S_LLC_REFILL) && (r_refill_err || m_mem_if.err);
 
-always_ff @(posedge i_clk) begin
+always_ff @(posedge i_clk or negedge i_rstn) begin
     if (!i_rstn) begin
         r_beat       <= '0;
         r_refill_err <= 1'b0;
@@ -429,7 +429,7 @@ end
 data_t r_rsp_rdata;
 logic  r_rsp_sel;
 
-always_ff @(posedge i_clk) begin
+always_ff @(posedge i_clk or negedge i_rstn) begin
     if (!i_rstn) begin
         w_rvalid    <= 1'b0;
         w_err       <= 1'b0;

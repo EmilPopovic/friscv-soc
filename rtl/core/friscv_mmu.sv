@@ -256,7 +256,7 @@ always_comb begin
     w_eff_asid    = w_eff_req_ctx.satp.asid;
 end
 
-always_ff @(posedge i_clk) begin
+always_ff @(posedge i_clk or negedge i_rstn) begin
     if (!i_rstn) begin
         r_req_ctx <= '0;
     end else if (w_grant_start) begin
@@ -269,7 +269,7 @@ vpn_t r_ivpn_q, r_dvpn_q;
 // A fill/flush last cycle, the registered TLB result is stale this cycle
 logic r_tlb_changed;
 
-always_ff @(posedge i_clk) begin
+always_ff @(posedge i_clk or negedge i_rstn) begin
     if (!i_rstn) begin
         r_ivpn_q      <= '0;
         r_dvpn_q      <= '0;
@@ -288,7 +288,7 @@ logic  r_access_busy;
 addr_t r_access_pa, w_tlate_pa;
 logic  w_walk_en;
 
-always_ff @(posedge i_clk) begin
+always_ff @(posedge i_clk or negedge i_rstn) begin
     if (!i_rstn) begin
         r_access_busy <= 1'b0;
         r_access_pa   <= '0;

@@ -215,7 +215,7 @@ assign cond_valid = (conditional_in) ? reserve_valid && !prev_sc_success && (res
 
 // MEM stage always accepts data from EX stage
 // Bubbles are inserted by EX sending instructions with rd_sel=0
-always_ff @(posedge clk_in) begin
+always_ff @(posedge clk_in or negedge rst_n_in) begin
     if (!rst_n_in) begin
         pipe_buff         <= MEM_PIPE_BUBBLE;
         r_mem_active      <= 1'b0;

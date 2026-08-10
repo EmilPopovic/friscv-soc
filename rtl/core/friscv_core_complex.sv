@@ -146,7 +146,7 @@ assign w_amo_start = (w_l2_amo_op != AMO_NONE) &&
                      !r_amo_addr_valid;
 assign w_amo_bootstrap = (w_l2_amo_op != AMO_NONE) && !r_amo_addr_valid;
 
-always_ff @(posedge i_clk) begin
+always_ff @(posedge i_clk or negedge i_rstn) begin
     if (!i_rstn) begin
         r_amo_addr_valid <= 1'b0;
         r_amo_addr       <= '0;
@@ -303,7 +303,7 @@ logic r_end_signal;
 logic r_halt_active;
 logic w_core_halt;
 
-always_ff @(posedge i_clk) begin
+always_ff @(posedge i_clk or negedge i_rstn) begin
     if (!i_rstn) begin
         r_end_signal  <= 1'b0;
         r_halt_active <= 1'b0;
@@ -443,6 +443,7 @@ if (ZSBL_ROM_SIZE_BYTES > 0) begin : gen_zsbl_rom
         .BASE_ADDR  ( RESET_VEC           )
     ) zsbl_rom (
         .i_clk  ( i_clk       ),
+        .i_rstn ( i_rstn      ),
         .i_addr ( w_l2_addr   ),
         .o_data ( w_zsbl_data )
     );
@@ -455,7 +456,7 @@ if (ZSBL_ROM_SIZE_BYTES > 0) begin : gen_zsbl_rom
                          (w_l2_addr < RESET_VEC + ZSBL_ROM_SIZE_BYTES) &&
                          (w_l2_rw == RW_READ);
 
-    always_ff @(posedge i_clk) begin
+    always_ff @(posedge i_clk or negedge i_rstn) begin
         if (!i_rstn) begin
             r_rom_valid <= 1'b0;
         end else begin

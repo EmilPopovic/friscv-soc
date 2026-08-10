@@ -181,7 +181,7 @@ logic r_mret_inhibit;
 // This is to prevent a taken interrupt killing valid instructions, or ret being skipped.
 // A previous interrupt must safely exit before taking the next interrupt.
 logic interrupt_safe;
-assign interrupt_safe = !r_mret_inhibit && !branch_ok_in && (|pc_in) && !debug_mode_active;
+assign interrupt_safe = !r_mret_inhibit && !branch_ok_in && instr_valid_in && !debug_mode_active;
 
 // A synchronous exception is safe only if the buffer holds a valid instruciton,
 // and a redirect is not being processed that would kill the trapping instruction anyway (branch_ok_in).
@@ -517,7 +517,7 @@ assign dcsr_cause_out    = dbg_req_in      ? 3'd3 : // haltreq
 // Hart state update
 // ============================================================
 
-always_ff @(posedge clk_in) begin
+always_ff @(posedge clk_in or negedge rst_n_in) begin
     if (!rst_n_in) begin
         r_current_mode      <= M_MODE;
         debug_mode_active   <= 1'b0;

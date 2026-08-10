@@ -231,7 +231,7 @@ end endgenerate
 // Input capture
 // ============================================================
 
-always_ff @(posedge clk_in) begin
+always_ff @(posedge clk_in or negedge rst_n_in) begin
     if (!rst_n_in) begin
 
         pc_plus_4_buff <= '0;

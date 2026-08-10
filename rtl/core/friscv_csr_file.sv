@@ -235,7 +235,7 @@ if (ENFORCE_PMP) begin : gen_pmp_table
                         !(sret_commit_in || mret_commit_in) &&
                         csr_en_in && instr_ret_in && !wb_csr_ro;
 
-    always_ff @(posedge clk_in) begin
+    always_ff @(posedge clk_in or negedge rst_n_in) begin
         if (!rst_n_in) begin
             pmp_table <= '0;
         end else if (pmp_csr_wr) begin
@@ -268,7 +268,12 @@ end
 // CSR write
 // ============================================================
 
-always_ff @(posedge clk_in) begin
+function automatic mode_e legalize_mode(logic[1:0] mode);
+    mode_e m = mode_e'(mode);
+    legalize_mode = (m == M_MODE || m == S_MODE || m == U_MODE) ? m : U_MODE;
+endfunction
+
+always_ff @(posedge clk_in or negedge rst_n_in) begin
     if(!rst_n_in) begin
         csr <= '0;
         csr.dcsr.debugver <= 4;  // Debug specification version 1.0 implemented
@@ -292,7 +297,7 @@ always_ff @(posedge clk_in) begin
                 csr.mepc         <= trap_epc_in;
                 csr.mstatus.mpie <= csr.mstatus.mie;
                 csr.mstatus.mie  <= 1'b0;
-                csr.mstatus.mpp  <= trap_mode_in;
+                csr.mstatus.mpp  <= legalize_mode(trap_mode_in);
                 csr.mcause       <= trap_cause_in;
                 csr.mtval        <= trap_tval_in;
             end
@@ -357,7 +362,7 @@ always_ff @(posedge clk_in) begin
                     csr.mstatus.spie <= csr_data_in[5];
                     csr.mstatus.mpie <= csr_data_in[7];
                     csr.mstatus.spp  <= csr_data_in[8];
-                    csr.mstatus.mpp  <= mode_e'(csr_data_in[12:11]);
+                    csr.mstatus.mpp  <= legalize_mode(csr_data_in[12:11]);
                     csr.mstatus.mprv <= csr_data_in[17];
                     csr.mstatus.sum  <= csr_data_in[18];
                     csr.mstatus.mxr  <= csr_data_in[19];

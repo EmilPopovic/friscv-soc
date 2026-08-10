@@ -181,7 +181,7 @@ friscv_id_regfile regfile (
 // Input capture
 // ============================================================
 
-always_ff @(posedge clk_in) begin
+always_ff @(posedge clk_in or negedge rst_n_in) begin
     if (!rst_n_in) begin
         ir_buff             <= NOP;
         pc_in_buff          <= '0;
@@ -414,6 +414,7 @@ always_comb begin
         J_TYPE:  imm32_out = {{12{ir_buff.b[31]}}, ir_buff.b[19:12], ir_buff.b[20], ir_buff.b[30:21], 1'b0};
         ZERO:    imm32_out = 32'h0;
         NEXT_PC: imm32_out = pc_plus_4_buff;
+        default: imm32_out = 32'h0;
     endcase
 end
 

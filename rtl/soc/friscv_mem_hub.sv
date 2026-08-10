@@ -104,7 +104,7 @@ end
 // Sequential
 // ============================================================
 
-always_ff @(posedge i_clk) begin
+always_ff @(posedge i_clk or negedge i_rstn) begin
     if (!i_rstn) begin
         r_state     <= S_IDLE;
         r_cpu_addr  <= '0;
@@ -199,7 +199,7 @@ assign m_sys_if.rw       = w_sel_sys ? granted_if.rw : RW_IDLE;
 assign m_sys_if.burst_en = 1'b0;
 
 logic r_sel_llc;
-always_ff @(posedge i_clk) begin
+always_ff @(posedge i_clk or negedge i_rstn) begin
     if (!i_rstn)         r_sel_llc <= 1'b0;
     else if (w_take_any) r_sel_llc <= w_sel_llc;
 end

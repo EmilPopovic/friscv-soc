@@ -85,7 +85,7 @@ endfunction : vpn_mask
 // Fill and flush
 // ============================================================
 
-always_ff @(posedge i_clk) begin : tlb_fill_and_flush
+always_ff @(posedge i_clk or negedge i_rstn) begin : tlb_fill_and_flush
 
     if (!i_rstn) begin
 
@@ -229,7 +229,7 @@ perm_t      r_perm, w_perm;
 pte_level_t r_level, w_level;
 logic       r_hit, w_hit;
 
-always_ff @(posedge i_clk) begin : buffer_lookup
+always_ff @(posedge i_clk or negedge i_rstn) begin : buffer_lookup
     if (!i_rstn) begin
         r_ppn   <= '0;
         r_perm  <= '0;

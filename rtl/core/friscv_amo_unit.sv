@@ -58,7 +58,7 @@ assign o_core_wait = ((r_state == S_IDLE)  && (i_amo_op != AMO_NONE)) ||
                      ((r_state == S_LOAD)  && !i_mem_err) ||
                      ((r_state == S_STORE) && i_mem_wait);
 
-always_ff @(posedge i_clk) begin
+always_ff @(posedge i_clk or negedge i_rstn) begin
     if (!i_rstn) begin
         r_load_data <= 32'b0;
         r_amo_op    <= AMO_NONE;
@@ -96,7 +96,7 @@ always_comb begin
 end
 
 // State machine
-always_ff @(posedge i_clk) begin
+always_ff @(posedge i_clk or negedge i_rstn) begin
     if (!i_rstn) r_state <= S_IDLE;
     else         r_state <= w_next_state;
 end

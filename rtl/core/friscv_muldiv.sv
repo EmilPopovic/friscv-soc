@@ -174,7 +174,7 @@ module friscv_muldiv import friscv_pkg::*, friscv_mem_pkg::*; (
         end
     end
 
-    always_ff @(posedge i_clk) begin
+    always_ff @(posedge i_clk or negedge i_rstn) begin
         if (!i_rstn) begin
             r_state    <= S_IDLE;
             r_a        <= '0;

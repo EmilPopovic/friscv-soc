@@ -11,9 +11,12 @@ module friscv_zsbl_rom import friscv_pkg::*, friscv_mem_pkg::*; #(
     parameter int unsigned BASE_ADDR  = 32'h0020_0000
 ) (
     input  logic  i_clk,
+    input  logic  i_rstn,
     input  addr_t i_addr,
     output inst_t o_data
 );
+
+localparam int unsigned OFFSET_W = $clog2(SIZE_BYTES/4);
 
 import friscv_zsbl_rom_pkg::*;
 
@@ -23,19 +26,18 @@ if (ZSBL_PROG_WORDS > SIZE_BYTES/4) begin : gen_zsbl_too_big
     $error("ZSBL needs %0d bytes, SIZE_BYTES is %0d", ZSBL_PROG_WORDS*4, SIZE_BYTES);
 end
 
-logic [31:0] w_word_offset;
-logic        w_valid;
-inst_t       r_data;
+logic [OFFSET_W-1:0] w_word_offset;
+
+logic  w_valid;
+inst_t r_data;
 
 assign w_word_offset = (i_addr - BASE_ADDR) >> 2;
 assign w_valid = (i_addr >= BASE_ADDR && w_word_offset < (SIZE_BYTES/4));
 
-always_ff @(posedge i_clk) begin
-    if (w_valid) begin
-        r_data <= mem[w_word_offset];
-    end else begin
-        r_data <= NOP;
-    end
+always_ff @(posedge i_clk or negedge i_rstn) begin
+    if (!i_rstn)      r_data <= NOP;
+    else if (w_valid) r_data <= mem[w_word_offset];
+    else              r_data <= NOP;
 end
 
 assign o_data = r_data;
