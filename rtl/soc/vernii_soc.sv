@@ -371,7 +371,7 @@ assign o_axi_mem_en = ext_mem_en;
 
 friscv_mem_if ext_guarded_if ();
 
-friscv_ext_guard ext_guard (
+friscv_guard ext_guard (
     .i_en ( ext_mem_en     ),
     .s_if ( ext_if         ),
     .m_if ( ext_guarded_if )

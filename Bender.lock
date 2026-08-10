@@ -40,8 +40,8 @@ packages:
       Git: https://github.com/pulp-platform/common_verification.git
     dependencies: []
   friscv-adapters:
-    revision: 72f150232044ecf1b9e6071fa3d1aca6d45ed73a
-    version: 0.1.0
+    revision: f0f43f66c04f7d061d209b3a3a987d9525f6c343
+    version: 0.1.1
     source:
       Git: https://github.com/EmilPopovic/friscv-adapters.git
     dependencies:
