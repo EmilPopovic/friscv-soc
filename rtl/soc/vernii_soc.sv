@@ -25,6 +25,13 @@ module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t;
     parameter int unsigned LineBytes        = 32,
     parameter int unsigned Ways             = 4,
     parameter bit          SramTags         = 1'b1,
+    parameter int unsigned ItlbEntries      = 2,
+    parameter int unsigned DtlbEntries      = 4,
+    parameter bit          FineTlbFlush     = 0,
+    parameter bit          EnforcePmp       = 0,
+    parameter bit          EnableExtM       = 1,
+    parameter bit          EnableExtA       = 1,
+    parameter bit          EnableFastMul    = 0,
     parameter int unsigned ZsblRomSizeBytes = 144,
     parameter int unsigned NumStraps        = 13,
     parameter int unsigned NumExtRegSlv     = 1,
@@ -122,9 +129,6 @@ localparam logic [31:0] ZsblBaseAddr = 32'h0020_0000;
 logic ndmreset;   // non-debug-module reset request from the DM
 logic debug_req;  // async debug request to the hart
 
-// System reset asserted by the power-on reset or by the debugger's ndmreset.
-// Everything except the debug module (dm_top) and the JTAG DTM (dmi_jtag) runs
-// on this reset, so an ndmreset resets the whole SoC while debug stays alive.
 assign soc_rstn_async = por_rstn & ~ndmreset;
 
 assign o_por_rstn = por_rstn;
@@ -135,7 +139,15 @@ friscv_cpu_subsystem_core #(
     .ZSBL_ROM_SIZE_BYTES        ( ZsblRomSizeBytes ),
     .ZSBL_BASE                  ( ZsblBaseAddr     ),
     .DM_BASE                    ( DmBaseAddr       ),
-    .ENABLE_HALT_ON_END_ADDRESS ( HaltOnEnd        )
+    .ENABLE_HALT_ON_END_ADDRESS ( HaltOnEnd        ),
+    .ITLB_ENTRIES               ( ItlbEntries      ),
+    .DTLB_ENTRIES               ( DtlbEntries      ),
+    .ENABLE_MUL                 ( EnableExtM       ),
+    .ENABLE_DIV                 ( EnableExtM       ),
+    .ENABLE_FAST_MUL            ( EnableFastMul    ),
+    .ENABLE_EXTENSION_A         ( EnableExtA       ),
+    .ENFORCE_PMP                ( EnforcePmp       ),
+    .ENABLE_FINE_TLB_FLUSH      ( FineTlbFlush     )
 ) cpu_subsystem (
     .i_clk     ( i_clk     ),
     .i_rstn    ( soc_rstn  ),

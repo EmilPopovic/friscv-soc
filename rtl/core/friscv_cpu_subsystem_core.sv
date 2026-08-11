@@ -15,7 +15,7 @@
  */
 
 module friscv_cpu_subsystem_core import friscv_pkg::*, friscv_mem_pkg::*; #(
-    parameter int unsigned RAM_BASE           = 32'h8000_0000,
+    parameter int unsigned RAM_BASE            = 32'h8000_0000,
     parameter int unsigned ZSBL_ROM_SIZE_BYTES = 0,
     parameter int unsigned ZSBL_BASE           = 32'h0020_0000,
     parameter int unsigned DM_BASE             = 32'h0000_0000,
@@ -46,10 +46,7 @@ module friscv_cpu_subsystem_core import friscv_pkg::*, friscv_mem_pkg::*; #(
     // If enabled, entering an EBREAK instruction will halt the core until reset
     parameter logic ENABLE_HALT_ON_ENTER_EBREAK = 0,
     // If enabled, the first MRET or SRET after entering an EBREAK handler will halt the core until reset
-    parameter logic ENABLE_HALT_ON_RET_FROM_EBREAK = 0,
-
-    // Calculated parameters, do not change
-    parameter int unsigned RESET_VEC = (ZSBL_ROM_SIZE_BYTES > 0) ? ZSBL_BASE : RAM_BASE
+    parameter logic ENABLE_HALT_ON_RET_FROM_EBREAK = 0
 ) (
     input  logic         i_clk,
     input  logic         i_rstn,
@@ -66,6 +63,25 @@ module friscv_cpu_subsystem_core import friscv_pkg::*, friscv_mem_pkg::*; #(
 
     input  logic         i_dbg_req
 );
+
+localparam int unsigned RESET_VEC = (ZSBL_ROM_SIZE_BYTES > 0) ? ZSBL_BASE : RAM_BASE;
+
+// Elaboration-time parameter checks
+if (!ENABLE_MUL && ENABLE_FAST_MUL) begin : gen_chk_fast_mul_has_mul
+    $fatal("ENABLE_FAST_MUL enabled, but ENABLE_MUL disabled. Fast multiplier requires MUL.");
+end
+if (!ENABLE_MMU && ENFORCE_PMP) begin : gen_chk_pmp_requires_mmu
+    $fatal("ENFORCE_PMP enabled, but ENABLE_MMU disabled. PMP enforcement requires MMU.");
+end
+if (!ENFORCE_PMP && ENFORCE_PTW_PMP) begin : gen_chk_ptw_pmp_requires_pmp
+    $fatal("ENFORCE_PTW_PMP enabled, but ENFORCE_PMP disabled. PTW PMP enforcement requires PMP enforcement.");
+end
+if (PMP_USABLE > PMP_ENTRIES) begin : gen_chk_pmp_usable_le_entries
+    $fatal("PMP_USABLE (%0d) exceeds PMP_ENTRIES (%0d).", PMP_USABLE, PMP_ENTRIES);
+end
+if (PMP_ENTRIES > 64) begin : gen_chk_pmp_entries_le_64
+    $fatal("PMP_ENTRIES (%0d) exceeds the maximum of 64.", PMP_ENTRIES);
+end
 
 mem_width_e w_size;
 addr_t      w_addr;
