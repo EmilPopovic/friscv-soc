@@ -14,7 +14,7 @@
  */
 
 module friscv_pmp_check import friscv_pkg::*, friscv_mem_pkg::*; #(
-    parameter int PMP_ENTRIES = 64
+    parameter int PMP_ENTRIES = 8
 ) (
     input  addr_t                        i_pa,
     input  logic                         i_access_r,
@@ -48,7 +48,7 @@ always_comb begin
     for (int i = 0; i < PMP_ENTRIES; i++) begin
         automatic pmp_entry_t entry     = i_pmp_table[i];
         automatic addr_t      prev_addr = (i > 0) ? i_pmp_table[i-1].addr : '0;
-        automatic addr_t      cmp_mask  = ~entry.addr ^ (~entry.addr + 1'b1);
+        automatic addr_t      cmp_mask  = ~(entry.addr ^ (~entry.addr + 1'b1));
         case (entry.cfg.a)
             // Top of range: pmpaddr[i-1] <= pa < pmpaddr[i]
             PMP_TOR:   w_match[i] = (prev_addr <= w_aligned_pa) && (w_aligned_pa < entry.addr);

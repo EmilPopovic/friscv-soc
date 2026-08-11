@@ -16,34 +16,32 @@ module friscv_zsbl_rom import friscv_pkg::*, friscv_mem_pkg::*; #(
     output inst_t o_data
 );
 
-localparam int unsigned OFFSET_W = $clog2(SIZE_BYTES/4);
+// Round up size to next power of 2
+localparam int unsigned REAL_SIZE = 1 << $clog2(SIZE_BYTES);
+localparam int unsigned OFFSET_W  = $clog2(REAL_SIZE);
 
 import friscv_zsbl_rom_pkg::*;
 
-inst_t mem [SIZE_BYTES/4];
+inst_t mem [REAL_SIZE/4];
 
-if (ZSBL_PROG_WORDS > SIZE_BYTES/4) begin : gen_zsbl_too_big
-    $error("ZSBL needs %0d bytes, SIZE_BYTES is %0d", ZSBL_PROG_WORDS*4, SIZE_BYTES);
+if (ZSBL_PROG_WORDS > REAL_SIZE/4) begin : gen_zsbl_too_big
+    $error("ZSBL needs %0d bytes, REAL_SIZE is %0d", ZSBL_PROG_WORDS*4, REAL_SIZE);
 end
 
 logic [OFFSET_W-1:0] w_word_offset;
 
-logic  w_valid;
 inst_t r_data;
+assign o_data = r_data;
 
-assign w_word_offset = (i_addr - BASE_ADDR) >> 2;
+assign w_word_offset = OFFSET_W'((i_addr - BASE_ADDR) >> 2);
 
 always_ff @(posedge i_clk or negedge i_rstn) begin
     if (!i_rstn) r_data <= NOP;
     else         r_data <= mem[w_word_offset];
 end
 
-assign o_data = r_data;
-
-always_comb begin
-    for (int unsigned i = 0; i < (SIZE_BYTES/4); i++) begin
-        mem[i] = (i < ZSBL_PROG_WORDS) ? ZSBL_PROG[i] : 32'h0000_0000;
-    end
+for (genvar i = 0; i < (REAL_SIZE/4); i++) begin : gen_zsbl_mem
+    assign mem[i] = (i < ZSBL_PROG_WORDS) ? ZSBL_PROG[i] : 32'h0000_0000;
 end
 
 endmodule

@@ -26,8 +26,8 @@ module friscv_cpu_subsystem_core import friscv_pkg::*, friscv_mem_pkg::*; #(
     parameter logic ENABLE_MMU      = 1,
     parameter logic ENFORCE_PMP     = 0,
     parameter logic ENFORCE_PTW_PMP = 0,
-    parameter int   PMP_ENTRIES     = 64,
-    parameter int   PMP_USABLE      = 64,
+    parameter int   PMP_ENTRIES     = 8,
+    parameter int   PMP_USABLE      = 8,
     // Must be a power of 2 greater than 1
     parameter int   ITLB_ENTRIES = 2,
     parameter int   DTLB_ENTRIES = 4,
@@ -74,7 +74,6 @@ data_t      w_rdata;
 rw_cmd_e    w_rw;
 logic       w_wait;
 logic       w_burst_en;
-logic       w_beat_valid;
 
 logic w_mem_err;
 assign w_mem_err = mem_if.err;
@@ -123,7 +122,6 @@ friscv_core_complex #(
     .i_mem_wait   ( w_wait       ),
     .i_mem_err    ( w_mem_err    ),
     .o_burst_en   ( w_burst_en   ),
-    .i_beat_valid ( w_beat_valid ),
     .i_dbg_req    ( i_dbg_req    )
 );
 
@@ -139,6 +137,5 @@ assign mem_if.burst_en = w_burst_en;
 
 assign w_rdata         = mem_if.rdata;
 assign w_wait          = mem_if.wait_req;
-assign w_beat_valid    = mem_if.beat_valid;
 
 endmodule

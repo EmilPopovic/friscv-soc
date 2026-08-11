@@ -22,8 +22,8 @@ module friscv_core import friscv_pkg::*, friscv_mem_pkg::*; #(
     // Memory protection and address translation
     parameter logic ENABLE_MMU  = 1,
     parameter logic ENFORCE_PMP = 0,
-    parameter int   PMP_ENTRIES = 64,
-    parameter int   PMP_USABLE  = 64,
+    parameter int   PMP_ENTRIES = 8,
+    parameter int   PMP_USABLE  = 8,
 
     // Extension selection
     parameter logic ENABLE_MUL = 1,

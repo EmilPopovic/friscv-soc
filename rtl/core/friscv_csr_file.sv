@@ -24,8 +24,8 @@ module friscv_csr_file import friscv_pkg::*, friscv_mem_pkg::*; #(
     parameter int unsigned HART_ID = 0,
 
     parameter logic ENFORCE_PMP = 0,
-    parameter int   PMP_ENTRIES = 64,
-    parameter int   PMP_USABLE  = 64,
+    parameter int   PMP_ENTRIES = 8,
+    parameter int   PMP_USABLE  = 8,
 
     parameter logic ENABLE_MUL = 1,
     parameter logic ENABLE_DIV = 1,

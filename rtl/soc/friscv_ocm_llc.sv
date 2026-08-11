@@ -108,13 +108,14 @@ logic [WAYS-1:0][31:0] w_way_wdata, w_way_rdata;
 logic [WAYS-1:0][3:0]  w_way_be;
 logic [WAYS-1:0][WAY_ADDR_W-1:0] w_way_addr;
 
+// Each way is a single-port SRAM initialized to X
 for (genvar i = 0; i < WAYS; i++) begin : gen_ways
     tc_sram #(
         .NumWords ( WAY_WORDS ),
         .DataWidth( 32        ),
         .ByteWidth( 8         ),
         .NumPorts ( 1         ),
-        .Latency  ( 1         )
+        .Latency  ( 1         )  // Must be 1 for ocm_llc to work
     ) way_sram (
         .clk_i   ( i_clk          ),
         .rst_ni  ( i_rstn         ),
@@ -307,8 +308,8 @@ end
 
 // Random replacement
 
-localparam int unsigned LFSR_W    = 32;
-localparam int unsigned LFSR_POLY = 32'h8020_0003;
+localparam int unsigned LFSR_W    = 5;
+localparam int unsigned LFSR_POLY = 5'b10010;
 
 logic [LFSR_W-1:0] r_lfsr;  // for random replacement
 

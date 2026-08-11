@@ -111,7 +111,7 @@ always_comb begin
                                         S_STORE;
         S_STORE:
             w_next_state = i_mem_wait ? S_STORE : S_IDLE;
-        default: w_next_state = r_state;
+        default: w_next_state = S_IDLE;
     endcase
 end
 

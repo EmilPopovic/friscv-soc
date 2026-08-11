@@ -342,7 +342,7 @@ always_comb begin : transition_logic
             w_next_state = S_IDLE;
         end
 
-        default: ;
+        default: w_next_state = S_IDLE;
 
     endcase
 end : transition_logic

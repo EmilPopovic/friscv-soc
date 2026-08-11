@@ -55,6 +55,10 @@ module friscv_tlb import friscv_pkg::*, friscv_mem_pkg::*; #(
     input  logic       i_flush_asid_en
 );
 
+if (ENTRY_COUNT < 2) begin : gen_chk_entry_count
+    $fatal(1, "ENTRY_COUNT must be at least 2, got %0d", ENTRY_COUNT);
+end
+
 typedef struct packed {
     vpn_t       vpn;
     ppn_t       ppn;
@@ -85,6 +89,8 @@ endfunction : vpn_mask
 // Fill and flush
 // ============================================================
 
+logic w_hit;
+
 always_ff @(posedge i_clk or negedge i_rstn) begin : tlb_fill_and_flush
 
     if (!i_rstn) begin
@@ -99,7 +105,7 @@ always_ff @(posedge i_clk or negedge i_rstn) begin : tlb_fill_and_flush
     end else begin
 
         // Set ref bit on hit so recently-used entries get a second chance
-        if (o_hit)
+        if (w_hit)
             r_ref[w_hit_idx] <= 1'b1;
 
         if (i_flush) begin  // Global flush enable, has priority (nothing flushed if not i_flush)
@@ -227,7 +233,7 @@ endfunction : reconstruct_ppn
 ppn_t       r_ppn, w_ppn;
 perm_t      r_perm, w_perm;
 pte_level_t r_level, w_level;
-logic       r_hit, w_hit;
+logic       r_hit;
 
 always_ff @(posedge i_clk or negedge i_rstn) begin : buffer_lookup
     if (!i_rstn) begin

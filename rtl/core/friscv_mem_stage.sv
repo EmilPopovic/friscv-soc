@@ -426,17 +426,19 @@ end
 
 always_comb begin
     case (pipe_buff.load_store_width)
-        WIDTH_I8: unique case (pipe_buff.alu_data[1:0])
-            2'b00: load_data = {{24{d_mem_data_in[ 7]}}, d_mem_data_in[ 7: 0]};
-            2'b01: load_data = {{24{d_mem_data_in[15]}}, d_mem_data_in[15: 8]};
-            2'b10: load_data = {{24{d_mem_data_in[23]}}, d_mem_data_in[23:16]};
-            2'b11: load_data = {{24{d_mem_data_in[31]}}, d_mem_data_in[31:24]};
+        WIDTH_I8: case (pipe_buff.alu_data[1:0])
+            2'b00:   load_data = {{24{d_mem_data_in[ 7]}}, d_mem_data_in[ 7: 0]};
+            2'b01:   load_data = {{24{d_mem_data_in[15]}}, d_mem_data_in[15: 8]};
+            2'b10:   load_data = {{24{d_mem_data_in[23]}}, d_mem_data_in[23:16]};
+            2'b11:   load_data = {{24{d_mem_data_in[31]}}, d_mem_data_in[31:24]};
+            default: load_data = {{24{d_mem_data_in[ 7]}}, d_mem_data_in[ 7: 0]};
         endcase
-        WIDTH_U8: unique case (pipe_buff.alu_data[1:0])
-            2'b00: load_data = {24'h0, d_mem_data_in[ 7: 0]};
-            2'b01: load_data = {24'h0, d_mem_data_in[15: 8]};
-            2'b10: load_data = {24'h0, d_mem_data_in[23:16]};
-            2'b11: load_data = {24'h0, d_mem_data_in[31:24]};
+        WIDTH_U8: case (pipe_buff.alu_data[1:0])
+            2'b00:   load_data = {24'h0, d_mem_data_in[ 7: 0]};
+            2'b01:   load_data = {24'h0, d_mem_data_in[15: 8]};
+            2'b10:   load_data = {24'h0, d_mem_data_in[23:16]};
+            2'b11:   load_data = {24'h0, d_mem_data_in[31:24]};
+            default: load_data = {24'h0, d_mem_data_in[ 7: 0]};
         endcase
         WIDTH_I16:
             if (pipe_buff.alu_data[1]) load_data = {{16{d_mem_data_in[31]}}, d_mem_data_in[31:16]};

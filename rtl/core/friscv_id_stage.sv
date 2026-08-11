@@ -34,8 +34,8 @@ module friscv_id_stage import friscv_pkg::*, friscv_mem_pkg::*; #(
 
     // Memory protection
     parameter logic ENFORCE_PMP = 0,
-    parameter int   PMP_ENTRIES = 64,
-    parameter int   PMP_USABLE  = 64,
+    parameter int   PMP_ENTRIES = 8,
+    parameter int   PMP_USABLE  = 8,
 
     // If enabled, entering an EBREAK instruction will halt the core until reset
     parameter logic ENABLE_HALT_ON_ENTER_EBREAK = 0,
@@ -166,13 +166,16 @@ assign mode_out = current_mode;
 addr_t jump_base;
 assign jump_base = rs1_out;
 
+logic regfile_wr_en;
+assign regfile_wr_en = (rd_sel_in != 0) && instr_ret_in;
+
 friscv_id_regfile regfile (
     .clk_in           ( clk_in        ),
-    .rst_n_in         ( rst_n_in      ),
     .rs1_sel_in       ( rs1_sel_out   ),
     .rs2_sel_in       ( rs2_sel_out   ),
     .rd_sel_in        ( rd_sel_in     ),
     .rd_data_in       ( rd_data_in    ),
+    .wr_en_in         ( regfile_wr_en ),
     .rs1_data_out     ( rs1_out       ),
     .rs2_data_out     ( rs2_out       )
 );
@@ -455,10 +458,8 @@ end
 // This is separate from the target_misaligned logic to avoid a combinatorial loop in trap detection.
 always_comb begin
     if (!trap_out) begin
-        addr_t jal_target_base;
-        data_t jal_imm;
-        jal_target_base = '0;
-        jal_imm = '0;
+        automatic addr_t jal_target_base = '0;
+        automatic data_t jal_imm = '0;
 
         case (ir_buff.r.opcode)
             JALR: begin

@@ -23,8 +23,8 @@ module friscv_core_complex import friscv_pkg::*, friscv_mem_pkg::*; #(
     parameter logic ENABLE_MMU      = 1,
     parameter logic ENFORCE_PMP     = 0,
     parameter logic ENFORCE_PTW_PMP = 0,
-    parameter int   PMP_ENTRIES     = 64,
-    parameter int   PMP_USABLE      = 64,
+    parameter int   PMP_ENTRIES     = 8,
+    parameter int   PMP_USABLE      = 8,
     // Must be a power of 2 greater than 1
     parameter int   ITLB_ENTRIES = 2,
     parameter int   DTLB_ENTRIES = 4,
@@ -61,7 +61,6 @@ module friscv_core_complex import friscv_pkg::*, friscv_mem_pkg::*; #(
     input  logic       i_mem_wait,
     input  logic       i_mem_err,
     output logic       o_burst_en,
-    input  logic       i_beat_valid,
 
     input  logic       i_dbg_req
 );
