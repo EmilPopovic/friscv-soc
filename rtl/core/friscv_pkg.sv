@@ -189,18 +189,19 @@ package friscv_pkg;
     } mstatus_t;
 
     // Parametrization of the MMU for 32-bit and 64-bit modes
-    localparam int unsigned SATP_MODE_W = (XLEN == 32) ? 1 : 4;
-    localparam int unsigned SATP_ASID_W = (XLEN == 32) ? 9 : 16;
-    localparam int unsigned PTE_LEVEL_W = (XLEN == 32) ? 1 : 3;
-    localparam VPN_WIDTH   = (XLEN == 32) ? 20 : 27;
-    localparam PPN_WIDTH   = (XLEN == 32) ? 20 : 44;
+    localparam int unsigned SATP_MODE_W = (XLEN == 32) ? 1  : 4;
+    localparam int unsigned SATP_ASID_W = (XLEN == 32) ? 9  : 16;
+    localparam int unsigned PTE_LEVEL_W = (XLEN == 32) ? 1  : 3;
+    localparam int unsigned VPN_W       = (XLEN == 32) ? 20 : 27;
+    localparam int unsigned PPN_W       = (XLEN == 32) ? 22 : 44;
+    localparam int unsigned PA_PPN_W    = ADDR_WIDTH - 12;
 
     // Never use bare widths in the code, always use these typedefs to ensure correct generation in both modes
     typedef logic [SATP_MODE_W-1:0] satp_mode_t;
     typedef logic [SATP_ASID_W-1:0] asid_t;
-    typedef logic [VPN_WIDTH-1:0]   vpn_t;
-    typedef logic [PPN_WIDTH-1:0]   ppn_t;
     typedef logic [PTE_LEVEL_W-1:0] pte_level_t;
+    typedef logic [VPN_W-1:0]       vpn_t;
+    typedef logic [PPN_W-1:0]       ppn_t;
 
     // Do not change mappings, these are per-spec and directly used in decode
     typedef enum logic [3:0] { 
@@ -231,7 +232,6 @@ package friscv_pkg;
     // Fields of the SATP register, using XLEN-parametrized widths
     typedef struct packed {
         satp_mode_t mode;
-        logic [1:0] reserved;
         asid_t      asid;
         ppn_t       ppn;
     } satp_t;

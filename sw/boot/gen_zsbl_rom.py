@@ -6,9 +6,8 @@
 
     gen_zsbl_rom.py sw/boot/zsbl.S rtl/core/friscv_zsbl_rom_pkg.sv
 
-Pass the chip that maps the qspi pads to check the numbers the loader hardcodes,
-and --check to verify the committed package rather than rewrite it. The tapeout
-repo does both in make check-rom.
+Pass the soc that maps the peripherals to check the addresses the loader
+hardcodes, and --check to verify the committed package rather than rewrite it.
 """
 
 import re
@@ -37,18 +36,17 @@ def find(text: str, pattern: str) -> str | None:
 
 
 def check_against_soc(source: Path, soc_path: Path):
-    """The loader pokes the pinmux by address and the assembler cannot check
-    that. The pad map lives in the chip that instantiates this soc."""
+    """The loader reaches the SCB and the SPI host by address and the assembler
+    cannot check that. The register map lives in the soc."""
     asm, soc = source.read_text(), soc_path.read_text()
 
     want = [
-        ("pad base",
-         find(asm, r"\.equ\s+QSPI_PAD_BASE,\s*(\d+)"),
-         find(soc, r"Qspi0PadBase\s*=\s*(\d+)"), 10),
-        ("pinmux base",
-         find(asm, r"\.equ\s+PINMUX_BASE,\s*(0x[0-9a-fA-F]+)"),
-         find(soc, r"PinmuxBaseAddr\s*=\s*32'h([0-9a-fA-F_]+)")
-         or find(soc, r"idx:\s*PinmuxPort\s*,\s*start_addr:\s*32'h([0-9a-fA-F_]+)"), 16),
+        ("scb base",
+         find(asm, r"\.equ\s+SCB_BASE,\s*(0x[0-9a-fA-F]+)"),
+         find(soc, r"idx:\s*ScbPort\s*,\s*start_addr:\s*32'h([0-9a-fA-F_]+)"), 16),
+        ("qspi base",
+         find(asm, r"\.equ\s+QSPI_BASE,\s*(0x[0-9a-fA-F]+)"),
+         find(soc, r"idx:\s*Qspi0Port\s*,\s*start_addr:\s*32'h([0-9a-fA-F_]+)"), 16),
     ]
 
     for name, in_asm, in_soc, base in want:

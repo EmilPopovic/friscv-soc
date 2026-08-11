@@ -227,9 +227,12 @@ end : vpn_extract
 
 // PTE address = base_ppn * PAGESIZE | VPN[level] * PTE_SIZE
 // The PPN base has zeros in [11:0] and the VPN offset fits within 12 bits, so | is safe.
-assign o_walk_addr = addr_t'({w_eff_ppn, 12'b0}) |
+assign o_walk_addr = addr_t'({w_eff_ppn[PA_PPN_W-1:0], 12'b0}) |
                      (w_eff_wide_pte ? addr_t'({w_vpn_idx, 3'b0})
                                      : addr_t'({w_vpn_idx, 2'b0}));
+
+logic w_ppn_oob;
+assign w_ppn_oob = |w_eff_ppn[PPN_W-1:PA_PPN_W];
 
 // ============================================================
 // Transition logic
@@ -262,7 +265,7 @@ always_comb begin : transition_logic
         S_IDLE: begin
             o_stall    = 1'b0;
             o_walk_req = 1'b1;
-            if (w_start_walk && !i_pmp_fault) begin
+            if (w_start_walk && !i_pmp_fault && !w_ppn_oob) begin
                 // Assert walk_en now with the effective address
                 // Registers capture at posedge, so in S_READ the address is unchanged
                 // and i_walk_wait already asserted
@@ -270,6 +273,9 @@ always_comb begin : transition_logic
                 o_walk_en    = 1'b1;
                 o_stall      = 1'b1;
                 w_next_state = S_READ;
+            end else if (w_start_walk) begin
+                o_stall      = 1'b1;
+                w_next_state = S_PMP_FAULT;
             end
         end
 
@@ -290,8 +296,9 @@ always_comb begin : transition_logic
                 w_next_state = S_PAGE_FAULT;
             end else if (r_pte.perm.r || r_pte.perm.x) begin
                 // Leaf PTE, fill TLB and let requester retry
-                // Fault if misaligned superpage
-                w_next_state = (r_level != '0 && r_pte.ppn[9:0] != 10'b0) ? S_PAGE_FAULT : S_FILL;
+                // Fault if misaligned superpage or if the frame is out of reach.
+                w_next_state = (r_level != '0 && r_pte.ppn[9:0] != 10'b0) ? S_PAGE_FAULT :
+                               w_ppn_oob ? S_PMP_FAULT  : S_FILL;
             end else begin
                 // Non-leaf PTE
                 if (r_pte.perm.d || r_pte.perm.a || r_pte.perm.u) begin
@@ -304,11 +311,11 @@ always_comb begin : transition_logic
                     // Non-leaf, descend, assert walk_en now with the next-level address
                     o_walk_req = 1'b1;
                     w_descend    = 1'b1;
-                    if (!i_pmp_fault) begin
+                    if (!i_pmp_fault && !w_ppn_oob) begin
                         o_walk_en    = 1'b1;
                         w_next_state = S_READ;
                     end else begin
-                        // Stop walk if descended level gives PMP fault
+                        // Stop walk if the descended level is PMP denied or unreachable
                         w_next_state = S_PMP_FAULT;
                     end
                 end

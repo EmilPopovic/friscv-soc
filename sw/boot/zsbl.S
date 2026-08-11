@@ -14,12 +14,7 @@
 .equ SCB_STRAPA,   0x04
 
 # gen_zsbl_rom.py checks these against vernii_soc.sv
-.equ PINMUX_BASE,  0x40001000    # one word per pad
-.equ QSPI_PAD_BASE, 5            # Qspi0PadBase, PA5 = IO0
-.equ PAD_IO0,      (QSPI_PAD_BASE + 0) * 4
-.equ PAD_IO1,      (QSPI_PAD_BASE + 1) * 4
-.equ PAD_SCK,      (QSPI_PAD_BASE + 4) * 4
-.equ PAD_CS0,      (QSPI_PAD_BASE + 5) * 4
+.equ QSPI_BASE,    0x60000000
 .equ SPI_CONTROL,  0x10
 .equ SPI_STATUS,   0x14
 .equ SPI_COMMAND,  0x28
@@ -42,13 +37,8 @@ park:
     jr t2
 
 qspi:
-    # t1 is still 1, the QSPI function
-    lui t3, (PINMUX_BASE >> 12)
-    sw t1, PAD_IO0(t3)
-    sw t1, PAD_IO1(t3)
-    sw t1, PAD_SCK(t3)
-    sw t1, PAD_CS0(t3)
-    lui t0, 0x60000
+    # The QSPI pads are dedicated, there is nothing to mux
+    lui t0, (QSPI_BASE >> 12)
     lui t1, 0xa0000              # SPIEN | OUTPUT_EN
     sw t1, SPI_CONTROL(t0)
     li t1, 3                     # 0x03 read from address 0, LSB first

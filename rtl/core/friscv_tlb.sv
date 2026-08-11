@@ -76,13 +76,13 @@ logic                           w_any_invalid;
 logic [$clog2(ENTRY_COUNT)-1:0] w_invalid_slot, w_clock_victim, w_hit_idx;
 
 // Generate a mask that zeroes the lowest level*pn_width bits of a vpn
-function automatic logic [VPN_WIDTH-1:0] vpn_mask(
+function automatic logic [VPN_W-1:0] vpn_mask(
     input pte_level_t level,
     input satp_mode_e mode
 );
     logic [5:0] shift;
     shift = (mode == SATP_SV32) ? 6'(level * 10) : 6'(level * 9);  // 10-bit VPNs in SV32, 9-bit in others
-    vpn_mask = (shift >= VPN_WIDTH) ? '0 : ~((VPN_WIDTH'(1) << shift) - 1);
+    vpn_mask = (shift >= 6'(VPN_W)) ? '0 : ~((VPN_W'(1) << shift) - 1);
 endfunction : vpn_mask
 
 // ============================================================
@@ -114,7 +114,7 @@ always_ff @(posedge i_clk or negedge i_rstn) begin : tlb_fill_and_flush
             if (ENABLE_FINE_TLB_FLUSH && i_flush_vpn_en && i_flush_asid_en) begin
 
                 for (int g = 0; g < ENTRY_COUNT; g++) begin : tlb_flush_va_asid
-                    logic [VPN_WIDTH-1:0] mask;
+                    logic [VPN_W-1:0] mask;
                     logic vpn_match;
 
                     mask = vpn_mask(r_tlb[g].level, i_mode);
@@ -128,7 +128,7 @@ always_ff @(posedge i_clk or negedge i_rstn) begin : tlb_fill_and_flush
             end else if (ENABLE_FINE_TLB_FLUSH && i_flush_vpn_en) begin
 
                 for (int g = 0; g < ENTRY_COUNT; g++) begin : tlb_flush_va
-                    logic [VPN_WIDTH-1:0] mask;
+                    logic [VPN_W-1:0] mask;
                     logic vpn_match;
 
                     mask = vpn_mask(r_tlb[g].level, i_mode);
@@ -159,7 +159,7 @@ always_ff @(posedge i_clk or negedge i_rstn) begin : tlb_fill_and_flush
         end else if (i_fill_en) begin  // Insert or replace with new entry
 
             logic [$clog2(ENTRY_COUNT)-1:0] victim;
-            logic [VPN_WIDTH-1:0] mask;
+            logic [VPN_W-1:0] mask;
 
             victim = w_any_invalid ? w_invalid_slot : w_clock_victim;
             mask   = vpn_mask(i_fill_level, i_mode);
@@ -216,18 +216,18 @@ end
 // Lookup
 // ============================================================
 
-function automatic logic [PPN_WIDTH-1:0] reconstruct_ppn(
-    input logic [PPN_WIDTH-1:0] ppn,
-    input logic [VPN_WIDTH-1:0] vpn,
+function automatic logic [PPN_W-1:0] reconstruct_ppn(
+    input logic [PPN_W-1:0] ppn,
+    input logic [VPN_W-1:0] vpn,
     input pte_level_t           level,
     input satp_mode_e           mode
 );
     logic [5:0] shift;
-    logic [PPN_WIDTH-1:0] low_mask;
+    logic [PPN_W-1:0] low_mask;
 
-    shift = (mode == SATP_SV32) ? 6'(level * 10) : 6'(level * 9);                  // 10-bit VPNs in SV32, 9-bit in others
-    low_mask = (shift >= PPN_WIDTH) ? '1 : ((PPN_WIDTH'(1) << shift) - 1);         // Keep only the lowest shift bits of vpn
-    reconstruct_ppn = (ppn & ~((PPN_WIDTH'(1) << shift) - 1)) | (vpn & low_mask);  // Combine high of ppn with low of vpn
+    shift = (mode == SATP_SV32) ? 6'(level * 10) : 6'(level * 9);                      // 10-bit VPNs in SV32, 9-bit in others
+    low_mask = (shift >= 6'(PPN_W)) ? '1 : ((PPN_W'(1) << shift) - 1);                 // Keep only the lowest shift bits of vpn
+    reconstruct_ppn = (ppn & ~((PPN_W'(1) << shift) - 1)) | (PPN_W'(vpn) & low_mask);  // Combine high of ppn with low of vpn
 endfunction : reconstruct_ppn
 
 ppn_t       r_ppn, w_ppn;
@@ -262,7 +262,7 @@ always_comb begin
     w_hit_idx = '0;
 
     for (int g = 0; g < ENTRY_COUNT; g++) begin : tlb_lookup
-        logic [VPN_WIDTH-1:0] mask;
+        logic [VPN_W-1:0] mask;
         logic vpn_match;
 
         mask      = vpn_mask(r_tlb[g].level, i_mode);

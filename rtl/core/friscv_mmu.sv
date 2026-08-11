@@ -124,8 +124,8 @@ logic       w_fill_itlb, w_fill_dtlb;
 
 // Physical addresses
 addr_t w_inst_pa, w_data_pa;
-assign w_inst_pa = w_paging_en ? {w_itlb_ppn, i_inst_addr[11:0]} : i_inst_addr;
-assign w_data_pa = w_paging_en ? {w_dtlb_ppn, i_data_addr[11:0]} : i_data_addr;
+assign w_inst_pa = w_paging_en ? {w_itlb_ppn[PA_PPN_W-1:0], i_inst_addr[11:0]} : i_inst_addr;
+assign w_data_pa = w_paging_en ? {w_dtlb_ppn[PA_PPN_W-1:0], i_data_addr[11:0]} : i_data_addr;
 
 friscv_tlb #(
     .ENTRY_COUNT           ( ITLB_ENTRIES          ),
@@ -401,8 +401,8 @@ logic w_perm_inst_fault, w_perm_load_fault, w_perm_store_fault;
 logic w_perm_fault;
 
 logic w_inst_pmp_fault, w_data_pmp_fault;
-assign o_inst_pmp_fault = w_inst_pmp_fault || (w_ptw_access_fault && w_walk_en);
-assign o_data_pmp_fault = w_data_pmp_fault || (w_ptw_access_fault && w_walk_en);
+assign o_inst_pmp_fault = w_inst_pmp_fault || (w_ptw_access_fault &&  w_eff_req_ctx.is_inst);
+assign o_data_pmp_fault = w_data_pmp_fault || (w_ptw_access_fault && !w_eff_req_ctx.is_inst);
 
 logic w_data_read, w_data_write;
 assign w_data_read  = i_data_en && (!i_data_store_like || (i_amo_op != AMO_NONE));
@@ -483,7 +483,7 @@ ppn_t w_granted_ppn;
 assign w_granted_ppn = w_eff_req_ctx.is_inst ? w_itlb_ppn : w_dtlb_ppn;
 
 addr_t w_granted_pa;
-assign w_tlate_pa   = w_paging_en ? {w_granted_ppn, w_eff_req_ctx.addr[11:0]} : w_eff_req_ctx.addr;
+assign w_tlate_pa   = w_paging_en ? {w_granted_ppn[PA_PPN_W-1:0], w_eff_req_ctx.addr[11:0]} : w_eff_req_ctx.addr;
 assign w_granted_pa = r_access_busy ? r_access_pa : w_tlate_pa;
 
 assign o_inst_err = w_l1_inst_err;
