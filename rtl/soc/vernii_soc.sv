@@ -29,6 +29,8 @@ module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t;
     parameter int unsigned NumStraps        = 13,
     parameter int unsigned NumExtRegSlv     = 1,
     parameter bit          HaltOnEnd        = 0,
+    parameter int unsigned NumExtIrq        = 2,
+    parameter int unsigned NumGpioAIrq      = 8,
     parameter axi_pkg::xbar_rule_32_t [NumExtRegSlv-1:0] ExtRegSlvRules = '{default: '0},
     parameter type axi_req_t = vernii_axi_req_t,
     parameter type axi_rsp_t = vernii_axi_resp_t,
@@ -74,6 +76,10 @@ module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t;
     output logic [3:0] o_qspi_sd,
     output logic [3:0] o_qspi_sd_oe,
     input  logic [3:0] i_qspi_sd,
+
+    // External interrupts
+    // Single unused bit when NumExtIrq is 0
+    input  logic [(NumExtIrq > 0 ? NumExtIrq : 1)-1:0] i_ext_irq,
 
     // GPIO Port A
     input  logic [31:0] i_gpio,
@@ -647,17 +653,32 @@ spi_host #(
 // PLIC
 // ============================================================
 
-localparam int unsigned NIrqSources = 8;
+localparam int unsigned NumUart0Irq = 1;
+localparam int unsigned NumQspi0Irq = 2;
+
+localparam int unsigned Uart0IrqBase = 0;
+localparam int unsigned Qspi0IrqBase = Uart0IrqBase + NumUart0Irq;
+localparam int unsigned GpioAIrqBase = Qspi0IrqBase + NumQspi0Irq;
+localparam int unsigned ExtIrqBase   = GpioAIrqBase + NumGpioAIrq;
+
+localparam int unsigned NIrqSources = ExtIrqBase + NumExtIrq;
+
+if (NumGpioAIrq > 32) begin : gen_chk_gpio_a_irq
+    $error("NumGpioAIrq (%0d) more than the 32 GPIO port A pins", NumGpioAIrq);
+end
+
 logic [NIrqSources-1:0] plic_irq_sources;
-assign plic_irq_sources[0] = uart0_irq;
-assign plic_irq_sources[1] = qspi0_irq_error;
-assign plic_irq_sources[2] = qspi0_irq_spi_event;
-// PA1..PA4 can be used as external interrupts
-assign plic_irq_sources[3] = gpio_a_irq[1];
-assign plic_irq_sources[4] = gpio_a_irq[2];
-assign plic_irq_sources[5] = gpio_a_irq[3];
-assign plic_irq_sources[6] = gpio_a_irq[4];
-assign plic_irq_sources[7] = 1'b0;  // unused
+
+assign plic_irq_sources[Uart0IrqBase]                = uart0_irq;
+assign plic_irq_sources[Qspi0IrqBase +: NumQspi0Irq] = {qspi0_irq_spi_event, qspi0_irq_error};
+
+if (NumGpioAIrq > 0) begin : gen_gpio_a_irq
+    assign plic_irq_sources[GpioAIrqBase +: NumGpioAIrq] = gpio_a_irq[NumGpioAIrq-1:0];
+end
+
+if (NumExtIrq > 0) begin : gen_ext_irq
+    assign plic_irq_sources[ExtIrqBase +: NumExtIrq] = i_ext_irq[NumExtIrq-1:0];
+end
 
 // Two targets, context 0 is hart 0 M-mode (MEIP), context 1 is hart 0 S-mode (SEIP)
 localparam int unsigned NIrqTargets = 2;

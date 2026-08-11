@@ -143,6 +143,7 @@ vernii_soc #(
     .o_qspi_sd     ( o_qspi_sd     ),
     .o_qspi_sd_oe  ( o_qspi_sd_oe  ),
     .i_qspi_sd     ( i_qspi_sd     ),
+    .i_ext_irq     ( '0            ),
     .i_gpio        ( i_gpio        ),
     .o_gpio        ( o_gpio        ),
     .o_gpio_oe     ( o_gpio_oe     )

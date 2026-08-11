@@ -194,6 +194,7 @@ vernii_soc #(
     .o_qspi_sd     ( qspi_sd_o              ),
     .o_qspi_sd_oe  ( qspi_sd_oe             ),
     .i_qspi_sd     ( qspi_sd_i              ),
+    .i_ext_irq     ( '0                     ),
     .i_gpio        ( gpio_in                ),
     .o_gpio        ( gpio_out               ),
     .o_gpio_oe     ( gpio_oe                )
