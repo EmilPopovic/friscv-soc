@@ -16,7 +16,6 @@ module vernii_soc_sim import vernii_pkg::*; #(
     parameter int unsigned LineBytes        = 32,
     parameter int unsigned Ways             = 4,
     parameter bit          SramTags         = 1'b1,
-    parameter bit          EnablePlic       = 1,
     parameter int unsigned ZsblRomSizeBytes = 144,
     parameter int unsigned NumStraps        = 13
 ) (
@@ -113,7 +112,6 @@ vernii_soc #(
     .LineBytes        ( LineBytes        ),
     .Ways             ( Ways             ),
     .SramTags         ( SramTags         ),
-    .EnablePlic       ( EnablePlic       ),
     .ZsblRomSizeBytes ( ZsblRomSizeBytes ),
     .NumStraps        ( NumStraps        ),
     .NumExtRegSlv     ( NumExtRegSlv     ),

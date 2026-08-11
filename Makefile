@@ -1,4 +1,5 @@
 sources.f: Bender.yml Bender.lock $(wildcard target/sim/rtl/*.sv)
+	rm sources.f || true
 	bender script flist-plus -t rtl -t synthesis > $@
 	sed -i '\|/opentitan_peripherals-[^/]*/src/spi_host/rtl/|d' $@
 	sed -i '\|/obi_peripherals-[^/]*/hw/obi_uart/|d' $@

@@ -25,7 +25,6 @@ module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t;
     parameter int unsigned LineBytes        = 32,
     parameter int unsigned Ways             = 4,
     parameter bit          SramTags         = 1'b1,
-    parameter bit          EnablePlic       = 1,
     parameter int unsigned ZsblRomSizeBytes = 144,
     parameter int unsigned NumStraps        = 13,
     parameter int unsigned NumExtRegSlv     = 1,
@@ -666,26 +665,21 @@ logic [NIrqTargets-1:0] plic_irq_targets;
 assign meip = plic_irq_targets[0];
 assign seip = plic_irq_targets[1];
 
-if (EnablePlic) begin : gen_plic
-    plic_top #(
-        .N_SOURCE  ( NIrqSources ),
-        .N_TARGET  ( NIrqTargets ),
-        .MAX_PRIO  ( 1           ),
-        .reg_req_t ( reg_req_t   ),
-        .reg_rsp_t ( reg_rsp_t   )
-    ) plic (
-        .clk_i         ( i_clk                 ),
-        .rst_ni        ( soc_rstn              ),
-        .req_i         ( reg_dev_req[PlicPort] ),
-        .resp_o        ( reg_dev_rsp[PlicPort] ),
-        .le_i          ( '0                    ),  // All level-held
-        .irq_sources_i ( plic_irq_sources      ),
-        .eip_targets_o ( plic_irq_targets      )
-    );
-end else begin : gen_no_plic
-    `REG_TIE_OFF(PlicPort)
-    assign plic_irq_targets = '0;
-end
+plic_top #(
+    .N_SOURCE  ( NIrqSources ),
+    .N_TARGET  ( NIrqTargets ),
+    .MAX_PRIO  ( 1           ),
+    .reg_req_t ( reg_req_t   ),
+    .reg_rsp_t ( reg_rsp_t   )
+) plic (
+    .clk_i         ( i_clk                 ),
+    .rst_ni        ( soc_rstn              ),
+    .req_i         ( reg_dev_req[PlicPort] ),
+    .resp_o        ( reg_dev_rsp[PlicPort] ),
+    .le_i          ( '0                    ),  // All level-held
+    .irq_sources_i ( plic_irq_sources      ),
+    .eip_targets_o ( plic_irq_targets      )
+);
 
 // ============================================================
 // CLINT: reg demux -> reg_bus -> ACLINT

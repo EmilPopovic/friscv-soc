@@ -163,7 +163,6 @@ vernii_soc #(
     .SramSize         ( SramSize                         ),
     .MemBase          ( MemBase                          ),
     .MemSize          ( MemSize                          ),
-    .EnablePlic       ( 1'b1                             ),
     .ZsblRomSizeBytes ( (ZsblRom != 0) ? 32'd144 : 32'd0 ),
     .NumStraps        ( NumStraps                        ),
     .NumExtRegSlv     ( 1                                ),
