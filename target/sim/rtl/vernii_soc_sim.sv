@@ -120,6 +120,7 @@ vernii_soc #(
 ) i_vernii_soc (
     .i_clk         ( i_clk         ),
     .i_rstn        ( i_rstn        ),
+    .i_test_mode   ( 1'b0          ),
     .o_por_rstn    (               ),
     .o_soc_rstn    (               ),
     .o_end         ( o_end         ),

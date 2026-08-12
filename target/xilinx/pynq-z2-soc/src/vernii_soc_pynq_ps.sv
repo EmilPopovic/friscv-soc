@@ -171,6 +171,7 @@ vernii_soc #(
 ) i_vernii_soc (
     .i_clk         ( clk_i                  ),
     .i_rstn        ( soc_rstn               ),
+    .i_test_mode   ( 1'b0                   ),
     .o_por_rstn    (                        ),
     .o_soc_rstn    (                        ),
     .o_end         ( soc_end                ),

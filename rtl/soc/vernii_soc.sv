@@ -47,6 +47,8 @@ module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t;
     input  logic  i_clk,
     input  logic  i_rstn,
 
+    input  logic  i_test_mode,
+
     output logic  o_por_rstn,
     output logic  o_soc_rstn,
 
@@ -98,9 +100,9 @@ logic por_rstn;  // power-on reset synchronizer
 logic soc_rstn, soc_rstn_async;
 
 rstgen i_rstgen_por (
-    .clk_i       ( i_clk    ),
-    .rst_ni      ( i_rstn   ),
-    .test_mode_i ( 1'b0     ),
+    .clk_i       ( i_clk       ),
+    .rst_ni      ( i_rstn      ),
+    .test_mode_i ( i_test_mode ),
     .rst_no      ( por_rstn ),
     .init_no     (          )
 );
@@ -108,7 +110,7 @@ rstgen i_rstgen_por (
 rstgen i_rstgen_soc (
     .clk_i       ( i_clk          ),
     .rst_ni      ( soc_rstn_async ),
-    .test_mode_i ( 1'b0           ),
+    .test_mode_i ( i_test_mode    ),
     .rst_no      ( soc_rstn       ),
     .init_no     (                )
 );
@@ -129,7 +131,9 @@ localparam logic [31:0] ZsblBaseAddr = 32'h0020_0000;
 logic ndmreset;   // non-debug-module reset request from the DM
 logic debug_req;  // async debug request to the hart
 
-assign soc_rstn_async = por_rstn & ~ndmreset;
+// In test mode the reset synchronizer above is bypassed, which would put dmcontrol.ndmreset
+// (a scan-chain flop) on a combinational path to the async reset of the whole SoC.
+assign soc_rstn_async = por_rstn & (i_test_mode | ~ndmreset);
 
 assign o_por_rstn = por_rstn;
 assign o_soc_rstn = soc_rstn;
@@ -503,7 +507,7 @@ dm_top #(
     .rst_ni               ( por_rstn       ),
 
     .next_dm_addr_i       ( '0             ),  // No next DM in the chain
-    .testmode_i           ( 1'b0           ),
+    .testmode_i           ( i_test_mode    ),
     .ndmreset_o           ( ndmreset       ),
     .ndmreset_ack_i       ( ndmreset       ),  // ack immediately
     .dmactive_o           (                ),
@@ -547,7 +551,7 @@ assign jtag_trstn_async = i_rstn & i_jtag_trstn;
 rstgen i_rstgen_tck (
     .clk_i       ( i_jtag_tck       ),
     .rst_ni      ( jtag_trstn_async ),
-    .test_mode_i ( 1'b0             ),
+    .test_mode_i ( i_test_mode      ),
     .rst_no      ( jtag_trstn       ),
     .init_no     (                  )
 );
@@ -557,7 +561,7 @@ dmi_jtag #(
 ) dmi (
     .clk_i            ( i_clk          ),
     .rst_ni           ( por_rstn       ),
-    .testmode_i       ( 1'b0           ),
+    .testmode_i       ( i_test_mode    ),
 
     .dmi_rst_no       ( dmi_rst        ),
     .dmi_req_o        ( dmi_req        ),
