@@ -9,10 +9,10 @@
 `default_nettype none
 
 module vernii_soc_pynq_ps import vernii_pkg::*, axi_pkg::xbar_rule_32_t; #(
-    parameter int unsigned SramBase  = 32'h0000_0000,
-    parameter int unsigned SramSize  = 32'h0008_0000,
-    parameter int unsigned MemBase   = 32'h8000_0000,
-    parameter int unsigned MemSize   = 32'h0100_0000,
+    parameter int unsigned OcmBase   = 32'h0000_0000,
+    parameter int unsigned OcmSize   = 32'h0008_0000,
+    parameter int unsigned ExtBase   = 32'h8000_0000,
+    parameter int unsigned ExtSize   = 32'h0100_0000,
     parameter int unsigned MemPsBase = 32'h0010_0000,
     parameter int unsigned ZsblRom   = 1,
     parameter int unsigned NumGpio   = 27,
@@ -158,50 +158,53 @@ end
 assign qspi_sck_o = qspi_sck;
 assign qspi_cs_o  = qspi_cs;
 
+`pragma diagnostic push
+`pragma diagnostic ignore="-Wempty-output-connection"
 vernii_soc #(
-    .SramBase         ( SramBase                         ),
-    .SramSize         ( SramSize                         ),
-    .MemBase          ( MemBase                          ),
-    .MemSize          ( MemSize                          ),
+    .OcmBase          ( OcmBase        ),
+    .OcmSize          ( OcmSize        ),
+    .ExtBase          ( ExtBase        ),
+    .ExtSize          ( ExtSize        ),
     .ZsblRomSizeBytes ( (ZsblRom != 0) ? friscv_zsbl_rom_pkg::ZSBL_PROG_BYTES : 32'd0 ),
-    .NumStraps        ( NumStraps                        ),
-    .NumExtRegSlv     ( 1                                ),
-    .ExtRegSlvRules   ( ExtRegSlvRules                   ),
-    .HaltOnEnd        ( 1'b1                             )
+    .NumStraps        ( NumStraps      ),
+    .NumExtRegSlv     ( 1              ),
+    .ExtRegSlvRules   ( ExtRegSlvRules ),
+    .HaltOnEnd        ( 1'b1           )
 ) i_vernii_soc (
-    .i_clk         ( clk_i                  ),
-    .i_rstn        ( soc_rstn               ),
-    .i_test_mode   ( 1'b0                   ),
-    .o_por_rstn    (                        ),
-    .o_soc_rstn    (                        ),
-    .o_end         ( soc_end                ),
-    .o_axi_mem_req ( axi_req                ),
-    .i_axi_mem_rsp ( axi_rsp                ),
-    .o_reg_ext_req ( reg_ext_req            ),
-    .i_reg_ext_rsp ( reg_ext_rsp            ),
-    .i_strap       ( gpio_in[NumStraps-1:0] ),
-    .i_uart_rx     ( uart_rx_i              ),
-    .o_uart_tx     ( uart_tx_o              ),
-    .i_jtag_tck    ( jtag_tck_i             ),
-    .i_jtag_tms    ( jtag_tms_i             ),
-    .i_jtag_trstn  ( 1'b1                   ),
-    .i_jtag_tdi    ( jtag_tdi_i             ),
-    .o_jtag_tdo    ( jtag_tdo_o             ),
-    .o_jtag_tdo_oe (                        ),
-    .o_qspi_sck    ( qspi_sck               ),
-    .o_qspi_sck_oe ( qspi_sck_oe            ),
-    .o_qspi_cs     ( qspi_cs                ),
-    .o_qspi_cs_oe  ( qspi_cs_oe             ),
-    .o_qspi_sd     ( qspi_sd_o              ),
-    .o_qspi_sd_oe  ( qspi_sd_oe             ),
-    .i_qspi_sd     ( qspi_sd_i              ),
-    .i_ext_irq     ( '0                     ),
-    .i_gpio        ( gpio_in                ),
-    .o_gpio        ( gpio_out               ),
-    .o_gpio_oe     ( gpio_oe                )
+    .clk_i          ( clk_i                  ),
+    .rst_ni         ( soc_rstn               ),
+    .test_mode_i    ( 1'b0                   ),
+    .por_rst_no     (                        ),
+    .soc_rst_no     (                        ),
+    .end_o          ( soc_end                ),
+    .axi_mem_req_o  ( axi_req                ),
+    .axi_mem_rsp_i  ( axi_rsp                ),
+    .reg_ext_req_o  ( reg_ext_req            ),
+    .reg_ext_rsp_i  ( reg_ext_rsp            ),
+    .strap_i        ( gpio_in[NumStraps-1:0] ),
+    .uart0_rx_i     ( uart_rx_i              ),
+    .uart0_tx_o     ( uart_tx_o              ),
+    .tck_i          ( jtag_tck_i             ),
+    .tms_i          ( jtag_tms_i             ),
+    .trst_ni        ( 1'b1                   ),
+    .td_i           ( jtag_tdi_i             ),
+    .td_o           ( jtag_tdo_o             ),
+    .tdo_oe_o       (                        ),
+    .qspi0_sck_o    ( qspi_sck               ),
+    .qspi0_sck_oe_o ( qspi_sck_oe            ),
+    .qspi0_cs_o     ( qspi_cs                ),
+    .qspi0_cs_oe_o  ( qspi_cs_oe             ),
+    .qspi0_sd_o     ( qspi_sd_o              ),
+    .qspi0_sd_oe_o  ( qspi_sd_oe             ),
+    .qspi0_sd_i     ( qspi_sd_i              ),
+    .ext_irq_i      ( '0                     ),
+    .gpio_a_i       ( gpio_in                ),
+    .gpio_a_o       ( gpio_out               ),
+    .gpio_a_oe_o    ( gpio_oe                )
 );
+`pragma diagnostic pop
 
-assign m_axi_awaddr  = axi_req.aw.addr - MemBase + MemPsBase;
+assign m_axi_awaddr  = axi_req.aw.addr - ExtBase + MemPsBase;
 assign m_axi_awlen   = axi_req.aw.len;
 assign m_axi_awsize  = axi_req.aw.size;
 assign m_axi_awburst = axi_req.aw.burst;
@@ -219,7 +222,7 @@ assign m_axi_wvalid = axi_req.w_valid;
 
 assign m_axi_bready = axi_req.b_ready;
 
-assign m_axi_araddr  = axi_req.ar.addr - MemBase + MemPsBase;
+assign m_axi_araddr  = axi_req.ar.addr - ExtBase + MemPsBase;
 assign m_axi_arlen   = axi_req.ar.len;
 assign m_axi_arsize  = axi_req.ar.size;
 assign m_axi_arburst = axi_req.ar.burst;

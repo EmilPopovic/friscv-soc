@@ -7,10 +7,10 @@
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
 
 module vernii_soc_pynq_ps_wrap #(
-    parameter SramBase  = 32'h8000_0000,
-    parameter SramSize  = 32'h0008_0000,
-    parameter MemBase   = 32'h8000_0000,
-    parameter MemSize   = 32'h0100_0000,
+    parameter OcmBase   = 32'h8000_0000,
+    parameter OcmSize   = 32'h0008_0000,
+    parameter ExtBase   = 32'h8000_0000,
+    parameter ExtSize   = 32'h0100_0000,
     parameter MemPsBase = 32'h0010_0000,
     parameter ZsblRom   = 1,
     parameter NumGpio   = 27,
@@ -85,10 +85,10 @@ module vernii_soc_pynq_ps_wrap #(
 );
 
 vernii_soc_pynq_ps #(
-    .SramBase  ( SramBase  ),
-    .SramSize  ( SramSize  ),
-    .MemBase   ( MemBase   ),
-    .MemSize   ( MemSize   ),
+    .OcmBase   ( OcmBase   ),
+    .OcmSize   ( OcmSize   ),
+    .ExtBase   ( ExtBase   ),
+    .ExtSize   ( ExtSize   ),
     .MemPsBase ( MemPsBase ),
     .ZsblRom   ( ZsblRom   ),
     .NumGpio   ( NumGpio   ),

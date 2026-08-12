@@ -9,13 +9,13 @@
 // Emil Popović <mail@emilpopovic.me>
 
 module friscv_mem_hub import friscv_mem_pkg::*; #(
-    parameter int unsigned MEM_BASE   = 32'h8000_0000,
-    parameter int unsigned MEM_SIZE   = 32'h8000_0000,
-    parameter int unsigned SRAM_BASE  = 32'h0000_0000,
-    parameter int unsigned SRAM_SIZE  = 32'h0100_0000,
-    parameter int unsigned LINE_BYTES = 64,
-    parameter int unsigned WAYS       = 4,
-    parameter bit          SRAM_TAGS  = 1'b1
+    parameter int unsigned ExtBase   = 32'h8000_0000,
+    parameter int unsigned ExtSize   = 32'h8000_0000,
+    parameter int unsigned OcmBase   = 32'h0000_0000,
+    parameter int unsigned OcmSize   = 32'h0100_0000,
+    parameter int unsigned LineBytes = 64,
+    parameter int unsigned Ways      = 4,
+    parameter bit          SramTags  = 1'b1
 ) (
     input  logic            i_clk,
     input  logic            i_rstn,
@@ -25,22 +25,22 @@ module friscv_mem_hub import friscv_mem_pkg::*; #(
     friscv_mem_if.master    m_ext_if,  // To downstream
     friscv_mem_if.master    m_sys_if,  // To SoC
 
-    input  logic [WAYS-1:0] i_llcsel,
+    input  logic [Ways-1:0] i_llcsel,
     input  logic            i_crpsel,
     input  logic            i_llcinv
 );
 
-if (MEM_BASE % LINE_BYTES != 0) begin : gen_chk_mem_base
-    $fatal(1, "MEM_BASE must be aligned to LINE_BYTES, got %0x", MEM_BASE);
+if (ExtBase % LineBytes != 0) begin : gen_chk_mem_base
+    $fatal(1, "ExtBase must be aligned to LineBytes, got %0x", ExtBase);
 end
-if (SRAM_BASE % LINE_BYTES != 0) begin : gen_chk_sram_base
-    $fatal(1, "SRAM_BASE must be aligned to LINE_BYTES, got %0x", SRAM_BASE);
+if (OcmBase % LineBytes != 0) begin : gen_chk_sram_base
+    $fatal(1, "OcmBase must be aligned to LineBytes, got %0x", OcmBase);
 end
-if (MEM_SIZE == 0 || MEM_SIZE != 1 << $clog2(MEM_SIZE)) begin : gen_chk_mem_size
-    $fatal(1, "MEM_SIZE must be a power of 2, got %0x", MEM_SIZE);
+if (ExtSize == 0 || ExtSize != 1 << $clog2(ExtSize)) begin : gen_chk_mem_size
+    $fatal(1, "ExtSize must be a power of 2, got %0x", ExtSize);
 end
-if (SRAM_SIZE == 0 || SRAM_SIZE != 1 << $clog2(SRAM_SIZE)) begin : gen_chk_sram_size
-    $fatal(1, "SRAM_SIZE must be a power of 2, got %0x", SRAM_SIZE);
+if (OcmSize == 0 || OcmSize != 1 << $clog2(OcmSize)) begin : gen_chk_sram_size
+    $fatal(1, "OcmSize must be a power of 2, got %0x", OcmSize);
 end
 
 
@@ -195,8 +195,8 @@ assign s_dm_if.beat_valid   = 1'b0;
 friscv_mem_if llc_if ();
 
 logic w_match_ext, w_match_sram;
-assign w_match_ext  = (granted_if.addr - addr_t'( MEM_BASE)) < addr_t'( MEM_SIZE);
-assign w_match_sram = (granted_if.addr - addr_t'(SRAM_BASE)) < addr_t'(SRAM_SIZE);
+assign w_match_ext  = (granted_if.addr - addr_t'(ExtBase)) < addr_t'(ExtSize);
+assign w_match_sram = (granted_if.addr - addr_t'(OcmBase)) < addr_t'(OcmSize);
 
 logic w_sel_llc, w_sel_sys;
 assign w_sel_llc = w_match_ext || w_match_sram;
@@ -230,13 +230,13 @@ assign granted_if.beat_valid = r_sel_llc ? llc_if.beat_valid : m_sys_if.beat_val
 // ============================================================
 
 friscv_ocm_llc #(
-    .OCM_BASE    ( SRAM_BASE        ),
-    .REGION_BASE ( MEM_BASE         ),
-    .REGION_LOG2 ( $clog2(MEM_SIZE) ),
-    .LINE_BYTES  ( LINE_BYTES       ),
-    .WAYS        ( WAYS             ),
-    .SIZE_BYTES  ( SRAM_SIZE        ),
-    .SRAM_TAGS   ( SRAM_TAGS        )
+    .OcmBase      ( OcmBase        ),
+    .ExtBase      ( ExtBase        ),
+    .ExtLog2      ( $clog2(ExtSize)),
+    .LineBytes    ( LineBytes      ),
+    .Ways         ( Ways           ),
+    .OcmSizeBytes ( OcmSize        ),
+    .SramTags     ( SramTags       )
 ) ocm_llc (
     .i_clk           ( i_clk    ),
     .i_rstn          ( i_rstn   ),

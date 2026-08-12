@@ -7,9 +7,9 @@
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
 
 module friscv_id_decoder import friscv_pkg::*, friscv_mem_pkg::*; #(
-    parameter logic ENABLE_EXTENSION_A = 1,
-    parameter logic ENABLE_MUL         = 1,
-    parameter logic ENABLE_DIV         = 1
+    parameter logic EnableExtensionA = 1,
+    parameter logic EnableMul        = 1,
+    parameter logic EnableDiv        = 1
 ) (
     input  instr_op_t ir_in,
     input  mode_e     mode_in,
@@ -151,7 +151,7 @@ always_comb begin
         end
 
         AMO: begin
-            if (ENABLE_EXTENSION_A) begin
+            if (EnableExtensionA) begin
                 case (ir_in.r.funct3)
                     3'b010: begin  // RV32A Standard Extension instructions
                         instr_ex_out.wb_data_sel = WB_DATA_SEL_MEM;
@@ -211,38 +211,38 @@ always_comb begin
 
             case (ir_in.r.funct3)
                 3'b000:
-                    if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = ADD_OP;                  // ADD
-                    else if (ir_in.r.funct7 == 7'b0100000) instr_ex_out.alu_op = SUB_OP;                  // SUB
-                    else if (ir_in.r.funct7 == 7'b0000001 && ENABLE_MUL) instr_ex_out.alu_op = MUL_OP;    // MUL
+                    if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = ADD_OP;                 // ADD
+                    else if (ir_in.r.funct7 == 7'b0100000) instr_ex_out.alu_op = SUB_OP;                 // SUB
+                    else if (ir_in.r.funct7 == 7'b0000001 && EnableMul) instr_ex_out.alu_op = MUL_OP;    // MUL
                     else illegal_inst_out = 1'b1;
                 3'b001:
-                    if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = SLL_OP;                  // SLL
-                    else if (ir_in.r.funct7 == 7'b0000001 && ENABLE_MUL) instr_ex_out.alu_op = MULH_OP;   // MULH
+                    if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = SLL_OP;                 // SLL
+                    else if (ir_in.r.funct7 == 7'b0000001 && EnableMul) instr_ex_out.alu_op = MULH_OP;   // MULH
                     else illegal_inst_out = 1'b1;
                 3'b010:
-                    if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = SLT_OP;                  // SLT
-                    else if (ir_in.r.funct7 == 7'b0000001 && ENABLE_MUL) instr_ex_out.alu_op = MULHSU_OP; // MULHSU
+                    if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = SLT_OP;                 // SLT
+                    else if (ir_in.r.funct7 == 7'b0000001 && EnableMul) instr_ex_out.alu_op = MULHSU_OP; // MULHSU
                     else illegal_inst_out = 1'b1;
                 3'b011:
-                    if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = SLTU_OP;                 // SLTU
-                    else if (ir_in.r.funct7 == 7'b0000001 && ENABLE_MUL) instr_ex_out.alu_op = MULHU_OP;  // MULHU
+                    if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = SLTU_OP;                // SLTU
+                    else if (ir_in.r.funct7 == 7'b0000001 && EnableMul) instr_ex_out.alu_op = MULHU_OP;  // MULHU
                     else illegal_inst_out = 1'b1;
                 3'b100:
                     if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = XOR_OP;  // XOR
-                    else if (ir_in.r.funct7 == 7'b0000001 && ENABLE_DIV) instr_ex_out.alu_op = DIV_OP;    // DIV
+                    else if (ir_in.r.funct7 == 7'b0000001 && EnableDiv) instr_ex_out.alu_op = DIV_OP;    // DIV
                     else illegal_inst_out = 1'b1;
                 3'b101:
                     if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = SRL_OP;  // SRL
                     else if (ir_in.r.funct7 == 7'b0100000) instr_ex_out.alu_op = SRA_OP;  // SRA
-                    else if (ir_in.r.funct7 == 7'b0000001 && ENABLE_DIV) instr_ex_out.alu_op = DIVU_OP;   // DIVU
+                    else if (ir_in.r.funct7 == 7'b0000001 && EnableDiv) instr_ex_out.alu_op = DIVU_OP;   // DIVU
                     else illegal_inst_out = 1'b1;
                 3'b110:
                     if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = OR_OP;    // OR
-                    else if (ir_in.r.funct7 == 7'b0000001 && ENABLE_DIV) instr_ex_out.alu_op = REM_OP;    // REM
+                    else if (ir_in.r.funct7 == 7'b0000001 && EnableDiv) instr_ex_out.alu_op = REM_OP;    // REM
                     else illegal_inst_out = 1'b1;
                 3'b111:
                     if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = AND_OP;   // AND
-                    else if (ir_in.r.funct7 == 7'b0000001 && ENABLE_DIV) instr_ex_out.alu_op = REMU_OP;   // REMU
+                    else if (ir_in.r.funct7 == 7'b0000001 && EnableDiv) instr_ex_out.alu_op = REMU_OP;   // REMU
                     else illegal_inst_out = 1'b1;
                 default: illegal_inst_out = 1'b1;
             endcase
@@ -390,15 +390,15 @@ always_comb begin
                         case (ir_in.b[31:20])
                             12'b000000000000: ecall_active_out  = 1'b1;  // ECALL
                             12'b000000000001: ebreak_active_out = 1'b1;  // EBREAK
-                            12'b001100000010:                        // MRET
+                            12'b001100000010:        // MRET
                                 if (mode_in != M_MODE) illegal_inst_out = 1'b1;
                                 else instr_ex_out.mret_en = 1'b1;
-                            12'b000100000010:                        // SRET
+                            12'b000100000010:        // SRET
                                 if (mode_in < S_MODE) illegal_inst_out = 1'b1;
                                 else instr_ex_out.sret_en = 1'b1;
-                            12'b011110110010:                        // DRET
+                            12'b011110110010:        // DRET
                                 if (!dbg_active_in) illegal_inst_out = 1'b1;
-                            12'b000100000101: begin                  // WFI
+                            12'b000100000101: begin  // WFI
                                 // WFI executes as J pc (loops on itself) until an interrupt is taken
                                 // where the handler breaks from the WFI loop by modifying epc.
                                 instr_ex_out.branch_jal_sel = JAL_INSTR;
@@ -465,6 +465,7 @@ always_comb begin
             end
         end
 
+        // Unsupported major opcodes
         STORE_FP, LOAD_FP,
         CUSTOM_0, CUSTOM_1,
         MADD, MSUB, NMSUB, NMADD,

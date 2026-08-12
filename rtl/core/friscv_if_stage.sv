@@ -14,7 +14,7 @@
  */
 
 module friscv_if_stage import friscv_pkg::*, friscv_mem_pkg::*; #(
-    parameter int unsigned RESET_VEC = 32'h8000_0000
+    parameter int unsigned ResetVec = 32'h8000_0000
 ) (
     input  logic  clk_in,
     input  logic  rst_n_in,
@@ -53,7 +53,7 @@ logic  r_flush_pending;
 
 always_ff @(posedge clk_in or negedge rst_n_in) begin
     if (!rst_n_in) begin
-        pc_reg          <= RESET_VEC;
+        pc_reg          <= ResetVec;
         r_fetch_active  <= 1'b1;
         ir_buff         <= NOP;
         r_flush_pending <= 1'b0;

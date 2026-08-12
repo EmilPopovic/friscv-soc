@@ -13,29 +13,29 @@
  */
 
 module friscv_core import friscv_pkg::*, friscv_mem_pkg::*; #(
-    parameter int unsigned HART_ID        = 0,
-    parameter int unsigned RESET_VEC      = 32'h8000_0000,
-    parameter int unsigned DM_BASE        = 32'h0000_0000,
-    parameter int unsigned DM_HALT_OFFSET = 32'h800,
-    parameter int unsigned DM_EXC_OFFSET  = 32'h810,
+    parameter int unsigned HartId        = 0,
+    parameter int unsigned ResetVec      = 32'h8000_0000,
+    parameter int unsigned DmBase        = 32'h0000_0000,
+    parameter int unsigned DmHaltOffset = 32'h800,
+    parameter int unsigned DmExcOffset  = 32'h810,
 
     // Memory protection and address translation
-    parameter logic ENABLE_MMU  = 1,
-    parameter logic ENFORCE_PMP = 0,
-    parameter int   PMP_ENTRIES = 8,
-    parameter int   PMP_USABLE  = 8,
+    parameter logic EnableMmu  = 1,
+    parameter logic EnforcePmp = 0,
+    parameter int   PmpEntries = 8,
+    parameter int   PmpUsable  = 8,
 
     // Extension selection
-    parameter logic ENABLE_MUL = 1,
-    parameter logic ENABLE_DIV = 1,
+    parameter logic EnableMul = 1,
+    parameter logic EnableDiv = 1,
     // Use a single-cycle combinational multiplier instead of the iterative multiplier
-    parameter logic ENABLE_FAST_MUL = 0,
-    parameter logic ENABLE_EXTENSION_A = 1,
+    parameter logic EnableFastMul = 0,
+    parameter logic EnableExtensionA = 1,
 
     // If enabled, entering an EBREAK instruction will halt the core until reset
-    parameter logic ENABLE_HALT_ON_ENTER_EBREAK = 0,
+    parameter logic HaltOnEnterEbreak = 0,
     // If enabled, the first MRET or SRET after entering an EBREAK handler will halt the core until reset
-    parameter logic ENABLE_HALT_ON_RET_FROM_EBREAK = 0
+    parameter logic HaltOnRetFromEbreak = 0
 ) (
     input  logic       i_clk,
     input  logic       i_rstn,
@@ -90,7 +90,7 @@ module friscv_core import friscv_pkg::*, friscv_mem_pkg::*; #(
     output logic       flush_vpn_en_out,
     output asid_t      flush_asid_out,
     output logic       flush_asid_en_out,
-    output pmp_entry_t [PMP_ENTRIES-1:0] pmp_table_out,
+    output pmp_entry_t [PmpEntries-1:0] pmp_table_out,
 
     input  logic       dbg_req_in
 );
@@ -171,7 +171,7 @@ addr_t id_tvec_out, id_epc_out;
 logic  id_trap_out, id_trap_pending, id_ret_out , id_effective_ret;
 logic  data_addr_virtual;
 
-assign data_addr_virtual = ENABLE_MMU && (data_mode_out != M_MODE) && (|satp_out.mode);
+assign data_addr_virtual = EnableMmu && (data_mode_out != M_MODE) && (|satp_out.mode);
 
 friscv_pipeline_control control_unit (
     // Control signals
@@ -234,7 +234,7 @@ friscv_pipeline_control control_unit (
 );
 
 friscv_if_stage #(
-    .RESET_VEC ( RESET_VEC )
+    .ResetVec ( ResetVec )
 ) if_stage (
     .clk_in         ( i_clk             ),
     .rst_n_in       ( i_rstn            ),
@@ -264,19 +264,18 @@ friscv_if_stage #(
 );
 
 friscv_id_stage #(
-    .HART_ID        ( HART_ID        ),
-    .DM_BASE        ( DM_BASE        ),
-    .DM_HALT_OFFSET ( DM_HALT_OFFSET ),
-    .DM_EXC_OFFSET  ( DM_EXC_OFFSET  ),
-
-    .ENABLE_MUL                     ( ENABLE_MUL                     ),
-    .ENABLE_DIV                     ( ENABLE_DIV                     ),
-    .ENABLE_EXTENSION_A             ( ENABLE_EXTENSION_A             ),
-    .ENFORCE_PMP                    ( ENFORCE_PMP                    ),
-    .PMP_ENTRIES                    ( PMP_ENTRIES                    ),
-    .PMP_USABLE                     ( PMP_USABLE                     ),
-    .ENABLE_HALT_ON_ENTER_EBREAK    ( ENABLE_HALT_ON_ENTER_EBREAK    ),
-    .ENABLE_HALT_ON_RET_FROM_EBREAK ( ENABLE_HALT_ON_RET_FROM_EBREAK )
+    .HartId              ( HartId              ),
+    .DmBase              ( DmBase              ),
+    .DmHaltOffset        ( DmHaltOffset        ),
+    .DmExcOffset         ( DmExcOffset         ),
+    .EnableMul           ( EnableMul           ),
+    .EnableDiv           ( EnableDiv           ),
+    .EnableExtensionA    ( EnableExtensionA    ),
+    .EnforcePmp          ( EnforcePmp          ),
+    .PmpEntries          ( PmpEntries          ),
+    .PmpUsable           ( PmpUsable           ),
+    .HaltOnEnterEbreak   ( HaltOnEnterEbreak   ),
+    .HaltOnRetFromEbreak ( HaltOnRetFromEbreak )
 ) id_stage (
     .clk_in           ( i_clk            ), 
     .rst_n_in         ( i_rstn           ),
@@ -377,9 +376,9 @@ friscv_id_stage #(
 );
 
 friscv_ex_stage #(
-    .ENABLE_MUL      ( ENABLE_MUL      ),
-    .ENABLE_DIV      ( ENABLE_DIV      ),
-    .ENABLE_FAST_MUL ( ENABLE_FAST_MUL )
+    .EnableMul     ( EnableMul     ),
+    .EnableDiv     ( EnableDiv     ),
+    .EnableFastMul ( EnableFastMul )
 ) ex_stage (
     .clk_in               ( i_clk                   ),
     .rst_n_in             ( i_rstn                  ),

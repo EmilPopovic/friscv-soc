@@ -20,14 +20,14 @@
  */
 
 module friscv_trap_controller import friscv_pkg::*, friscv_mem_pkg::*; #(
-    parameter int unsigned DM_BASE = 32'h0000_0000,
-    parameter int unsigned DM_HALT_OFFSET = 32'h800,
-    parameter int unsigned DM_EXC_OFFSET  = 32'h810,
+    parameter int unsigned DmBase       = 32'h0000_0000,
+    parameter int unsigned DmHaltOffset = 32'h800,
+    parameter int unsigned DmExcOffset  = 32'h810,
 
     // If enabled, entering an EBREAK instruction will halt the core until reset
-    parameter logic ENABLE_HALT_ON_ENTER_EBREAK = 0,
+    parameter logic HaltOnEnterEbreak = 0,
     // If enabled, the first MRET or SRET after entering an EBREAK handler will halt the core until reset
-    parameter logic ENABLE_HALT_ON_RET_FROM_EBREAK = 0
+    parameter logic HaltOnRetFromEbreak = 0
 ) (
     input  logic      clk_in,
     input  logic      rst_n_in,
@@ -397,8 +397,8 @@ always_comb begin
     endcase
 end
 
-assign halt_out = (ENABLE_HALT_ON_ENTER_EBREAK && ebreak_active_in) ||
-                  (ENABLE_HALT_ON_RET_FROM_EBREAK && r_in_ebreak_handler && (mret_en_in || sret_en_in));
+assign halt_out = (HaltOnEnterEbreak && ebreak_active_in) ||
+                  (HaltOnRetFromEbreak && r_in_ebreak_handler && (mret_en_in || sret_en_in));
 
 // A trap is delegated to S-mode when:
 //   - Not already in M-mode (traps never transition to less-privileged mode)
@@ -457,10 +457,10 @@ assign epc_out = dret_active ? dpc_in  :
 // Trap vector, resolved to correct mode with vectored mode
 assign tvec_out = debug_mode_active && exception_active
                   ? ((trap_src == TRAP_SRC_ID && ebreak_active_in)
-                     ? DM_BASE + DM_HALT_OFFSET
-                     : DM_BASE + DM_EXC_OFFSET)
+                     ? DmBase + DmHaltOffset
+                     : DmBase + DmExcOffset)
                   : debug_entry
-                  ? DM_BASE + DM_HALT_OFFSET
+                  ? DmBase + DmHaltOffset
                   : trap_to_s_mode
                   ? ((stvec_in[1:0] == 2'b01 && interrupt_active)
                      ? {stvec_in[31:2], 2'b0} + {current_cause[29:0], 2'b0}  // vectored S-mode trap

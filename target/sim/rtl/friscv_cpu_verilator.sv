@@ -46,9 +46,9 @@ assign mem.beat_valid = beat_valid;
 assign mem.err = err;
 
 friscv_cpu_subsystem_core #(
-    .RAM_BASE                   ( 32'h8000_0000 ),
-    .ZSBL_ROM_SIZE_BYTES        ( 0             ),
-    .ENABLE_HALT_ON_END_ADDRESS ( 1             )
+    .RamBase          ( 32'h8000_0000 ),
+    .ZsblRomSizeBytes ( 0             ),
+    .HaltOnEndAddress ( 1             )
 ) core (
     .i_clk     ( clk   ),
     .i_rstn    ( rstn  ),

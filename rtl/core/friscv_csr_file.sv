@@ -21,15 +21,15 @@
  */
 
 module friscv_csr_file import friscv_pkg::*, friscv_mem_pkg::*; #(
-    parameter int unsigned HART_ID = 0,
+    parameter int unsigned HartId = 0,
 
-    parameter logic ENFORCE_PMP = 0,
-    parameter int   PMP_ENTRIES = 8,
-    parameter int   PMP_USABLE  = 8,
+    parameter logic        EnforcePmp = 0,
+    parameter int unsigned PmpEntries = 8,
+    parameter int unsigned PmpUsable  = 8,
 
-    parameter logic ENABLE_MUL = 1,
-    parameter logic ENABLE_DIV = 1,
-    parameter logic ENABLE_EXTENSION_A = 1
+    parameter logic EnableMul = 1,
+    parameter logic EnableDiv = 1,
+    parameter logic EnableExtensionA = 1
 ) (
     input  logic        clk_in,
     input  logic        rst_n_in,
@@ -90,7 +90,7 @@ module friscv_csr_file import friscv_pkg::*, friscv_mem_pkg::*; #(
     output data_t       scounteren_out,
 
     // Memory protection
-    output pmp_entry_t [PMP_ENTRIES-1:0] pmp_table_out,
+    output pmp_entry_t [PmpEntries-1:0] pmp_table_out,
 
     // To MMU
     output satp_t       satp_out,
@@ -98,6 +98,8 @@ module friscv_csr_file import friscv_pkg::*, friscv_mem_pkg::*; #(
     output logic        mxr_out,
     output mode_e       data_mode_out
 );
+
+localparam bit EnableExtensionM = EnableMul && EnableDiv;
 
 // CSR file definition
 // Read-only CSRs are not stored here, they are hardwired in the read block
@@ -206,7 +208,7 @@ assign wb_csr_ro = csr_sel_in[11:10] == 2'b11;
 // Physical Memory Protection
 // ============================================================
 
-pmp_entry_t [PMP_ENTRIES-1:0] pmp_table;
+pmp_entry_t [PmpEntries-1:0] pmp_table;
 assign pmp_table_out = pmp_table;
 
 // Pack a pmp_cfg_t struct into its 8-bit pmpcfg byte
@@ -229,14 +231,14 @@ endfunction
 // Ignore a write to pmpaddr if
 //  1) This entry is locked or
 //  2) The following entry is TOR and locked
-function automatic logic pmpaddr_write_ignored(int i);
+function automatic logic pmpaddr_write_ignored(int unsigned i);
     pmpaddr_write_ignored = pmp_table[i].cfg.l ||
-                            (i < PMP_ENTRIES-1 &&
+                            (i < PmpEntries-1 &&
                              pmp_table[i+1].cfg.a == PMP_TOR &&
                              pmp_table[i+1].cfg.l);
 endfunction
 
-if (ENFORCE_PMP) begin : gen_pmp_table
+if (EnforcePmp) begin : gen_pmp_table
     logic pmp_csr_wr;
     assign pmp_csr_wr = !trap_in &&
                         !(sret_commit_in || mret_commit_in) &&
@@ -247,22 +249,22 @@ if (ENFORCE_PMP) begin : gen_pmp_table
             pmp_table <= '0;
         end else if (pmp_csr_wr) begin
             if (int'(csr_sel_in) >= int'(CSR_PMPCFG0) &&
-                int'(csr_sel_in) <  int'(CSR_PMPCFG0) + PMP_ENTRIES/4) begin
+                int'(csr_sel_in) <  int'(CSR_PMPCFG0) + PmpEntries/4) begin
                 // Writing to pmpcfg
                 automatic int base = (int'(csr_sel_in) - int'(CSR_PMPCFG0)) * 4;
                 for (int j = 0; j < 4; j++) begin
                     automatic int i = base + j;
                     // Only the first PMP_USABLE entries are functional, the rest are read-only-zero
-                    if (i < PMP_USABLE && !pmp_table[i].cfg.l)
+                    if (i < PmpUsable && !pmp_table[i].cfg.l)
                         pmp_table[i].cfg <= cfg_from_byte(csr_data_in[j*8 +: 8]);
                 end
             end else if (int'(csr_sel_in) >= int'(CSR_PMPADDR0) &&
-                         int'(csr_sel_in) <  int'(CSR_PMPADDR0) + PMP_ENTRIES) begin
+                         int'(csr_sel_in) <  int'(CSR_PMPADDR0) + PmpEntries) begin
                 // Writing to pmpaddr
                 automatic int i = int'(csr_sel_in) - int'(CSR_PMPADDR0);
                 // Ignore write if unusable (read-only-zero entry), or this/following TOR entry is locked
-                if (i < PMP_USABLE && !pmpaddr_write_ignored(i)) begin
-                    pmp_table[i].addr       <= csr_data_in;
+                if (i < PmpUsable && !pmpaddr_write_ignored(i)) begin
+                    pmp_table[i].addr <= csr_data_in;
                 end
             end
         end
@@ -433,8 +435,6 @@ end
 // CSR read
 // ============================================================
 
-localparam logic ENABLE_EXTENSION_M = ENABLE_MUL && ENABLE_DIV;
-
 always_comb begin : csr_read
     csr_not_implemented = 1'b0;
     `pragma diagnostic push
@@ -448,15 +448,15 @@ always_comb begin : csr_read
         CSR_MVENDORID:     csr_out = 32'h0;
         CSR_MARCHID:       csr_out = 32'h0;
         CSR_MIMPID:        csr_out = 32'h0;
-        CSR_MHARTID:       csr_out = HART_ID;
+        CSR_MHARTID:       csr_out = HartId;
         CSR_MCONFIGPTR:    csr_out = 32'h0;
 
         // Machine Trap Setup
         CSR_MSTATUS:       csr_out = csr.mstatus;
         // M and A bits are generated dynamically based on parameters.
         // When adding new extensions, set the corresponding MISA bits from config, unless always present.
-        //                                mx----zyxwvutsrqpon m                        lkjihgfedcb a
-        CSR_MISA:          csr_out = {19'b0100000000010100000,{ENABLE_EXTENSION_M},11'b00010000000,{ENABLE_EXTENSION_A}};
+        //                                mx----zyxwvutsrqpon m                      lkjihgfedcb a
+        CSR_MISA:          csr_out = {19'b0100000000010100000,{EnableExtensionM},11'b00010000000,{EnableExtensionA}};
         CSR_MEDELEG:       csr_out = csr.medeleg;
         CSR_MIDELEG:       csr_out = csr.mideleg;
         CSR_MIE:           csr_out = csr.mie;
@@ -526,12 +526,12 @@ always_comb begin : csr_read
 
     // Machine Memory Protection
     if (int'(selected_csr) >= int'(CSR_PMPCFG0) &&
-        int'(selected_csr) <  int'(CSR_PMPCFG0) + PMP_ENTRIES/4) begin
-        csr_out = ENFORCE_PMP ? pmpcfg_word(int'(selected_csr) - int'(CSR_PMPCFG0)) : 32'h0;
+        int'(selected_csr) <  int'(CSR_PMPCFG0) + int'(PmpEntries/4)) begin
+        csr_out = EnforcePmp ? pmpcfg_word(int'(selected_csr) - int'(CSR_PMPCFG0)) : 32'h0;
         csr_not_implemented = 1'b0;
     end else if (int'(selected_csr) >= int'(CSR_PMPADDR0) &&
-                 int'(selected_csr) <  int'(CSR_PMPADDR0) + PMP_ENTRIES) begin
-        csr_out = ENFORCE_PMP ? pmp_table[int'(selected_csr) - int'(CSR_PMPADDR0)].addr : 32'h0;
+                 int'(selected_csr) <  int'(CSR_PMPADDR0) + int'(PmpEntries)) begin
+        csr_out = EnforcePmp ? pmp_table[int'(selected_csr) - int'(CSR_PMPADDR0)].addr : 32'h0;
         csr_not_implemented = 1'b0;
     end
 end

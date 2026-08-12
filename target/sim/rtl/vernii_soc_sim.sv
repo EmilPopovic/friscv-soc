@@ -9,10 +9,10 @@
 `timescale 1ns/1ps
 
 module vernii_soc_sim import vernii_pkg::*; #(
-    parameter int unsigned SramBase         = 32'h0000_0000,
-    parameter int unsigned SramSize         = 32'h0000_2000,
-    parameter int unsigned MemBase          = 32'h8000_0000,
-    parameter int unsigned MemSize          = 32'h0100_0000,
+    parameter int unsigned OcmBase          = 32'h0000_0000,
+    parameter int unsigned OcmSize          = 32'h0000_2000,
+    parameter int unsigned ExtBase          = 32'h8000_0000,
+    parameter int unsigned ExtSize          = 32'h0100_0000,
     parameter int unsigned LineBytes        = 32,
     parameter int unsigned Ways             = 4,
     parameter bit          SramTags         = 1'b1,
@@ -104,11 +104,13 @@ for (genvar i = 0; i < NumExtRegSlv; i++) begin : gen_reg_ext_sink
     assign reg_ext_rsp[i].ready = 1'b1;
 end
 
+`pragma diagnostic push
+`pragma diagnostic ignore="-Wempty-output-connection"
 vernii_soc #(
-    .SramBase         ( SramBase         ),
-    .SramSize         ( SramSize         ),
-    .MemBase          ( MemBase          ),
-    .MemSize          ( MemSize          ),
+    .OcmBase          ( OcmBase          ),
+    .OcmSize          ( OcmSize          ),
+    .ExtBase          ( ExtBase          ),
+    .ExtSize          ( ExtSize          ),
     .LineBytes        ( LineBytes        ),
     .Ways             ( Ways             ),
     .SramTags         ( SramTags         ),
@@ -118,37 +120,38 @@ vernii_soc #(
     .ExtRegSlvRules   ( ExtRegSlvRules   ),
     .HaltOnEnd        ( 1                )
 ) i_vernii_soc (
-    .i_clk         ( i_clk         ),
-    .i_rstn        ( i_rstn        ),
-    .i_test_mode   ( 1'b0          ),
-    .o_por_rstn    (               ),
-    .o_soc_rstn    (               ),
-    .o_end         ( o_end         ),
-    .o_axi_mem_req ( axi_req       ),
-    .i_axi_mem_rsp ( axi_rsp       ),
-    .o_reg_ext_req ( reg_ext_req   ),
-    .i_reg_ext_rsp ( reg_ext_rsp   ),
-    .i_strap       ( i_strap       ),
-    .i_uart_rx     ( i_uart_rx     ),
-    .o_uart_tx     ( o_uart_tx     ),
-    .i_jtag_tck    ( i_jtag_tck    ),
-    .i_jtag_tms    ( i_jtag_tms    ),
-    .i_jtag_trstn  ( i_jtag_trstn  ),
-    .i_jtag_tdi    ( i_jtag_tdi    ),
-    .o_jtag_tdo    ( o_jtag_tdo    ),
-    .o_jtag_tdo_oe ( o_jtag_tdo_oe ),
-    .o_qspi_sck    ( o_qspi_sck    ),
-    .o_qspi_sck_oe ( o_qspi_sck_oe ),
-    .o_qspi_cs     ( o_qspi_cs     ),
-    .o_qspi_cs_oe  ( o_qspi_cs_oe  ),
-    .o_qspi_sd     ( o_qspi_sd     ),
-    .o_qspi_sd_oe  ( o_qspi_sd_oe  ),
-    .i_qspi_sd     ( i_qspi_sd     ),
-    .i_ext_irq     ( '0            ),
-    .i_gpio        ( i_gpio        ),
-    .o_gpio        ( o_gpio        ),
-    .o_gpio_oe     ( o_gpio_oe     )
+    .clk_i          ( i_clk         ),
+    .rst_ni         ( i_rstn        ),
+    .test_mode_i    ( 1'b0          ),
+    .por_rst_no     (               ),
+    .soc_rst_no     (               ),
+    .end_o          ( o_end         ),
+    .axi_mem_req_o  ( axi_req       ),
+    .axi_mem_rsp_i  ( axi_rsp       ),
+    .reg_ext_req_o  ( reg_ext_req   ),
+    .reg_ext_rsp_i  ( reg_ext_rsp   ),
+    .strap_i        ( i_strap       ),
+    .uart0_rx_i     ( i_uart_rx     ),
+    .uart0_tx_o     ( o_uart_tx     ),
+    .tck_i          ( i_jtag_tck    ),
+    .tms_i          ( i_jtag_tms    ),
+    .trst_ni        ( i_jtag_trstn  ),
+    .td_i           ( i_jtag_tdi    ),
+    .td_o           ( o_jtag_tdo    ),
+    .tdo_oe_o       ( o_jtag_tdo_oe ),
+    .qspi0_sck_o    ( o_qspi_sck    ),
+    .qspi0_sck_oe_o ( o_qspi_sck_oe ),
+    .qspi0_cs_o     ( o_qspi_cs     ),
+    .qspi0_cs_oe_o  ( o_qspi_cs_oe  ),
+    .qspi0_sd_o     ( o_qspi_sd     ),
+    .qspi0_sd_oe_o  ( o_qspi_sd_oe  ),
+    .qspi0_sd_i     ( i_qspi_sd     ),
+    .ext_irq_i      ( '0            ),
+    .gpio_a_i       ( i_gpio        ),
+    .gpio_a_o       ( o_gpio        ),
+    .gpio_a_oe_o    ( o_gpio_oe     )
 );
+`pragma diagnostic pop
 
 assign o_axi_aw_valid = axi_req.aw_valid;
 assign o_axi_aw_addr  = axi_req.aw.addr;

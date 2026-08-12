@@ -22,25 +22,27 @@
  */
 
 module friscv_id_stage import friscv_pkg::*, friscv_mem_pkg::*; #(
-    parameter int unsigned HART_ID = 0,
-    parameter int unsigned DM_BASE = 32'h0000_0000,
-    parameter int unsigned DM_HALT_OFFSET = 32'h800,
-    parameter int unsigned DM_EXC_OFFSET  = 32'h810,
+    parameter int unsigned HartId = 0,
+
+    // Debug module parameters
+    parameter int unsigned DmBase       = 32'h0000_0000,
+    parameter int unsigned DmHaltOffset = 32'h800,
+    parameter int unsigned DmExcOffset  = 32'h810,
 
     // Extension selection
-    parameter logic ENABLE_MUL = 1,
-    parameter logic ENABLE_DIV = 1,
-    parameter logic ENABLE_EXTENSION_A = 1,
+    parameter logic EnableMul = 1,
+    parameter logic EnableDiv = 1,
+    parameter logic EnableExtensionA = 1,
 
     // Memory protection
-    parameter logic ENFORCE_PMP = 0,
-    parameter int   PMP_ENTRIES = 8,
-    parameter int   PMP_USABLE  = 8,
+    parameter logic EnforcePmp = 0,
+    parameter int   PmpEntries = 8,
+    parameter int   PmpUsable  = 8,
 
     // If enabled, entering an EBREAK instruction will halt the core until reset
-    parameter logic ENABLE_HALT_ON_ENTER_EBREAK = 0,
+    parameter logic HaltOnEnterEbreak   = 0,
     // If enabled, the first MRET or SRET after entering an EBREAK handler will halt the core until reset
-    parameter logic ENABLE_HALT_ON_RET_FROM_EBREAK = 0
+    parameter logic HaltOnRetFromEbreak = 0
 ) (
     input  logic      clk_in,
     input  logic      rst_n_in,
@@ -138,7 +140,7 @@ module friscv_id_stage import friscv_pkg::*, friscv_mem_pkg::*; #(
     output logic      mxr_out,
     output mode_e     mode_out,
     output mode_e     data_mode_out,
-    output pmp_entry_t [PMP_ENTRIES-1:0] pmp_table_out
+    output pmp_entry_t [PmpEntries-1:0] pmp_table_out
 );
 
 instr_op_t ir_buff;
@@ -249,13 +251,13 @@ logic [2:0] dcsr_cause;
 logic       mret_commit, sret_commit, dret_commit;
 
 friscv_csr_file #(
-    .HART_ID            ( HART_ID            ),
-    .ENFORCE_PMP        ( ENFORCE_PMP        ),
-    .PMP_ENTRIES        ( PMP_ENTRIES        ),
-    .PMP_USABLE         ( PMP_USABLE         ),
-    .ENABLE_MUL         ( ENABLE_MUL         ),
-    .ENABLE_DIV         ( ENABLE_DIV         ),
-    .ENABLE_EXTENSION_A ( ENABLE_EXTENSION_A )
+    .HartId           ( HartId           ),
+    .EnforcePmp       ( EnforcePmp       ),
+    .PmpEntries       ( PmpEntries       ),
+    .PmpUsable        ( PmpUsable        ),
+    .EnableMul        ( EnableMul        ),
+    .EnableDiv        ( EnableDiv        ),
+    .EnableExtensionA ( EnableExtensionA )
  ) friscv_csr_file (
     .clk_in              ( clk_in              ),
     .rst_n_in            ( rst_n_in            ),
@@ -316,11 +318,11 @@ logic  target_misaligned;
 addr_t misaligned_target;
 
 friscv_trap_controller #(
-    .DM_BASE                        ( DM_BASE                        ),
-    .DM_HALT_OFFSET                 ( DM_HALT_OFFSET                 ),
-    .DM_EXC_OFFSET                  ( DM_EXC_OFFSET                  ),
-    .ENABLE_HALT_ON_ENTER_EBREAK    ( ENABLE_HALT_ON_ENTER_EBREAK    ),
-    .ENABLE_HALT_ON_RET_FROM_EBREAK ( ENABLE_HALT_ON_RET_FROM_EBREAK )
+    .DmBase              ( DmBase              ),
+    .DmHaltOffset        ( DmHaltOffset        ),
+    .DmExcOffset         ( DmExcOffset         ),
+    .HaltOnEnterEbreak   ( HaltOnEnterEbreak   ),
+    .HaltOnRetFromEbreak ( HaltOnRetFromEbreak )
 ) friscv_trap_controller (
     .clk_in                 ( clk_in               ),
     .rst_n_in               ( rst_n_in             ),
@@ -479,9 +481,9 @@ end
 // ============================================================
 
 friscv_id_decoder #(
-    .ENABLE_EXTENSION_A ( ENABLE_EXTENSION_A ),
-    .ENABLE_MUL         ( ENABLE_MUL         ),
-    .ENABLE_DIV         ( ENABLE_DIV         )
+    .EnableExtensionA ( EnableExtensionA ),
+    .EnableMul        ( EnableMul        ),
+    .EnableDiv        ( EnableDiv        )
 ) friscv_id_decoder (
     .ir_in                  ( ir_buff             ),
     .mode_in                ( current_mode        ),

@@ -12,14 +12,14 @@
  */
 
 module friscv_mmu import friscv_pkg::*, friscv_mem_pkg::*; #(
-    parameter logic ENFORCE_PMP     = 0,
-    parameter logic ENFORCE_PTW_PMP = 0,
-    parameter int   PMP_ENTRIES     = 8,
+    parameter logic EnforcePmp    = 0,
+    parameter logic EnforcePtwPmp = 0,
+    parameter int   PmpEntries    = 8,
     // Must be a power of 2 greater than 1
-    parameter int   ITLB_ENTRIES = 2,
-    parameter int   DTLB_ENTRIES = 4,
+    parameter int   ItlbEntries = 2,
+    parameter int   DtlbEntries = 4,
     // If not enabled, any sfence.vma will flush all TLB entries
-    parameter logic ENABLE_FINE_TLB_FLUSH = 0
+    parameter logic EnableFineTlbFlush = 0
 ) (
     input  logic        i_clk,
     input  logic        i_rstn,
@@ -66,7 +66,7 @@ module friscv_mmu import friscv_pkg::*, friscv_mem_pkg::*; #(
     input  logic        i_flush_vpn_en,
     input  asid_t       i_flush_asid,
     input  logic        i_flush_asid_en,
-    input  pmp_entry_t [PMP_ENTRIES-1:0] i_pmp_table,
+    input  pmp_entry_t [PmpEntries-1:0] i_pmp_table,
 
     // Page fault signals
     output logic        o_inst_fault,
@@ -124,8 +124,8 @@ assign w_inst_pa = w_paging_en ? {w_itlb_ppn[PA_PPN_W-1:0], i_inst_addr[11:0]} :
 assign w_data_pa = w_paging_en ? {w_dtlb_ppn[PA_PPN_W-1:0], i_data_addr[11:0]} : i_data_addr;
 
 friscv_tlb #(
-    .ENTRY_COUNT           ( ITLB_ENTRIES          ),
-    .ENABLE_FINE_TLB_FLUSH ( ENABLE_FINE_TLB_FLUSH )
+    .EntryCount         ( ItlbEntries        ),
+    .EnableFineTlbFlush ( EnableFineTlbFlush )
 ) itlb (
     .i_clk           ( i_clk           ),
     .i_rstn          ( i_rstn          ),
@@ -155,8 +155,8 @@ friscv_tlb #(
 );
 
 friscv_tlb #(
-    .ENTRY_COUNT           ( DTLB_ENTRIES          ),
-    .ENABLE_FINE_TLB_FLUSH ( ENABLE_FINE_TLB_FLUSH )
+    .EntryCount         ( DtlbEntries        ),
+    .EnableFineTlbFlush ( EnableFineTlbFlush )
 ) dtlb (
     .i_clk           ( i_clk           ),
     .i_rstn          ( i_rstn          ),
@@ -370,9 +370,9 @@ friscv_ptw ptw (
     .o_fault_addr    ( w_ptw_fault_addr  )
 );
 
-if (ENFORCE_PMP && ENFORCE_PTW_PMP) begin : gen_ptw_pmp_check
+if (EnforcePmp && EnforcePtwPmp) begin : gen_ptw_pmp_check
     friscv_pmp_check #(
-        .PMP_ENTRIES ( PMP_ENTRIES )
+        .PmpEntries ( PmpEntries )
     ) pmp_chk_ptw (
         .i_pa        ( w_walk_addr     ),
         .i_access_r  ( w_walk_req      ),
@@ -407,9 +407,9 @@ logic w_grant_pmp_fault;
 assign w_grant_pmp_fault = w_grant_active && !r_access_busy &&
                            (w_eff_req_ctx.is_inst ? w_inst_pmp_fault : w_data_pmp_fault);
 
-if (ENFORCE_PMP) begin : gen_pmp_check
+if (EnforcePmp) begin : gen_pmp_check
     friscv_pmp_check #(
-        .PMP_ENTRIES ( PMP_ENTRIES )
+        .PmpEntries ( PmpEntries )
     ) pmp_chk_inst (
         .i_pa        ( w_inst_pa        ),
         .i_access_r  ( 1'b0             ),
@@ -421,7 +421,7 @@ if (ENFORCE_PMP) begin : gen_pmp_check
     );
 
     friscv_pmp_check #(
-        .PMP_ENTRIES ( PMP_ENTRIES )
+        .PmpEntries ( PmpEntries )
     ) pmp_chk_data (
         .i_pa        ( w_data_pa        ),
         .i_access_r  ( w_data_read      ),

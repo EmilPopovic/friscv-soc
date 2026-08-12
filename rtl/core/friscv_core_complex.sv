@@ -12,37 +12,37 @@
  */
 
 module friscv_core_complex import friscv_pkg::*, friscv_mem_pkg::*; #(
-    parameter int unsigned HART_ID             = 0,
-    parameter int unsigned RESET_VEC           = 32'h8000_0000,
-    parameter int unsigned ZSBL_ROM_SIZE_BYTES = 0,
-    parameter int unsigned DM_BASE             = 32'h0000_0000,
-    parameter int unsigned DM_HALT_OFFSET      = 32'h800,
-    parameter int unsigned DM_EXC_OFFSET       = 32'h810,
+    parameter int unsigned HartId           = 0,
+    parameter int unsigned ResetVec         = 32'h8000_0000,
+    parameter int unsigned ZsblRomSizeBytes = 0,
+    parameter int unsigned DmBase           = 32'h0000_0000,
+    parameter int unsigned DmHaltOffset     = 32'h800,
+    parameter int unsigned DmExcOffset      = 32'h810,
 
     // Memory protection and address translation
-    parameter logic ENABLE_MMU      = 1,
-    parameter logic ENFORCE_PMP     = 0,
-    parameter logic ENFORCE_PTW_PMP = 0,
-    parameter int   PMP_ENTRIES     = 8,
-    parameter int   PMP_USABLE      = 8,
+    parameter logic EnableMmu     = 1,
+    parameter logic EnforcePmp    = 0,
+    parameter logic EnforcePtwPmp = 0,
+    parameter int   PmpEntries    = 8,
+    parameter int   PmpUsable     = 8,
     // Must be a power of 2 greater than 1
-    parameter int   ITLB_ENTRIES = 2,
-    parameter int   DTLB_ENTRIES = 4,
+    parameter int   ItlbEntries = 2,
+    parameter int   DtlbEntries = 4,
     // If not enabled, any sfence.vma will flush all TLB entries
-    parameter logic ENABLE_FINE_TLB_FLUSH = 0,
+    parameter logic EnableFineTlbFlush = 0,
 
     // Extension selection
-    parameter logic ENABLE_MUL = 1,
-    parameter logic ENABLE_DIV = 1,
+    parameter logic EnableMul = 1,
+    parameter logic EnableDiv = 1,
     // Use a single-cycle combinational multiplier instead of the iterative multiplier
-    parameter logic ENABLE_FAST_MUL = 0,
-    parameter logic ENABLE_EXTENSION_A = 1,
+    parameter logic EnableFastMul = 0,
+    parameter logic EnableExtensionA = 1,
     // If enabled, a write to END_ADDRESS will stall the core until reset
-    parameter logic ENABLE_HALT_ON_END_ADDRESS = 0,
+    parameter logic HaltOnEndAddress = 0,
     // If enabled, entering an EBREAK instruction will halt the core until reset
-    parameter logic ENABLE_HALT_ON_ENTER_EBREAK = 0,
+    parameter logic HaltOnEnterEbreak = 0,
     // If enabled, the first MRET or SRET after entering an EBREAK handler will halt the core until reset
-    parameter logic ENABLE_HALT_ON_RET_FROM_EBREAK = 0
+    parameter logic HaltOnRetFromEbreak = 0
 ) (
     input  logic       i_clk,
     input  logic       i_rstn,
@@ -170,21 +170,21 @@ assign o_mem_wdata = w_amo_active ? w_amo_store_data : w_l2_wdata;
 logic  w_inst_fault, w_load_fault, w_store_fault;
 addr_t w_fault_addr;
 
-pmp_entry_t [PMP_ENTRIES-1:0] w_pmp_table;
+pmp_entry_t [PmpEntries-1:0] w_pmp_table;
 logic w_inst_pmp_fault, w_data_pmp_fault;
 
 // The MMU contains an arbiter.
 // If the MMU is disabled, a bare arbiter is instantiated instead.
 `pragma diagnostic push
 `pragma diagnostic ignore="-Wempty-output-connection"
-if (ENABLE_MMU) begin : gen_mmu
+if (EnableMmu) begin : gen_mmu
     friscv_mmu #(
-        .ENFORCE_PMP           ( ENFORCE_PMP           ),
-        .ENFORCE_PTW_PMP       ( ENFORCE_PTW_PMP       ),
-        .PMP_ENTRIES           ( PMP_ENTRIES           ),
-        .ITLB_ENTRIES          ( ITLB_ENTRIES          ),
-        .DTLB_ENTRIES          ( DTLB_ENTRIES          ),
-        .ENABLE_FINE_TLB_FLUSH ( ENABLE_FINE_TLB_FLUSH )
+        .EnforcePmp         ( EnforcePmp         ),
+        .EnforcePtwPmp      ( EnforcePtwPmp      ),
+        .PmpEntries         ( PmpEntries         ),
+        .ItlbEntries        ( ItlbEntries        ),
+        .DtlbEntries        ( DtlbEntries        ),
+        .EnableFineTlbFlush ( EnableFineTlbFlush )
     ) mmu (
         .i_clk           ( i_clk           ),
         .i_rstn          ( i_rstn          ),
@@ -308,7 +308,7 @@ always_ff @(posedge i_clk or negedge i_rstn) begin
     if (!i_rstn) begin
         r_end_signal  <= 1'b0;
         r_halt_active <= 1'b0;
-    end else if (ENABLE_HALT_ON_END_ADDRESS && w_data_addr == END_ADDRESS && w_data_en && w_data_wr) begin
+    end else if (HaltOnEndAddress && w_data_addr == END_ADDRESS && w_data_en && w_data_wr) begin
         r_end_signal  <= 1'b1;
         r_halt_active <= 1'b1;
     end else begin
@@ -327,22 +327,21 @@ assign w_stall_if = w_inst_wait;
 // ============================================================
 
 friscv_core #(
-    .HART_ID        ( HART_ID        ),
-    .RESET_VEC      ( RESET_VEC      ),
-    .DM_BASE        ( DM_BASE        ),
-    .DM_HALT_OFFSET ( DM_HALT_OFFSET ),
-    .DM_EXC_OFFSET  ( DM_EXC_OFFSET  ),
-
-    .ENABLE_MMU                     ( ENABLE_MMU                     ),
-    .ENFORCE_PMP                    ( ENFORCE_PMP                    ),
-    .PMP_ENTRIES                    ( PMP_ENTRIES                    ),
-    .PMP_USABLE                     ( PMP_USABLE                     ),
-    .ENABLE_MUL                     ( ENABLE_MUL                     ),
-    .ENABLE_DIV                     ( ENABLE_DIV                     ),
-    .ENABLE_FAST_MUL                ( ENABLE_FAST_MUL                ),
-    .ENABLE_EXTENSION_A             ( ENABLE_EXTENSION_A             ),
-    .ENABLE_HALT_ON_ENTER_EBREAK    ( ENABLE_HALT_ON_ENTER_EBREAK    ),
-    .ENABLE_HALT_ON_RET_FROM_EBREAK ( ENABLE_HALT_ON_RET_FROM_EBREAK )
+    .HartId              ( HartId              ),
+    .ResetVec            ( ResetVec            ),
+    .DmBase              ( DmBase              ),
+    .DmHaltOffset        ( DmHaltOffset        ),
+    .DmExcOffset         ( DmExcOffset         ),
+    .EnableMmu           ( EnableMmu           ),
+    .EnforcePmp          ( EnforcePmp          ),
+    .PmpEntries          ( PmpEntries          ),
+    .PmpUsable           ( PmpUsable           ),
+    .EnableMul           ( EnableMul           ),
+    .EnableDiv           ( EnableDiv           ),
+    .EnableFastMul       ( EnableFastMul       ),
+    .EnableExtensionA    ( EnableExtensionA    ),
+    .HaltOnEnterEbreak   ( HaltOnEnterEbreak   ),
+    .HaltOnRetFromEbreak ( HaltOnRetFromEbreak )
 ) cpu_0 (
     .i_clk            ( i_clk           ),
     .i_rstn           ( i_rstn          ),
@@ -409,7 +408,7 @@ friscv_core #(
 amo_op_e w_eff_amo;
 assign w_eff_amo = r_amo_addr_valid ? w_l2_amo_op : AMO_NONE;
 
-if (ENABLE_EXTENSION_A) begin : gen_amo
+if (EnableExtensionA) begin : gen_amo
     friscv_amo_unit amo_unit (
         .i_clk            ( i_clk            ),
         .i_rstn           ( i_rstn           ),
@@ -438,10 +437,10 @@ end
 // Zero-stage bootloader
 // ============================================================
 
-if (ZSBL_ROM_SIZE_BYTES > 0) begin : gen_zsbl_rom
+if (ZsblRomSizeBytes > 0) begin : gen_zsbl_rom
     friscv_zsbl_rom #(
-        .SIZE_BYTES ( ZSBL_ROM_SIZE_BYTES ),
-        .BASE_ADDR  ( RESET_VEC           )
+        .SizeBytes ( ZsblRomSizeBytes ),
+        .BaseAddr  ( ResetVec         )
     ) zsbl_rom (
         .i_clk  ( i_clk       ),
         .i_rstn ( i_rstn      ),
@@ -453,8 +452,8 @@ if (ZSBL_ROM_SIZE_BYTES > 0) begin : gen_zsbl_rom
     logic r_rom_valid;
 
     // Intercept reads in the ROM address window before they reach AXI
-    assign w_l2_is_rom = (w_l2_addr >= RESET_VEC) &&
-                         (w_l2_addr < RESET_VEC + ZSBL_ROM_SIZE_BYTES) &&
+    assign w_l2_is_rom = (w_l2_addr >= ResetVec) &&
+                         (w_l2_addr < ResetVec + ZsblRomSizeBytes) &&
                          (w_l2_rw == RW_READ);
 
     always_ff @(posedge i_clk or negedge i_rstn) begin

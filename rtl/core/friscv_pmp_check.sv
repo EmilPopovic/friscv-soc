@@ -14,14 +14,14 @@
  */
 
 module friscv_pmp_check import friscv_pkg::*, friscv_mem_pkg::*; #(
-    parameter int PMP_ENTRIES = 8
+    parameter int unsigned PmpEntries = 8
 ) (
     input  addr_t                        i_pa,
     input  logic                         i_access_r,
     input  logic                         i_access_w,
     input  logic                         i_access_x,
     input  mode_e                        i_mode,
-    input  pmp_entry_t [PMP_ENTRIES-1:0] i_pmp_table,
+    input  pmp_entry_t [PmpEntries-1:0] i_pmp_table,
     output logic                         o_fault
 );
 
@@ -41,11 +41,11 @@ function automatic logic fault_for_cfg(pmp_cfg_t cfg);
 endfunction
 
 // Stage 1: compute every entry's address match in parallel
-logic [PMP_ENTRIES-1:0] w_match;
+logic [PmpEntries-1:0] w_match;
 
 always_comb begin
     w_match = '0;
-    for (int i = 0; i < PMP_ENTRIES; i++) begin
+    for (int unsigned i = 0; i < PmpEntries; i++) begin
         automatic pmp_entry_t entry     = i_pmp_table[i];
         automatic addr_t      prev_addr = (i > 0) ? i_pmp_table[i-1].addr : '0;
         automatic addr_t      cmp_mask  = ~(entry.addr ^ (~entry.addr + 1'b1));
@@ -68,7 +68,7 @@ always_comb begin
     o_fault = 1'b0;
     if (i_access_r || i_access_w || i_access_x) begin
         o_fault = (i_mode != M_MODE);
-        for (int i = PMP_ENTRIES-1; i >= 0; i--)
+        for (int i = PmpEntries-1; i >= 0; i--)
             if (w_match[i]) o_fault = fault_for_cfg(i_pmp_table[i].cfg);
     end
 end

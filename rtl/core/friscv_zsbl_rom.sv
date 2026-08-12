@@ -7,8 +7,8 @@
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
 
 module friscv_zsbl_rom import friscv_pkg::*, friscv_mem_pkg::*; #(
-    parameter int unsigned SIZE_BYTES = 128,
-    parameter int unsigned BASE_ADDR  = 32'h0020_0000
+    parameter int unsigned SizeBytes = 128,
+    parameter int unsigned BaseAddr  = 32'h0020_0000
 ) (
     input  logic  i_clk,
     input  logic  i_rstn,
@@ -19,7 +19,7 @@ module friscv_zsbl_rom import friscv_pkg::*, friscv_mem_pkg::*; #(
 import friscv_zsbl_rom_pkg::*;
 
 // Round up size to next power of 2
-localparam int unsigned REAL_SIZE = 1 << $clog2(SIZE_BYTES);
+localparam int unsigned REAL_SIZE = 1 << $clog2(SizeBytes);
 localparam int unsigned WORDS     = REAL_SIZE / 4;
 localparam int unsigned OFFSET_W  = (WORDS > 1) ? $clog2(WORDS) : 1;
 
@@ -34,7 +34,7 @@ logic [OFFSET_W-1:0] w_word_offset;
 inst_t r_data;
 assign o_data = r_data;
 
-assign w_word_offset = OFFSET_W'((i_addr - BASE_ADDR) >> 2);
+assign w_word_offset = OFFSET_W'((i_addr - BaseAddr) >> 2);
 
 always_ff @(posedge i_clk or negedge i_rstn) begin
     if (!i_rstn) r_data <= NOP;

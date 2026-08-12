@@ -37,8 +37,8 @@ $(SOC_DIR):
 soc: sources.f | $(SOC_DIR)
 	verilator --cc --exe --build --timescale 1ns/1ps -j 0 --top-module $(SOC_TOP) -Wno-fatal \
 		+define+ASSERTS_OFF \
-		-GSramBase=$(SOC_SRAM_BASE) -GSramSize=$(SOC_SRAM_SIZE_BYTES) \
-		-GMemSize=$(SOC_MEM_SIZE) $(SOC_PARAMS) \
+		-GOcmBase=$(SOC_SRAM_BASE) -GOcmSize=$(SOC_SRAM_SIZE_BYTES) \
+		-GExtSize=$(SOC_MEM_SIZE) $(SOC_PARAMS) \
 		-CFLAGS -DVERNII_SOC_SRAM_BASE=$(SOC_SRAM_BASE) \
 		-CFLAGS -DVERNII_SOC_SRAM_SIZE_BYTES=$(SOC_SRAM_SIZE_BYTES) \
 		--Mdir $(SOC_DIR) -f sources.f $(SOC_CPP) -o vernii_soc

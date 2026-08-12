@@ -23,9 +23,9 @@
  */
 
 module friscv_tlb import friscv_pkg::*; #(
-    parameter int unsigned ENTRY_COUNT = 32,
+    parameter int unsigned EntryCount  = 32,
     // If not enabled, any sfence.vma will flush all TLB entries
-    parameter logic ENABLE_FINE_TLB_FLUSH = 0
+    parameter logic EnableFineTlbFlush = 0
 ) (
     input  logic       i_clk,
     input  logic       i_rstn,
@@ -54,11 +54,11 @@ module friscv_tlb import friscv_pkg::*; #(
     input  logic       i_flush_asid_en
 );
 
-if (ENTRY_COUNT < 2) begin : gen_chk_entry_count
-    $fatal(1, "ENTRY_COUNT must be at least 2, got %0d", ENTRY_COUNT);
+if (EntryCount < 2) begin : gen_chk_entry_count
+    $fatal(1, "EntryCount must be at least 2, got %0d", EntryCount);
 end
-if (ENTRY_COUNT != (1 << $clog2(ENTRY_COUNT))) begin : gen_chk_entry_pow2
-    $fatal(1, "ENTRY_COUNT must be a power of two, got %0d", ENTRY_COUNT);
+if (EntryCount != (1 << $clog2(EntryCount))) begin : gen_chk_entry_pow2
+    $fatal(1, "EntryCount must be a power of two, got %0d", EntryCount);
 end
 
 typedef struct packed {
@@ -69,13 +69,13 @@ typedef struct packed {
     perm_t      perm;
 } tlb_entry_t;
 
-tlb_entry_t r_tlb [ENTRY_COUNT];
+tlb_entry_t r_tlb [EntryCount];
 
-logic [ENTRY_COUNT-1:0]         r_ref;       // Clock reference bits (set on fill, cleared on sweep)
-logic [$clog2(ENTRY_COUNT)-1:0] r_clock_ptr; // Clock hand position
+logic [EntryCount-1:0]         r_ref;       // Clock reference bits (set on fill, cleared on sweep)
+logic [$clog2(EntryCount)-1:0] r_clock_ptr; // Clock hand position
 
-logic                           w_any_invalid;
-logic [$clog2(ENTRY_COUNT)-1:0] w_invalid_slot, w_clock_victim, w_hit_idx;
+logic                          w_any_invalid;
+logic [$clog2(EntryCount)-1:0] w_invalid_slot, w_clock_victim, w_hit_idx;
 
 // Generate a mask that zeroes the lowest level*pn_width bits of a vpn
 `pragma diagnostic push
@@ -100,7 +100,7 @@ always_ff @(posedge i_clk or negedge i_rstn) begin
 
     if (!i_rstn) begin
 
-        for (int unsigned g = 0; g < ENTRY_COUNT; g++) begin : tlb_reset
+        for (int unsigned g = 0; g < EntryCount; g++) begin : tlb_reset
             r_tlb[g] <= '0;
         end
 
@@ -116,9 +116,9 @@ always_ff @(posedge i_clk or negedge i_rstn) begin
         if (i_flush) begin  // Global flush enable, has priority (nothing flushed if not i_flush)
 
             // sfence.vma rs1, rs2: VPN+ASID match, not global
-            if (ENABLE_FINE_TLB_FLUSH && i_flush_vpn_en && i_flush_asid_en) begin
+            if (EnableFineTlbFlush && i_flush_vpn_en && i_flush_asid_en) begin
 
-                for (int unsigned g = 0; g < ENTRY_COUNT; g++) begin
+                for (int unsigned g = 0; g < EntryCount; g++) begin
                     vpn_t mask;
                     logic vpn_match;
 
@@ -130,9 +130,9 @@ always_ff @(posedge i_clk or negedge i_rstn) begin
                 end
 
             // sfence.vma rs1, x0: VPN match, all ASIDs and global
-            end else if (ENABLE_FINE_TLB_FLUSH && i_flush_vpn_en) begin
+            end else if (EnableFineTlbFlush && i_flush_vpn_en) begin
 
-                for (int unsigned g = 0; g < ENTRY_COUNT; g++) begin
+                for (int unsigned g = 0; g < EntryCount; g++) begin
                     vpn_t mask;
                     logic vpn_match;
 
@@ -144,18 +144,18 @@ always_ff @(posedge i_clk or negedge i_rstn) begin
                 end
 
             // sfence.vma x0, rs2: ASID match, not global
-            end else if (ENABLE_FINE_TLB_FLUSH && i_flush_asid_en) begin
+            end else if (EnableFineTlbFlush && i_flush_asid_en) begin
 
-                for (int unsigned g = 0; g < ENTRY_COUNT; g++) begin
+                for (int unsigned g = 0; g < EntryCount; g++) begin
                     if (r_tlb[g].asid == i_flush_asid && !r_tlb[g].perm.g)
                         r_tlb[g] <= '0;
                 end
 
             // sfence.vma x0, x0: flush all
-            // Fall through to here if ENABLE_FINE_TLB_FLUSH is not set.
+            // Fall through to here if EnableFineTlbFlush is not set.
             end else begin
 
-                for (int unsigned g = 0; g < ENTRY_COUNT; g++) begin
+                for (int unsigned g = 0; g < EntryCount; g++) begin
                     r_tlb[g] <= '0;
                 end
 
@@ -163,7 +163,7 @@ always_ff @(posedge i_clk or negedge i_rstn) begin
 
         end else if (i_fill_en) begin  // Insert or replace with new entry
 
-            logic [$clog2(ENTRY_COUNT)-1:0] victim;
+            logic [$clog2(EntryCount)-1:0] victim;
             vpn_t mask;
 
             victim = w_any_invalid ? w_invalid_slot : w_clock_victim;
@@ -179,12 +179,12 @@ always_ff @(posedge i_clk or negedge i_rstn) begin
             if (!w_any_invalid) begin
                 // Clear ref bits of all entries the clock hand swept past on its way to the victim
                 // Entries at distance 0 to dist_victim-1 from r_clock_ptr are cleared (not recently used)
-                for (int unsigned g = 0; g < ENTRY_COUNT; g++) begin : tlb_sweep_ref
+                for (int unsigned g = 0; g < EntryCount; g++) begin : tlb_sweep_ref
                     // 5-bit unsigned circular distances from clock_ptr to g and to victim
-                    if (($clog2(ENTRY_COUNT))'(g) - r_clock_ptr < w_clock_victim - r_clock_ptr)
+                    if (($clog2(EntryCount))'(g) - r_clock_ptr < w_clock_victim - r_clock_ptr)
                         r_ref[g] <= 1'b0;
                 end
-                r_clock_ptr <= (w_clock_victim == ($clog2(ENTRY_COUNT))'(ENTRY_COUNT-1)) ? '0 : w_clock_victim + 1;
+                r_clock_ptr <= (w_clock_victim == ($clog2(EntryCount))'(EntryCount-1)) ? '0 : w_clock_victim + 1;
             end
 
         end
@@ -199,10 +199,10 @@ end
 always_comb begin : tlb_detect_invalid_slot
     w_any_invalid = 1'b0;
     w_invalid_slot = '0;
-    for (int unsigned g = 0; g < ENTRY_COUNT; g++) begin
+    for (int unsigned g = 0; g < EntryCount; g++) begin
         if (!r_tlb[g].perm.v && !w_any_invalid) begin
             w_any_invalid = 1'b1;
-            w_invalid_slot = g[$clog2(ENTRY_COUNT)-1:0];
+            w_invalid_slot = g[$clog2(EntryCount)-1:0];
         end
     end
 end
@@ -211,9 +211,9 @@ end
 // If all refs are 1, defaults to r_clock_ptr.
 always_comb begin : tlb_detect_clock_victim
     w_clock_victim = r_clock_ptr;
-    for (int i = ENTRY_COUNT-1; i >= 0; i--) begin
-        if (!r_ref[r_clock_ptr + i[$clog2(ENTRY_COUNT)-1:0]])
-            w_clock_victim = r_clock_ptr + i[$clog2(ENTRY_COUNT)-1:0];
+    for (int i = EntryCount-1; i >= 0; i--) begin
+        if (!r_ref[r_clock_ptr + i[$clog2(EntryCount)-1:0]])
+            w_clock_victim = r_clock_ptr + i[$clog2(EntryCount)-1:0];
     end
 end
 
@@ -233,7 +233,7 @@ function automatic ppn_t reconstruct_ppn(
     ppn_t low_mask;
 
     shift = (mode == SATP_SV32) ? 6'(level * 10) : 6'(level * 9);                      // 10-bit VPNs in SV32, 9-bit in others
-    low_mask = (shift >= 6'(PPN_W)) ? '1 : ((PPN_W'(1) << shift) - 1);                 // Keep only the lowest shift bits of vpn
+    low_mask = (shift >= 6'(PPN_W)) ? '1 : ((ppn_t'(1) << shift) - 1);                 // Keep only the lowest shift bits of vpn
     reconstruct_ppn = (ppn & ~((ppn_t'(1) << shift) - 1)) | (ppn_t'(vpn) & low_mask);  // Combine high of ppn with low of vpn
 endfunction : reconstruct_ppn
 `pragma diagnostic pop
@@ -264,7 +264,7 @@ always_comb begin
     w_hit     = 1'b0;
     w_hit_idx = '0;
 
-    for (int unsigned g = 0; g < ENTRY_COUNT; g++) begin : tlb_lookup
+    for (int unsigned g = 0; g < EntryCount; g++) begin : tlb_lookup
         vpn_t mask;
         logic vpn_match;
 
@@ -275,7 +275,7 @@ always_comb begin
             w_ppn     = reconstruct_ppn(r_tlb[g].ppn, i_match_vpn, r_tlb[g].level, i_mode);
             w_perm    = r_tlb[g].perm;
             w_hit     = 1'b1;
-            w_hit_idx = g[$clog2(ENTRY_COUNT)-1:0];
+            w_hit_idx = g[$clog2(EntryCount)-1:0];
         end
     end : tlb_lookup
 end

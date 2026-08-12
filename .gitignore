@@ -4,3 +4,4 @@ result-*
 .slang/local/
 .bender/
 sources.f
+*.log

@@ -15,38 +15,38 @@
  */
 
 module friscv_cpu_subsystem_core import friscv_pkg::*, friscv_mem_pkg::*; #(
-    parameter int unsigned RAM_BASE            = 32'h8000_0000,
-    parameter int unsigned ZSBL_ROM_SIZE_BYTES = 0,
-    parameter int unsigned ZSBL_BASE           = 32'h0020_0000,
-    parameter int unsigned DM_BASE             = 32'h0000_0000,
-    parameter int unsigned DM_HALT_OFFSET      = 32'h800,
-    parameter int unsigned DM_EXC_OFFSET       = 32'h810,
+    parameter int unsigned RamBase          = 32'h8000_0000,
+    parameter int unsigned ZsblRomSizeBytes = 0,
+    parameter int unsigned ZsblRomBase      = 32'h0020_0000,
+    parameter int unsigned DmBase           = 32'h0000_0000,
+    parameter int unsigned DmHaltOffset     = 32'h800,
+    parameter int unsigned DmExcOffset      = 32'h810,
 
     // Memory protection and address translation
-    parameter logic ENABLE_MMU      = 1,
-    parameter logic ENFORCE_PMP     = 0,
-    parameter logic ENFORCE_PTW_PMP = 0,
-    parameter int   PMP_ENTRIES     = 8,
-    parameter int   PMP_USABLE      = 8,
+    parameter logic EnableMmu      = 1,
+    parameter logic EnforcePmp     = 0,
+    parameter logic EnforcePtwPmp = 0,
+    parameter int   PmpEntries     = 8,
+    parameter int   PmpUsable      = 8,
     // Must be a power of 2 greater than 1
-    parameter int   ITLB_ENTRIES = 2,
-    parameter int   DTLB_ENTRIES = 4,
+    parameter int   ItlbEntries = 2,
+    parameter int   DtlbEntries = 4,
     // If not enabled, any sfence.vma will flush all TLB entries
-    parameter logic ENABLE_FINE_TLB_FLUSH = 0,
+    parameter logic EnableFineTlbFlush = 0,
 
     // Extension selection
-    parameter logic ENABLE_MUL = 1,
-    parameter logic ENABLE_DIV = 1,
+    parameter logic EnableMul = 1,
+    parameter logic EnableDiv = 1,
     // Use a single-cycle combinational multiplier instead of the iterative multiplier
-    parameter logic ENABLE_FAST_MUL = 0,
-    parameter logic ENABLE_EXTENSION_A = 1,
+    parameter logic EnableFastMul = 0,
+    parameter logic EnableExtensionA = 1,
 
     // If enabled, a write to END_ADDRESS will stall the core until reset
-    parameter logic ENABLE_HALT_ON_END_ADDRESS = 0,
+    parameter logic HaltOnEndAddress    = 0,
     // If enabled, entering an EBREAK instruction will halt the core until reset
-    parameter logic ENABLE_HALT_ON_ENTER_EBREAK = 0,
+    parameter logic HaltOnEnterEbreak   = 0,
     // If enabled, the first MRET or SRET after entering an EBREAK handler will halt the core until reset
-    parameter logic ENABLE_HALT_ON_RET_FROM_EBREAK = 0
+    parameter logic HaltOnRetFromEbreak = 0
 ) (
     input  logic         i_clk,
     input  logic         i_rstn,
@@ -64,23 +64,23 @@ module friscv_cpu_subsystem_core import friscv_pkg::*, friscv_mem_pkg::*; #(
     input  logic         i_dbg_req
 );
 
-localparam int unsigned RESET_VEC = (ZSBL_ROM_SIZE_BYTES > 0) ? ZSBL_BASE : RAM_BASE;
+localparam int unsigned ResetVec = (ZsblRomSizeBytes > 0) ? ZsblRomBase : RamBase;
 
 // Elaboration-time parameter checks
-if (!ENABLE_MUL && ENABLE_FAST_MUL) begin : gen_chk_fast_mul_has_mul
-    $fatal(1, "ENABLE_FAST_MUL enabled, but ENABLE_MUL disabled. Fast multiplier requires MUL.");
+if (!EnableMul && EnableFastMul) begin : gen_chk_fast_mul_has_mul
+    $fatal(1, "EnableFastMul enabled, but EnableMul disabled. Fast multiplier requires MUL.");
 end
-if (!ENABLE_MMU && ENFORCE_PMP) begin : gen_chk_pmp_requires_mmu
-    $fatal(1, "ENFORCE_PMP enabled, but ENABLE_MMU disabled. PMP enforcement requires MMU.");
+if (!EnableMmu && EnforcePmp) begin : gen_chk_pmp_requires_mmu
+    $fatal(1, "EnforcePmp enabled, but EnableMmu disabled. PMP enforcement requires MMU.");
 end
-if (!ENFORCE_PMP && ENFORCE_PTW_PMP) begin : gen_chk_ptw_pmp_requires_pmp
-    $fatal(1, "ENFORCE_PTW_PMP enabled, but ENFORCE_PMP disabled. PTW PMP enforcement requires PMP enforcement.");
+if (!EnforcePmp && EnforcePtwPmp) begin : gen_chk_ptw_pmp_requires_pmp
+    $fatal(1, "EnforcePtwPmp enabled, but EnforcePmp disabled. PTW PMP enforcement requires PMP enforcement.");
 end
-if (PMP_USABLE > PMP_ENTRIES) begin : gen_chk_pmp_usable_le_entries
-    $fatal(1, "PMP_USABLE (%0d) exceeds PMP_ENTRIES (%0d).", PMP_USABLE, PMP_ENTRIES);
+if (PmpUsable > PmpEntries) begin : gen_chk_pmp_usable_le_entries
+    $fatal(1, "PmpUsable (%0d) exceeds PmpEntries (%0d).", PmpUsable, PmpEntries);
 end
-if (PMP_ENTRIES > 64) begin : gen_chk_pmp_entries_le_64
-    $fatal(1, "PMP_ENTRIES (%0d) exceeds the maximum of 64.", PMP_ENTRIES);
+if (PmpEntries > 64) begin : gen_chk_pmp_entries_le_64
+    $fatal(1, "PmpEntries (%0d) exceeds the maximum of 64.", PmpEntries);
 end
 
 mem_width_e w_size;
@@ -99,28 +99,27 @@ assign w_mem_err = mem_if.err;
 // ============================================================
 
 friscv_core_complex #(
-    .HART_ID             ( 0                   ),
-    .RESET_VEC           ( RESET_VEC           ),
-    .ZSBL_ROM_SIZE_BYTES ( ZSBL_ROM_SIZE_BYTES ),
-    .DM_BASE             ( DM_BASE             ),
-    .DM_HALT_OFFSET      ( DM_HALT_OFFSET      ),
-    .DM_EXC_OFFSET       ( DM_EXC_OFFSET       ),
-
-    .ENABLE_MMU                     ( ENABLE_MMU                     ),
-    .ENFORCE_PMP                    ( ENFORCE_PMP                    ),
-    .ENFORCE_PTW_PMP                ( ENFORCE_PTW_PMP                ),
-    .PMP_ENTRIES                    ( PMP_ENTRIES                    ),
-    .PMP_USABLE                     ( PMP_USABLE                     ),
-    .ITLB_ENTRIES                   ( ITLB_ENTRIES                   ),
-    .DTLB_ENTRIES                   ( DTLB_ENTRIES                   ),
-    .ENABLE_FINE_TLB_FLUSH          ( ENABLE_FINE_TLB_FLUSH          ),
-    .ENABLE_MUL                     ( ENABLE_MUL                     ),
-    .ENABLE_DIV                     ( ENABLE_DIV                     ),
-    .ENABLE_FAST_MUL                ( ENABLE_FAST_MUL                ),
-    .ENABLE_EXTENSION_A             ( ENABLE_EXTENSION_A             ),
-    .ENABLE_HALT_ON_END_ADDRESS     ( ENABLE_HALT_ON_END_ADDRESS     ),
-    .ENABLE_HALT_ON_ENTER_EBREAK    ( ENABLE_HALT_ON_ENTER_EBREAK    ),
-    .ENABLE_HALT_ON_RET_FROM_EBREAK ( ENABLE_HALT_ON_RET_FROM_EBREAK )
+    .HartId              ( 0                   ),
+    .ResetVec            ( ResetVec            ),
+    .ZsblRomSizeBytes    ( ZsblRomSizeBytes    ),
+    .DmBase              ( DmBase              ),
+    .DmHaltOffset        ( DmHaltOffset        ),
+    .DmExcOffset         ( DmExcOffset         ),
+    .EnableMmu           ( EnableMmu           ),
+    .EnforcePmp          ( EnforcePmp          ),
+    .EnforcePtwPmp       ( EnforcePtwPmp       ),
+    .PmpEntries          ( PmpEntries          ),
+    .PmpUsable           ( PmpUsable           ),
+    .ItlbEntries         ( ItlbEntries         ),
+    .DtlbEntries         ( DtlbEntries         ),
+    .EnableFineTlbFlush  ( EnableFineTlbFlush  ),
+    .EnableMul           ( EnableMul           ),
+    .EnableDiv           ( EnableDiv           ),
+    .EnableFastMul       ( EnableFastMul       ),
+    .EnableExtensionA    ( EnableExtensionA    ),
+    .HaltOnEndAddress    ( HaltOnEndAddress    ),
+    .HaltOnEnterEbreak   ( HaltOnEnterEbreak   ),
+    .HaltOnRetFromEbreak ( HaltOnRetFromEbreak )
 ) cc_0 (
     .i_clk        ( i_clk        ),
     .i_rstn       ( i_rstn       ),
