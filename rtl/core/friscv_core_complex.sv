@@ -266,7 +266,6 @@ end else begin : gen_no_mmu
         .i_mem_wait   ( w_l2_req_wait   ),
         .i_mem_err    ( w_l2_req_err    ),
         .o_amo_op     ( w_l2_req_amo_op ),
-        .o_grant_inst (                 ),
         .o_grant_start(                 ),
         .o_grant_start_inst(            ),
         .o_grant_held (                 )

@@ -45,7 +45,6 @@ module friscv_l1_arbiter import friscv_pkg::*, friscv_mem_pkg::*; (
     output amo_op_e    o_amo_op,
 
     // Status to the MMU
-    output logic       o_grant_inst,
     output logic       o_grant_start,
     output logic       o_grant_start_inst,
     output logic       o_grant_held
@@ -200,7 +199,6 @@ end
 assign o_inst_data  = i_mem_rdata;
 assign o_data_rdata = i_mem_rdata;
 
-assign o_grant_inst       = w_busy_inst;
 assign o_grant_start      = w_take_any;
 assign o_grant_start_inst = w_take_inst;
 assign o_grant_held       = (r_state != S_IDLE);

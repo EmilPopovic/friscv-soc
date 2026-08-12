@@ -76,17 +76,14 @@ module friscv_mmu import friscv_pkg::*, friscv_mem_pkg::*; #(
 );
 
 // Granted request lines and latched translation context
-addr_t        w_grant_addr;
 mem_width_e   w_grant_size;
 data_t        w_grant_wdata;
 rw_cmd_e      w_grant_rw;
 logic         w_stall;
 amo_op_e      w_grant_amo;
-logic         w_grant_inst;
 logic         w_grant_start;
 logic         w_grant_start_inst;
 logic         w_grant_held;
-logic         w_grant_wr;
 logic         w_grant_active;
 logic         w_l1_inst_err;
 logic         w_l1_data_err;
@@ -108,7 +105,6 @@ assign w_data_vpn = (w_grant_active && !w_eff_req_ctx.is_inst) ? vpn_t'(w_eff_re
 // Lookup lines
 ppn_t       w_itlb_ppn, w_dtlb_ppn;
 perm_t      w_itlb_perm, w_dtlb_perm;
-pte_level_t w_itlb_level, w_dtlb_level;
 logic       w_itlb_hit, w_dtlb_hit;
 
 satp_mode_e w_tlb_mode;
@@ -140,7 +136,6 @@ friscv_tlb #(
     .i_match_asid    ( w_eff_asid      ),
     .o_ppn           ( w_itlb_ppn      ),
     .o_perm          ( w_itlb_perm     ),
-    .o_level         ( w_itlb_level    ),
     .o_hit           ( w_itlb_hit      ),
 
     // Fill
@@ -172,7 +167,6 @@ friscv_tlb #(
     .i_match_asid    ( w_eff_asid      ),
     .o_ppn           ( w_dtlb_ppn      ),
     .o_perm          ( w_dtlb_perm     ),
-    .o_level         ( w_dtlb_level    ),
     .o_hit           ( w_dtlb_hit      ),
 
     // Fill
@@ -215,7 +209,7 @@ friscv_l1_arbiter l1_arbiter (
     .i_amo_op     ( i_amo_op      ),
     .o_data_err   ( w_l1_data_err ),
 
-    .o_mem_addr   ( w_grant_addr  ),
+    .o_mem_addr   (               ),
     .o_mem_size   ( w_grant_size  ),
     .o_mem_wdata  ( w_grant_wdata ),
     .i_mem_rdata  ( i_mem_rdata   ),
@@ -223,7 +217,6 @@ friscv_l1_arbiter l1_arbiter (
     .i_mem_wait   ( w_stall       ),
     .i_mem_err    ( i_mem_err     ),
     .o_amo_op     ( w_grant_amo   ),
-    .o_grant_inst ( w_grant_inst  ),
     .o_grant_start( w_grant_start ),
     .o_grant_start_inst( w_grant_start_inst ),
     .o_grant_held ( w_grant_held  )
@@ -238,8 +231,6 @@ assign w_paging_en = (|w_eff_req_ctx.satp.mode) && (w_eff_req_ctx.mode != M_MODE
 
 // Arbiter is in a grant state when it drives a non-idle command
 assign w_grant_active = (w_grant_rw != RW_IDLE);
-
-assign w_grant_wr = (w_grant_rw == RW_WRITE);
 
 always_comb begin
     w_start_req_ctx.addr     = w_grant_start_inst ? i_inst_addr : i_data_addr;
