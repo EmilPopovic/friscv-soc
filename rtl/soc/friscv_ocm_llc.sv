@@ -18,11 +18,11 @@ module friscv_ocm_llc import friscv_mem_pkg::*; #(
     parameter  int unsigned OcmSizeBytes = 16*1024,
     parameter  bit          SramTags     = 1
 ) (
-    input  logic            i_clk,
-    input  logic            i_rstn,
-    input  logic [Ways-1:0] i_way_is_cache,  // 1 = this way is cache, 0 = this way is OCM
-    input  logic            i_crpsel,        // 0 = round-robin, 1 = random
-    input  logic            i_llcinv,        // pulse to invalidate every way
+    input  logic            clk_i,
+    input  logic            rst_ni,
+    input  logic [Ways-1:0] way_is_cache_i,  // 1 = this way is cache, 0 = this way is OCM
+    input  logic            crpsel_i,        // 0 = round-robin, 1 = random
+    input  logic            llcinv_i,        // pulse to invalidate every way
 
     friscv_mem_if.slave     s_mem_if,  // From the hub: OCM region and cacheable region
     friscv_mem_if.master    m_mem_if   // To external memory
@@ -73,10 +73,10 @@ logic [3:0]  w_be;
 logic w_illegal_ocm_access;
 
 friscv_to_mem #(
-    .REGISTER_REQ ( 1 )
+    .RegisterReq ( 1 )
 ) to_mem (
-    .i_clk       ( i_clk    ),
-    .i_rstn      ( i_rstn   ),
+    .clk_i,
+    .rst_ni,
     .req_o       ( w_req    ),
     .addr_o      ( w_addr   ),
     .we_o        ( w_we     ),
@@ -87,7 +87,7 @@ friscv_to_mem #(
     .err_i       ( w_err    ),
     .other_err_i ( 1'b0     ),
     .rdata_i     ( w_rdata  ),
-    .mem_if      ( s_mem_if )
+    .s_mem       ( s_mem_if )
 );
 
 // ============================================================
@@ -121,8 +121,8 @@ for (genvar i = 0; i < Ways; i++) begin : gen_ways
         .NumPorts ( 1        ),
         .Latency  ( 1        )  // Must be 1 for ocm_llc to work
     ) way_sram (
-        .clk_i   ( i_clk          ),
-        .rst_ni  ( i_rstn         ),
+        .clk_i   ( clk_i          ),
+        .rst_ni  ( rst_ni         ),
         .req_i   ( w_way_req  [i] ),
         .we_i    ( w_way_we   [i] ),
         .addr_i  ( w_way_addr [i] ),
@@ -137,7 +137,7 @@ end
 // ============================================================
 
 logic [Ways-1:0] r_mode, w_mode_changed;
-assign w_mode_changed = i_way_is_cache ^ r_mode;
+assign w_mode_changed = way_is_cache_i ^ r_mode;
 
 // A way switching from cache to OCM is walked word by word and zeroed.
 // All other transactions are blocked until the zeroing is complete.
@@ -145,24 +145,24 @@ logic [Ways-1:0]     w_zero_ways;
 logic [WayAddrW-1:0] r_zero_addr;
 logic                w_zero_busy, w_zero_last;
 
-assign w_zero_ways = r_mode & ~i_way_is_cache;
+assign w_zero_ways = r_mode & ~way_is_cache_i;
 assign w_zero_busy = |w_zero_ways;
 assign w_zero_last = w_zero_busy && (r_zero_addr == WayAddrW'(WayWords-1));
 
-always_ff @(posedge i_clk or negedge i_rstn) begin
-    if (!i_rstn)          r_zero_addr <= '0;
+always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni)          r_zero_addr <= '0;
     else if (w_zero_last) r_zero_addr <= '0;
     else if (w_zero_busy) r_zero_addr <= r_zero_addr + 1'b1;
 end
 
-always_ff @(posedge i_clk or negedge i_rstn) begin
-    if (!i_rstn)                          r_mode <= '0;
-    else if (!w_zero_busy || w_zero_last) r_mode <= i_way_is_cache;
+always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni)                          r_mode <= '0;
+    else if (!w_zero_busy || w_zero_last) r_mode <= way_is_cache_i;
 end
 
 logic [Ways-1:0] w_inv_ways;
 logic            w_inv;
-assign w_inv_ways = i_llcinv ? {Ways{1'b1}} : w_mode_changed;
+assign w_inv_ways = llcinv_i ? {Ways{1'b1}} : w_mode_changed;
 assign w_inv      = |w_inv_ways;
 
 // ============================================================
@@ -184,7 +184,7 @@ logic w_dn_done;     // the external request completes this cycle
 logic w_refill_err;  // some beat of the current refill reported an error
 
 logic w_cache_enabled;
-assign w_cache_enabled = |i_way_is_cache;  // Cache is enabled if any way is configured as cache
+assign w_cache_enabled = |way_is_cache_i;  // Cache is enabled if any way is configured as cache
 
 logic w_is_lookup;
 assign w_is_lookup = w_sel_cached && w_cache_enabled;
@@ -214,8 +214,8 @@ always_comb begin
     endcase
 end
 
-always_ff @(posedge i_clk or negedge i_rstn) begin
-    if (!i_rstn) r_state <= S_LLC_IDLE;
+always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) r_state <= S_LLC_IDLE;
     else         r_state <= w_next_state;
 end
 
@@ -267,8 +267,8 @@ if (SramTags) begin : gen_tag_sram
         .NumPorts  ( 1       ),
         .Latency   ( 1       )
     ) tag_sram (
-        .clk_i   ( i_clk                    ),
-        .rst_ni  ( i_rstn                   ),
+        .clk_i,
+        .rst_ni,
         .req_i   ( w_lookup_en || w_alloc   ),
         .we_i    ( w_alloc                  ),
         .addr_i  ( w_idx                    ),
@@ -278,11 +278,11 @@ if (SramTags) begin : gen_tag_sram
     );
 
     for (genvar i = 0; i < Ways; i++) begin : gen_hit_arr
-        assign w_hit_arr[i] = i_way_is_cache[i] && r_valid_arr[i][w_idx] && (w_tag_rdata[i*TagSlotW +: TagW] == w_tag);
+        assign w_hit_arr[i] = way_is_cache_i[i] && r_valid_arr[i][w_idx] && (w_tag_rdata[i*TagSlotW +: TagW] == w_tag);
     end
 
-    always_ff @(posedge i_clk or negedge i_rstn) begin
-        if (!i_rstn)                      r_hit_arr <= '0;
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni)                      r_hit_arr <= '0;
         else if (r_state == S_LLC_LOOKUP) r_hit_arr <= w_hit_arr;
     end
 
@@ -291,20 +291,19 @@ end else begin : gen_tag_flops
     logic [Ways-1:0]                      w_hit_arr_d;
 
     for (genvar i = 0; i < Ways; i++) begin : gen_hit_arr
-        assign w_hit_arr_d[i] = i_way_is_cache[i] && r_valid_arr[i][w_idx] &&
-                                (r_tag_arr[i][w_idx] == w_tag);
+        assign w_hit_arr_d[i] = way_is_cache_i[i] && r_valid_arr[i][w_idx] && (r_tag_arr[i][w_idx] == w_tag);
     end
 
     // r_hit_arr behaves like the SRAM output
-    always_ff @(posedge i_clk or negedge i_rstn) begin
-        if (!i_rstn)          r_hit_arr <= '0;
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni)          r_hit_arr <= '0;
         else if (w_lookup_en) r_hit_arr <= w_hit_arr_d;
     end
 
     assign w_hit_arr = r_hit_arr;
 
-    always_ff @(posedge i_clk or negedge i_rstn) begin
-        if (!i_rstn)      r_tag_arr <= '0;
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni)      r_tag_arr <= '0;
         else if (w_alloc) r_tag_arr[r_victim][w_idx] <= w_tag;
     end
 end
@@ -315,17 +314,17 @@ end
 
 // Random replacement
 
-localparam int unsigned LFSR_W    = 5;
-localparam int unsigned LFSR_POLY = 5'b10010;
+localparam int unsigned LfsrW    = 5;
+localparam logic [4:0]  LfsrPoly = 5'b10010;
 
-logic [LFSR_W-1:0] r_lfsr;  // for random replacement
+logic [LfsrW-1:0] r_lfsr;  // for random replacement
 
 logic w_lfsr_next;
-assign w_lfsr_next = ~^(r_lfsr & LFSR_POLY);
+assign w_lfsr_next = ~^(r_lfsr & LfsrPoly);
 
-always_ff @(posedge i_clk or negedge i_rstn) begin
-    if (!i_rstn) r_lfsr <= '0;
-    else         r_lfsr <= {r_lfsr[LFSR_W-2:0], w_lfsr_next};
+always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) r_lfsr <= '0;
+    else         r_lfsr <= {r_lfsr[LfsrW-2:0], w_lfsr_next};
 end
 
 // Round-robin replacement
@@ -335,37 +334,37 @@ logic [Sets-1:0][WaySelW-1:0] r_rr_ptr;  // round-robin pointer for each set
 // Both policies only nominate a starting index, the selection below rotates from it
 // over the eligible ways so neither policy can land on a way that is OCM
 logic [WaySelW-1:0] w_start;
-assign w_start = i_crpsel ? r_lfsr[WaySelW-1:0] : r_rr_ptr[w_idx];
+assign w_start = crpsel_i ? r_lfsr[WaySelW-1:0] : r_rr_ptr[w_idx];
 
 always_comb begin
     w_victim = '0;
     // Lowest priority: wrap round to an eligible way below the starting index
     for (int unsigned i = Ways; i > 0; i--) begin
-        if (i_way_is_cache[i-1] && WaySelW'(i-1) < w_start)
+        if (way_is_cache_i[i-1] && WaySelW'(i-1) < w_start)
             w_victim = WaySelW'(i-1);
     end
     // Then the first eligible way at or above the starting index
     for (int unsigned i = Ways; i > 0; i--) begin
-        if (i_way_is_cache[i-1] && WaySelW'(i-1) >= w_start)
+        if (way_is_cache_i[i-1] && WaySelW'(i-1) >= w_start)
             w_victim = WaySelW'(i-1);
     end
     // Highest priority: an eligible way that holds nothing yet
     for (int unsigned i = Ways; i > 0; i--) begin
-        if (i_way_is_cache[i-1] && !r_valid_arr[i-1][w_idx])
+        if (way_is_cache_i[i-1] && !r_valid_arr[i-1][w_idx])
             w_victim = WaySelW'(i-1);
     end
 end
 
-always_ff @(posedge i_clk or negedge i_rstn) begin
-    if (!i_rstn) begin
+always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
         r_rr_ptr <= '0;
     end else if (r_state == S_LLC_REFILL && w_dn_done && !w_refill_err) begin
         r_rr_ptr[w_idx] <= r_victim + 1'b1;  // next way in round-robin order
     end
 end
 
-always_ff @(posedge i_clk or negedge i_rstn) begin
-    if (!i_rstn) begin
+always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
         r_valid_arr <= '0;
     end else if (w_inv) begin
         for (int unsigned i = 0; i < Ways; i++) begin
@@ -385,8 +384,8 @@ logic             r_refill_err;
 
 assign w_refill_err = (r_state == S_LLC_REFILL) && (r_refill_err || m_mem_if.err);
 
-always_ff @(posedge i_clk or negedge i_rstn) begin
-    if (!i_rstn) begin
+always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
         r_beat       <= '0;
         r_refill_err <= 1'b0;
         r_victim     <= '0;
@@ -453,8 +452,8 @@ end
 data_t r_rsp_rdata;
 logic  r_rsp_sel;
 
-always_ff @(posedge i_clk or negedge i_rstn) begin
-    if (!i_rstn) begin
+always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
         w_rvalid    <= 1'b0;
         w_err       <= 1'b0;
         r_rsp_sel   <= 1'b0;
@@ -481,7 +480,7 @@ logic [WaySelW-1:0]  w_ocm_way_sel;
 assign w_ocm_addr    = w_addr[WayAddrW+1:2];
 assign w_ocm_way_sel = w_addr[WayAddrW+WaySelW+1:WayAddrW+2];
 
-assign w_illegal_ocm_access = w_sel_ocm && i_way_is_cache[w_ocm_way_sel];
+assign w_illegal_ocm_access = w_sel_ocm && way_is_cache_i[w_ocm_way_sel];
 
 // A write hit updates the line in place only once the external write has been accepted
 logic w_write_hit;
@@ -496,7 +495,7 @@ always_comb begin
         w_way_wdata[i] = '0;
         w_way_be   [i] = '0;
 
-        if (i_way_is_cache[i]) begin
+        if (way_is_cache_i[i]) begin
             if (r_state == S_LLC_REFILL) begin
                 if (r_victim == WaySelW'(i) && m_mem_if.beat_valid) begin
                     w_way_req  [i] = 1'b1;
@@ -543,7 +542,7 @@ always_comb begin
     end else begin
         w_rdata = '0;
         for (int unsigned i = 0; i < Ways; i++) begin
-            if (!i_way_is_cache[i] && w_ocm_way_sel == WaySelW'(i) && w_sel_ocm) begin
+            if (!way_is_cache_i[i] && w_ocm_way_sel == WaySelW'(i) && w_sel_ocm) begin
                 w_rdata = w_way_rdata[i];
             end
         end

@@ -17,17 +17,17 @@ module friscv_mem_hub import friscv_mem_pkg::*; #(
     parameter int unsigned Ways      = 4,
     parameter bit          SramTags  = 1'b1
 ) (
-    input  logic            i_clk,
-    input  logic            i_rstn,
+    input  logic            clk_i,
+    input  logic            rst_ni,
 
     friscv_mem_if.slave     s_cpu_if,  // To CPU
     friscv_mem_if.slave     s_dm_if,   // To DM
     friscv_mem_if.master    m_ext_if,  // To downstream
     friscv_mem_if.master    m_sys_if,  // To SoC
 
-    input  logic [Ways-1:0] i_llcsel,
-    input  logic            i_crpsel,
-    input  logic            i_llcinv
+    input  logic [Ways-1:0] llcsel_i,
+    input  logic            crpsel_i,
+    input  logic            llcinv_i
 );
 
 if (ExtBase % LineBytes != 0) begin : gen_chk_mem_base
@@ -120,8 +120,8 @@ end
 // Sequential
 // ============================================================
 
-always_ff @(posedge i_clk or negedge i_rstn) begin
-    if (!i_rstn) begin
+always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
         r_state     <= S_IDLE;
         r_cpu_addr  <= '0;
         r_cpu_size  <= WIDTH_I32;
@@ -215,8 +215,8 @@ assign m_sys_if.rw       = w_sel_sys ? granted_if.rw : RW_IDLE;
 assign m_sys_if.burst_en = 1'b0;
 
 logic r_sel_llc;
-always_ff @(posedge i_clk or negedge i_rstn) begin
-    if (!i_rstn)         r_sel_llc <= 1'b0;
+always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni)         r_sel_llc <= 1'b0;
     else if (w_take_any) r_sel_llc <= w_sel_llc;
 end
 
@@ -230,21 +230,21 @@ assign granted_if.beat_valid = r_sel_llc ? llc_if.beat_valid : m_sys_if.beat_val
 // ============================================================
 
 friscv_ocm_llc #(
-    .OcmBase      ( OcmBase        ),
-    .ExtBase      ( ExtBase        ),
-    .ExtLog2      ( $clog2(ExtSize)),
-    .LineBytes    ( LineBytes      ),
-    .Ways         ( Ways           ),
-    .OcmSizeBytes ( OcmSize        ),
-    .SramTags     ( SramTags       )
+    .OcmBase      ( OcmBase         ),
+    .ExtBase      ( ExtBase         ),
+    .ExtLog2      ( $clog2(ExtSize) ),
+    .LineBytes    ( LineBytes       ),
+    .Ways         ( Ways            ),
+    .OcmSizeBytes ( OcmSize         ),
+    .SramTags     ( SramTags        )
 ) ocm_llc (
-    .i_clk           ( i_clk    ),
-    .i_rstn          ( i_rstn   ),
-    .i_way_is_cache  ( i_llcsel ),
-    .i_crpsel        ( i_crpsel ),
-    .i_llcinv        ( i_llcinv ),
-    .s_mem_if        ( llc_if   ),
-    .m_mem_if        ( m_ext_if )
+    .clk_i,
+    .rst_ni,
+    .crpsel_i,
+    .llcinv_i,
+    .way_is_cache_i ( llcsel_i ),
+    .s_mem_if       ( llc_if   ),
+    .m_mem_if       ( m_ext_if )
 );
 
 endmodule

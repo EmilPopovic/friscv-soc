@@ -26,11 +26,11 @@ module vernii_scb import vernii_pkg::*; #(
 
     input  logic [NumPads-1:0] strap_i,
 
-    output logic o_hb_en,
+    output logic hb_en_o,
 
-    output logic [OcmLlcWays-1:0] o_llcsel,
-    output logic                  o_crpsel,
-    output logic                  o_llcinv
+    output logic [OcmLlcWays-1:0] llcsel_o,
+    output logic                  crpsel_o,
+    output logic                  llcinv_o
 );
 
 // Byte offsets within the block's register page
@@ -118,10 +118,10 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
     end
 end
 
-assign o_hb_en = r_hb_en;
-assign o_llcsel = r_llcsel;
-assign o_crpsel = r_crpsel;
-assign o_llcinv = r_llcinv;
+assign hb_en_o = r_hb_en;
+assign llcsel_o = r_llcsel;
+assign crpsel_o = r_crpsel;
+assign llcinv_o = r_llcinv;
 
 // ============================================================
 // Read / response

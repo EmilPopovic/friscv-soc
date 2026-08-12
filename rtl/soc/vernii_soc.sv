@@ -73,12 +73,12 @@ module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t;
     output logic  uart0_tx_o,
 
     // JTAG
-    input  logic tck_i,
-    input  logic tms_i,
-    input  logic trst_ni,
-    input  logic td_i,
-    output logic td_o,
-    output logic tdo_oe_o,
+    input  logic jtag_tck_i,
+    input  logic jtag_tms_i,
+    input  logic jtag_trst_ni,
+    input  logic jtag_tdi_i,
+    output logic jtag_tdo_o,
+    output logic jtag_tdo_oe_o,
 
     // QSPI0
     output logic       qspi0_sck_o,
@@ -209,15 +209,15 @@ friscv_mem_hub #(
     .Ways      ( Ways      ),
     .SramTags  ( SramTags  )
 ) friscv_mem_hub (
-    .i_clk    ( clk_i    ),
-    .i_rstn   ( soc_rstn ),
+    .clk_i,
+    .rst_ni   ( soc_rstn ),
     .s_cpu_if ( cpu_if   ),
     .s_dm_if  ( dm_if    ),
     .m_ext_if ( ext_if   ),
     .m_sys_if ( soc_if   ),
-    .i_llcsel ( llcsel   ),
-    .i_crpsel ( crpsel   ),
-    .i_llcinv ( llcinv   )
+    .llcsel_i ( llcsel   ),
+    .crpsel_i ( crpsel   ),
+    .llcinv_i ( llcinv   )
 );
 
 // ============================================================
@@ -233,10 +233,10 @@ data_t       soc_wdata, soc_rdata;
 logic [3:0]  soc_be;
 
 friscv_to_mem #(
-    .REGISTER_REQ ( 1 )
+    .RegisterReq ( 1 )
 ) soc_to_mem (
-    .i_clk       ( clk_i      ),
-    .i_rstn      ( soc_rstn   ),
+    .clk_i,
+    .rst_ni      ( soc_rstn   ),
     .req_o       ( soc_req    ),
     .addr_o      ( soc_addr   ),
     .we_o        ( soc_we     ),
@@ -247,7 +247,7 @@ friscv_to_mem #(
     .err_i       ( soc_err    ),
     .other_err_i ( 1'b0       ),
     .rdata_i     ( soc_rdata  ),
-    .mem_if      ( soc_if     )
+    .s_mem       ( soc_if     )
 );
 
 // mem -> reg_bus
@@ -439,10 +439,10 @@ vernii_scb #(
     .reg_req_i ( reg_dev_req[ScbPort] ),
     .reg_rsp_o ( reg_dev_rsp[ScbPort] ),
     .strap_i,
-    .o_hb_en   ( ext_mem_en           ),
-    .o_llcsel  ( llcsel               ),
-    .o_crpsel  ( crpsel               ),
-    .o_llcinv  ( llcinv               )
+    .hb_en_o   ( ext_mem_en           ),
+    .llcsel_o  ( llcsel               ),
+    .crpsel_o  ( crpsel               ),
+    .llcinv_o  ( llcinv               )
 );
 
 // ============================================================
@@ -452,9 +452,9 @@ vernii_scb #(
 friscv_mem_if ext_guarded_if ();
 
 friscv_guard ext_guard (
-    .i_en ( ext_mem_en     ),
-    .s_if ( ext_if         ),
-    .m_if ( ext_guarded_if )
+    .en_i  ( ext_mem_en     ),
+    .s_mem ( ext_if         ),
+    .m_mem ( ext_guarded_if )
 );
 
 AXI_BUS #(
@@ -464,15 +464,15 @@ AXI_BUS #(
     .AXI_USER_WIDTH ( AxiUserWidth )
 ) mem_axi ();
 
-friscv_axi4_full_adapter_intf #(
-    .BURST_LEN      ( LineBytes / StrbWidth ),
-    .AXI_ID_WIDTH   ( AxiIdWidth            ),
-    .AXI_USER_WIDTH ( AxiUserWidth          )
+friscv_to_axi4_full_intf #(
+    .BurstLen     ( LineBytes / StrbWidth ),
+    .AxiIdWidth   ( AxiIdWidth            ),
+    .AxiUserWidth ( AxiUserWidth          )
 ) m_mem (
     .clk_i,
-    .rst_ni  ( soc_rstn       ),
-    .mem_slv ( ext_guarded_if ),
-    .mst     ( mem_axi        )
+    .rst_ni ( soc_rstn       ),
+    .s_mem  ( ext_guarded_if ),
+    .m_axi  ( mem_axi        )
 );
 
 `AXI_ASSIGN_TO_REQ(axi_mem_req_o, mem_axi)
@@ -561,12 +561,12 @@ dm_top #(
 
 logic jtag_trstn, jtag_trstn_async;
 
-assign jtag_trstn_async = rst_ni & trst_ni;
+assign jtag_trstn_async = rst_ni & jtag_trst_ni;
 
 `pragma diagnostic push
 `pragma diagnostic ignore="-Wempty-output-connection"
 rstgen i_rstgen_tck (
-    .clk_i       ( tck_i            ),
+    .clk_i       ( jtag_tck_i       ),
     .rst_ni      ( jtag_trstn_async ),
     .test_mode_i ( test_mode_i      ),
     .rst_no      ( jtag_trstn       ),
@@ -590,12 +590,12 @@ dmi_jtag #(
     .dmi_resp_ready_o ( dmi_resp_ready ),
     .dmi_resp_valid_i ( dmi_resp_valid ),
 
-    .tck_i,
-    .tms_i,
+    .tck_i            ( jtag_tck_i     ),
+    .tms_i            ( jtag_tms_i     ),
     .trst_ni          ( jtag_trstn     ),
-    .td_i,
-    .td_o,
-    .tdo_oe_o
+    .td_i             ( jtag_tdi_i     ),
+    .td_o             ( jtag_tdo_o     ),
+    .tdo_oe_o         ( jtag_tdo_oe_o  )
 );
 
 reg_to_mem #(
@@ -626,9 +626,9 @@ always_ff @(posedge clk_i or negedge soc_rstn) begin
 end
 
 // DM SBA master port: dm master -> bridge -> mem hub DM port
-friscv_from_mem dm_sba_mem (
-    .i_clk       ( clk_i         ),
-    .i_rstn      ( soc_rstn      ),
+mem_to_friscv dm_sba_mem (
+    .clk_i,
+    .rst_ni      ( soc_rstn      ),
     .req_i       ( sba_req       ),
     .addr_i      ( sba_addr      ),
     .we_i        ( sba_we        ),
@@ -639,7 +639,7 @@ friscv_from_mem dm_sba_mem (
     .err_o       ( sba_err       ),
     .other_err_o ( sba_other_err ),
     .rdata_o     ( sba_rdata     ),
-    .mem_if      ( dm_if         )
+    .m_mem       ( dm_if         )
 );
 
 // ============================================================
