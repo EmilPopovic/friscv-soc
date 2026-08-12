@@ -111,6 +111,8 @@ done:
     addi    a3, a3, 4
     bltu    a1, a2, 1b
     fence.i
+    li      a0, 0                   // hartid
+    li      a1, 0                   // no dtb, the image carries its own
     jr      s0
 
 bad_header:
