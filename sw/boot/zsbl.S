@@ -16,6 +16,7 @@
 # gen_zsbl_rom.py checks these against vernii_soc.sv
 .equ QSPI_BASE,    0x60000000
 .equ SPI_CONTROL,  0x10
+.equ SPI_CONFIGOPTS, 0x18
 .equ SPI_STATUS,   0x14
 .equ SPI_COMMAND,  0x28
 .equ SPI_RXDATA,   0x2c
@@ -39,6 +40,7 @@ park:
 qspi:
     # The QSPI pads are dedicated, there is nothing to mux
     lui t0, (QSPI_BASE >> 12)
+    sw t1, SPI_CONFIGOPTS(t0)    # CLKDIV=1: SCK = core clock / 4
     lui t1, 0xa0000              # SPIEN | OUTPUT_EN
     sw t1, SPI_CONTROL(t0)
     li t1, 3                     # 0x03 read from address 0, LSB first
