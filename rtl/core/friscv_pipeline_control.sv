@@ -79,26 +79,29 @@ logic counter_csr_hazard;
 logic mem_stall, hazard_stall, trap_pending_stall;
 logic id_stall;
 
+// satp changes the address translation context globally, so younger
+// instructions must wait for the committed update.
 function automatic logic is_serializing_csr(csr_addr_e csr_sel);
-    case (csr_sel)
-        // satp changes the address translation context globally, so younger
-        // instructions must wait for the committed update.
-        CSR_MSTATUS,
-        CSR_SSTATUS,
-        CSR_MEDELEG,
-        CSR_MIDELEG,
-        CSR_SATP: is_serializing_csr = 1'b1;
-        default:  is_serializing_csr = 1'b0;
-    endcase
+    is_serializing_csr = 1'b0;
+    if (csr_sel == CSR_MSTATUS ||
+        csr_sel == CSR_SSTATUS ||
+        csr_sel == CSR_MEDELEG ||
+        csr_sel == CSR_MIDELEG ||
+        csr_sel == CSR_SATP) begin
+        is_serializing_csr = 1'b1;
+    end
 endfunction
 
 function automatic logic is_counter_csr(csr_addr_e csr_sel);
-    case (csr_sel)
-        CSR_CYCLE, CSR_CYCLEH,
-        CSR_TIME, CSR_TIMEH,
-        CSR_INSTRET, CSR_INSTRETH: is_counter_csr = 1'b1;
-        default:                   is_counter_csr = 1'b0;
-    endcase
+    is_counter_csr = 1'b0;
+    if (csr_sel == CSR_CYCLE ||
+        csr_sel == CSR_CYCLEH ||
+        csr_sel == CSR_TIME ||
+        csr_sel == CSR_TIMEH ||
+        csr_sel == CSR_INSTRET ||
+        csr_sel == CSR_INSTRETH) begin
+        is_counter_csr = 1'b1;
+    end
 endfunction
 
 logic effective_jal, effective_ret;
