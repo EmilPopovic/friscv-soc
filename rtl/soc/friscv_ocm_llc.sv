@@ -243,35 +243,38 @@ logic [WAYS-1:0] w_hit_arr, r_hit_arr;
 assign w_hit = |w_hit_arr;
 
 if (SRAM_TAGS) begin : gen_tag_sram
-    localparam int unsigned TAG_MEM_W = WAYS * TAG_W;
+    // Each way's tag is padded up to a byte boundary so the tag SRAM asks for plain 8-bit write enables
+    localparam int unsigned TAG_SLOT_W = ((TAG_W + 7) / 8) * 8;  // per-way bits
+    localparam int unsigned TAG_SLOT_B = TAG_SLOT_W / 8;         // per-way bytes
+    localparam int unsigned TAG_MEM_W  = WAYS * TAG_SLOT_W;
+    localparam int unsigned TAG_MEM_B  = WAYS * TAG_SLOT_B;
 
     logic [TAG_MEM_W-1:0] w_tag_rdata;
-    logic [WAYS-1:0]      w_tag_be;
+    logic [TAG_MEM_B-1:0] w_tag_be;
 
     for (genvar i = 0; i < WAYS; i++) begin : gen_tag_be
-        assign w_tag_be[i] = (r_victim == WAY_SEL_W'(unsigned'(i)));
+        assign w_tag_be[i*TAG_SLOT_B +: TAG_SLOT_B] = {TAG_SLOT_B{r_victim == WAY_SEL_W'(unsigned'(i))}};
     end
 
     tc_sram #(
         .NumWords  ( SETS      ),
         .DataWidth ( TAG_MEM_W ),
-        .ByteWidth ( TAG_W     ),
+        .ByteWidth ( 8         ),
         .NumPorts  ( 1         ),
         .Latency   ( 1         )
     ) tag_sram (
-        .clk_i   ( i_clk                  ),
-        .rst_ni  ( i_rstn                 ),
-        .req_i   ( w_lookup_en || w_alloc ),
-        .we_i    ( w_alloc                ),
-        .addr_i  ( w_idx                  ),
-        .wdata_i ( {WAYS{w_tag}}          ),
-        .be_i    ( w_tag_be               ),
-        .rdata_o ( w_tag_rdata            )
+        .clk_i   ( i_clk                      ),
+        .rst_ni  ( i_rstn                     ),
+        .req_i   ( w_lookup_en || w_alloc     ),
+        .we_i    ( w_alloc                    ),
+        .addr_i  ( w_idx                      ),
+        .wdata_i ( {WAYS{TAG_SLOT_W'(w_tag)}} ),
+        .be_i    ( w_tag_be                   ),
+        .rdata_o ( w_tag_rdata                )
     );
 
     for (genvar i = 0; i < WAYS; i++) begin : gen_hit_arr
-        assign w_hit_arr[i] = i_way_is_cache[i] && r_valid_arr[i][w_idx] &&
-                              (w_tag_rdata[i*TAG_W +: TAG_W] == w_tag);
+        assign w_hit_arr[i] = i_way_is_cache[i] && r_valid_arr[i][w_idx] && (w_tag_rdata[i*TAG_SLOT_W +: TAG_W] == w_tag);
     end
 
     always_ff @(posedge i_clk or negedge i_rstn) begin
