@@ -68,19 +68,19 @@ localparam int unsigned RESET_VEC = (ZSBL_ROM_SIZE_BYTES > 0) ? ZSBL_BASE : RAM_
 
 // Elaboration-time parameter checks
 if (!ENABLE_MUL && ENABLE_FAST_MUL) begin : gen_chk_fast_mul_has_mul
-    $fatal("ENABLE_FAST_MUL enabled, but ENABLE_MUL disabled. Fast multiplier requires MUL.");
+    $fatal(1, "ENABLE_FAST_MUL enabled, but ENABLE_MUL disabled. Fast multiplier requires MUL.");
 end
 if (!ENABLE_MMU && ENFORCE_PMP) begin : gen_chk_pmp_requires_mmu
-    $fatal("ENFORCE_PMP enabled, but ENABLE_MMU disabled. PMP enforcement requires MMU.");
+    $fatal(1, "ENFORCE_PMP enabled, but ENABLE_MMU disabled. PMP enforcement requires MMU.");
 end
 if (!ENFORCE_PMP && ENFORCE_PTW_PMP) begin : gen_chk_ptw_pmp_requires_pmp
-    $fatal("ENFORCE_PTW_PMP enabled, but ENFORCE_PMP disabled. PTW PMP enforcement requires PMP enforcement.");
+    $fatal(1, "ENFORCE_PTW_PMP enabled, but ENFORCE_PMP disabled. PTW PMP enforcement requires PMP enforcement.");
 end
 if (PMP_USABLE > PMP_ENTRIES) begin : gen_chk_pmp_usable_le_entries
-    $fatal("PMP_USABLE (%0d) exceeds PMP_ENTRIES (%0d).", PMP_USABLE, PMP_ENTRIES);
+    $fatal(1, "PMP_USABLE (%0d) exceeds PMP_ENTRIES (%0d).", PMP_USABLE, PMP_ENTRIES);
 end
 if (PMP_ENTRIES > 64) begin : gen_chk_pmp_entries_le_64
-    $fatal("PMP_ENTRIES (%0d) exceeds the maximum of 64.", PMP_ENTRIES);
+    $fatal(1, "PMP_ENTRIES (%0d) exceeds the maximum of 64.", PMP_ENTRIES);
 end
 
 mem_width_e w_size;

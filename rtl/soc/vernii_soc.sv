@@ -170,10 +170,13 @@ if (SramBase < DmBaseAddr + DmSize &&
     $error("the SRAM window (%08x + %08x) covers the debug module at %08x",
            SramBase, SramSize, DmBaseAddr);
 end
-if (ZsblRomSizeBytes > 0 && SramBase < ZsblBaseAddr + ZsblRomSizeBytes &&
+localparam int unsigned ZsblRomWindow = (ZsblRomSizeBytes > 0) ? (1 << $clog2(ZsblRomSizeBytes)) : 0;
+
+// Check that a large OCM does not overlap with the ZSBL region
+if (ZsblRomWindow > 0 && SramBase < ZsblBaseAddr + ZsblRomWindow &&
     ZsblBaseAddr < SramBase + SramSize) begin : gen_chk_sram_zsbl
-    $error("the SRAM window (%08x + %08x) covers the ZSBL ROM at %08x",
-           SramBase, SramSize, ZsblBaseAddr);
+    $fatal(1, "the SRAM window (%08x + %08x) covers the ZSBL ROM window (%08x + %08x)",
+           SramBase, SramSize, ZsblBaseAddr, ZsblRomWindow);
 end
 
 logic [Ways-1:0] llcsel;
@@ -288,7 +291,6 @@ reg_rsp_t [NoRegPorts-1:0] reg_dev_rsp;
     assign reg_dev_rsp[port].ready = 1'b1;
 
 localparam int unsigned NoIntRegRules = 7;
-localparam int unsigned NoRegRules    = NoIntRegRules + NumExtRegSlv;
 
 localparam xbar_rule_32_t [NoIntRegRules-1:0] IntRegRules = '{
     '{ idx: DmPort,    start_addr: DmBaseAddr,    end_addr: DmBaseAddr + DmSize },
@@ -300,24 +302,72 @@ localparam xbar_rule_32_t [NoIntRegRules-1:0] IntRegRules = '{
     '{ idx: Qspi0Port, start_addr: 32'h6000_0000, end_addr: 32'h6000_1000 }
 };
 
-function automatic axi_pkg::xbar_rule_32_t [NoRegRules-1:0] gen_reg_rules();
-    axi_pkg::xbar_rule_32_t rule;
+function automatic bit rule_populated(input xbar_rule_32_t rule);
+    rule_populated = rule.start_addr != rule.end_addr;
+endfunction
+
+function automatic logic [31:0] rule_end(input xbar_rule_32_t rule);
+    rule_end = (rule.end_addr == '0) ? '1 : rule.end_addr;
+endfunction
+
+function automatic int unsigned count_ext_rules();
+    count_ext_rules = 0;
+    for (int i = 0; i < NumExtRegSlv; i++) begin
+        if (rule_populated(ExtRegSlvRules[i])) count_ext_rules++;
+    end
+endfunction
+
+localparam int unsigned NoExtRegRules = count_ext_rules();
+localparam int unsigned NoRegRules    = NoIntRegRules + NoExtRegRules;
+
+function automatic xbar_rule_32_t [NoRegRules-1:0] gen_reg_rules();
+    xbar_rule_32_t rule;
+    int unsigned   n;
 
     gen_reg_rules = '0;
+    n             = 0;
 
-    for (int i = 0; i < NoIntRegRules; i++) begin
-        gen_reg_rules[i] = IntRegRules[i];
+    // External rules go in first, internal take priority in case of overlap
+    for (int i = 0; i < NumExtRegSlv; i++) begin
+        if (rule_populated(ExtRegSlvRules[i])) begin
+            rule     = ExtRegSlvRules[i];
+            rule.idx = rule.idx + 32'(NumIntRegPorts);
+
+            gen_reg_rules[n] = rule;
+            n++;
+        end
     end
 
-    for (int i = 0; i < NumExtRegSlv; i++) begin
-        rule     = ExtRegSlvRules[i];
-        rule.idx = rule.idx + 32'(NumIntRegPorts);
-
-        gen_reg_rules[NoIntRegRules + i] = rule;
+    for (int i = 0; i < NoIntRegRules; i++) begin
+        gen_reg_rules[NoExtRegRules + i] = IntRegRules[i];
     end
 endfunction
 
 localparam xbar_rule_32_t [NoRegRules-1:0] RegAddrMap = gen_reg_rules();
+
+// Check that the external reg slave rules are valid and do not overlap internal rules
+for (genvar e = 0; e < NumExtRegSlv; e++) begin : gen_chk_ext_rule
+    // Check if the external slave index is in range
+    if (rule_populated(ExtRegSlvRules[e]) && ExtRegSlvRules[e].idx >= NumExtRegSlv) begin : gen_chk_idx
+        $fatal(1, "ExtRegSlvRules[%0d].idx (%0d) is not a valid external slave index (0..%0d)",
+               e, ExtRegSlvRules[e].idx, NumExtRegSlv - 1);
+    end
+    // Check that end_addr is not below start_addr
+    if (rule_populated(ExtRegSlvRules[e]) && rule_end(ExtRegSlvRules[e]) < ExtRegSlvRules[e].start_addr) begin : gen_chk_range
+        $fatal(1, "ExtRegSlvRules[%0d] ends (%08x) below where it starts (%08x)",
+               e, ExtRegSlvRules[e].end_addr, ExtRegSlvRules[e].start_addr);
+    end
+    // Check that the external rule does not overlap any internal rule
+    for (genvar n = 0; n < NoIntRegRules; n++) begin : gen_chk_int_overlap
+        if (rule_populated(ExtRegSlvRules[e]) &&
+            ExtRegSlvRules[e].start_addr < rule_end(IntRegRules[n]) &&
+            IntRegRules[n].start_addr < rule_end(ExtRegSlvRules[e])) begin : gen_chk_overlap
+            $fatal(1, "ExtRegSlvRules[%0d] (%08x..%08x) overlaps the internal region %08x..%08x",
+                   e, ExtRegSlvRules[e].start_addr, rule_end(ExtRegSlvRules[e]),
+                   IntRegRules[n].start_addr, rule_end(IntRegRules[n]));
+        end
+    end
+end
 
 logic [RegPortWidth-1:0] reg_select;
 addr_decode #(
@@ -673,10 +723,18 @@ localparam int unsigned Qspi0IrqBase = Uart0IrqBase + NumUart0Irq;
 localparam int unsigned GpioAIrqBase = Qspi0IrqBase + NumQspi0Irq;
 localparam int unsigned ExtIrqBase   = GpioAIrqBase + NumGpioAIrq;
 
-localparam int unsigned NIrqSources = ExtIrqBase + NumExtIrq;
+// Sources claimed by the allocation above
+localparam int unsigned NIrqUsed = ExtIrqBase + NumExtIrq;
+
+// The PLIC width is fixed to not have to regenerate the address map
+localparam int unsigned NIrqSources = 31;
 
 if (NumGpioAIrq > 32) begin : gen_chk_gpio_a_irq
     $error("NumGpioAIrq (%0d) more than the 32 GPIO port A pins", NumGpioAIrq);
+end
+if (NIrqUsed > NIrqSources) begin : gen_chk_irq_budget
+    $error("the interrupt allocation needs %0d sources but the PLIC has %0d, reduce NumGpioAIrq (%0d) or NumExtIrq (%0d)",
+           NIrqUsed, NIrqSources, NumGpioAIrq, NumExtIrq);
 end
 
 logic [NIrqSources-1:0] plic_irq_sources;
@@ -690,6 +748,10 @@ end
 
 if (NumExtIrq > 0) begin : gen_ext_irq
     assign plic_irq_sources[ExtIrqBase +: NumExtIrq] = i_ext_irq[NumExtIrq-1:0];
+end
+
+if (NIrqUsed < NIrqSources) begin : gen_irq_unused
+    assign plic_irq_sources[NIrqSources-1:NIrqUsed] = '0;
 end
 
 // Two targets, context 0 is hart 0 M-mode (MEIP), context 1 is hart 0 S-mode (SEIP)

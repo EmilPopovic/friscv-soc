@@ -215,6 +215,7 @@ module obi_uart_rx import obi_uart_pkg::*; #()
 
     timeout_count_d = timeout_count_q;
     timeout_o         = 1'b0; // timeout_o
+    character_length = '0;
     timeout_level = '0;
 
     fifo_error_index_d = fifo_error_index_q; // FIFO Error

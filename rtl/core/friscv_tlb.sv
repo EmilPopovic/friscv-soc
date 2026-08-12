@@ -58,6 +58,9 @@ module friscv_tlb import friscv_pkg::*, friscv_mem_pkg::*; #(
 if (ENTRY_COUNT < 2) begin : gen_chk_entry_count
     $fatal(1, "ENTRY_COUNT must be at least 2, got %0d", ENTRY_COUNT);
 end
+if (ENTRY_COUNT != (1 << $clog2(ENTRY_COUNT))) begin : gen_chk_entry_pow2
+    $fatal(1, "ENTRY_COUNT must be a power of two, got %0d", ENTRY_COUNT);
+end
 
 typedef struct packed {
     vpn_t       vpn;
