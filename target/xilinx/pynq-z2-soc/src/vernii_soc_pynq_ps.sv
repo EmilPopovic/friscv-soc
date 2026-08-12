@@ -163,7 +163,7 @@ vernii_soc #(
     .SramSize         ( SramSize                         ),
     .MemBase          ( MemBase                          ),
     .MemSize          ( MemSize                          ),
-    .ZsblRomSizeBytes ( (ZsblRom != 0) ? 32'd144 : 32'd0 ),
+    .ZsblRomSizeBytes ( (ZsblRom != 0) ? friscv_zsbl_rom_pkg::ZSBL_PROG_BYTES : 32'd0 ),
     .NumStraps        ( NumStraps                        ),
     .NumExtRegSlv     ( 1                                ),
     .ExtRegSlvRules   ( ExtRegSlvRules                   ),

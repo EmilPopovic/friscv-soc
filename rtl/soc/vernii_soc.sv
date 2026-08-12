@@ -32,7 +32,7 @@ module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t;
     parameter bit          EnableExtM       = 1,
     parameter bit          EnableExtA       = 1,
     parameter bit          EnableFastMul    = 0,
-    parameter int unsigned ZsblRomSizeBytes = 144,
+    parameter int unsigned ZsblRomSizeBytes = friscv_zsbl_rom_pkg::ZSBL_PROG_BYTES,
     parameter int unsigned NumStraps        = 13,
     parameter int unsigned NumExtRegSlv     = 1,
     parameter bit          HaltOnEnd        = 0,

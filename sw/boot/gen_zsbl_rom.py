@@ -104,6 +104,7 @@ def main():
              "    import friscv_pkg::*;",
              "",
              f"    localparam int unsigned ZSBL_PROG_WORDS = {len(words)};",
+             "    localparam int unsigned ZSBL_PROG_BYTES = ZSBL_PROG_WORDS * 4;",
              f"    localparam inst_t ZSBL_PROG [{len(words)}] = '{{"]
     lines += [f"        32'h{word:08x}{',' if i + 1 < len(words) else ''}"
               for i, word in enumerate(words)]

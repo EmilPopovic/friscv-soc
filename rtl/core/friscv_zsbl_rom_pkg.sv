@@ -12,6 +12,7 @@ package friscv_zsbl_rom_pkg;
     import friscv_pkg::*;
 
     localparam int unsigned ZSBL_PROG_WORDS = 31;
+    localparam int unsigned ZSBL_PROG_BYTES = ZSBL_PROG_WORDS * 4;
     localparam inst_t ZSBL_PROG [31] = '{
         32'h400002b7,
         32'h0042a303,
