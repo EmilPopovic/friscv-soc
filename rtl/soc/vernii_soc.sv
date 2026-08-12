@@ -772,7 +772,21 @@ if (NumGpioAIrq > 0) begin : gen_gpio_a_irq
 end
 
 if (NumExtIrq > 0) begin : gen_ext_irq
-    assign plic_irq_sources[ExtIrqBase +: NumExtIrq] = ext_irq_i[NumExtIrq-1:0];
+    logic [NumExtIrq-1:0] ext_irq_sync;
+
+    for (genvar i = 0; i < NumExtIrq; i++) begin : gen_ext_irq_sync
+        tc_sync #(
+            .Stages     ( 2    ),
+            .ResetValue ( 1'b0 )
+        ) sync_ext_irq (
+            .clk_i,
+            .rst_ni   ( soc_rstn        ),
+            .serial_i ( ext_irq_i[i]    ),
+            .serial_o ( ext_irq_sync[i] )
+        );
+    end
+
+    assign plic_irq_sources[ExtIrqBase +: NumExtIrq] = ext_irq_sync;
 end
 
 if (NIrqUsed < NIrqSources) begin : gen_irq_unused
