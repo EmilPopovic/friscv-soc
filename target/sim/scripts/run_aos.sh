@@ -40,11 +40,11 @@ if [ "${BOOT:-jtag}" = qspi ]; then
 
     riscv64-unknown-elf-gcc -march=rv32ima_zicsr_zifencei -mabi=ilp32 \
         -nostdlib -nostartfiles -Wl,--no-warn-rwx-segments -Wl,-Ttext=0 \
-        -o "$DIR/stage1.elf" "$BOOT_SRC/stage1.S"
-    riscv64-unknown-elf-objcopy -O binary "$DIR/stage1.elf" "$DIR/stage1.bin"
-    python3 "$BOOT_SRC/mkflash.py" "$DIR/stage1.bin" "$IMAGE" "$DIR/flash.bin"
+        -o "$DIR/fsbl.elf" "$BOOT_SRC/fsbl.S"
+    riscv64-unknown-elf-objcopy -O binary "$DIR/fsbl.elf" "$DIR/fsbl.bin"
+    python3 "$BOOT_SRC/mkflash.py" "$DIR/fsbl.bin" "$IMAGE" "$DIR/flash.bin"
 
-    # The first stage sets the divisor and the cache ways itself
+    # The fsbl sets the divisor and the cache ways itself
     exec env VERNII_UART_DIV="$UART_DIV" VERNII_TEST_CYCLES="$CYCLES" \
         "./$DIR/vernii_soc" qspiboot "$DIR/flash.bin"
 fi

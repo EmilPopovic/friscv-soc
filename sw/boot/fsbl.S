@@ -1,52 +1,50 @@
 // Copyright 2026 FER, HPC Architecture and Application Research Center
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
-// First stage, loaded into the OCM by the boot rom. Brings up external memory,
-// streams the image into RAM and enters it. A bad header parks for the DM.
-//
-// Flash: this stage in the first block, then magic, length, checksum, image.
+// First stage boot loader. Runs from OCM, copies the flash image to RAM, and
+// boots it
+// Flash layout: fsbl block, magic, length, checksum, image
 
-#define SCB_SCRATCH 0x40000000
-#define SCB_HBCTL   0x40000008
-#define SCB_LLCSEL  0x4000000C
-#define UART0       0x10000000
-#define UART_DLL    0x00
-#define UART_DLM    0x04
-#define UART_LCR    0x0c
-#define F_CPU       50000000
-#define BAUD        115200
-#define MTIME_HZ    10000000        // must match timebase-frequency in the dtb
-#define UART_DIV    ((F_CPU + 8 * BAUD) / (16 * BAUD))
-#define ACLINT_TICK 0x0200c000      // TICKTARGET, TICKSOURCE follows
-#define SPI_STATUS  0x14
-#define SPI_COMMAND 0x28
-#define SPI_RXDATA  0x2c
-#define SPI_TXDATA  0x30
-#define RAM_BASE    0x80000000
-#define MAGIC       0x43535246      // "FRSC", little endian
-#define MAX_IMAGE   0x10000000      // largest memory this SoC is built with
-#define BAD_HEADER  0xbad00001      // odd, never a real entry point
-#define BAD_CKSUM   0xbad00003
-#define BLOCK       512
-#define RX_CSAAT    0x13ff          // csaat | RX | 512 bytes
+.equ SCB_SCRATCH, 0x40000000
+.equ SCB_HBCTL,   0x40000008
+.equ SCB_LLCSEL,  0x4000000C
+.equ UART0,       0x10000000
+.equ UART_DLL,    0x00
+.equ UART_DLM,    0x04
+.equ UART_LCR,    0x0c
+.equ F_CPU,       50000000
+.equ BAUD,        115200
+.equ MTIME_HZ,    10000000        // must match timebase-frequency in the dtb
+.equ UART_DIV,    ((F_CPU + 8 * BAUD) / (16 * BAUD))
+.equ ACLINT_TICK, 0x0200c000      // TICKTARGET, TICKSOURCE follows
+.equ SPI_STATUS,  0x14
+.equ SPI_COMMAND, 0x28
+.equ SPI_RXDATA,  0x2c
+.equ SPI_TXDATA,  0x30
+.equ RAM_BASE,    0x80000000
+.equ MAGIC,       0x43535246      // "FRSC", little endian
+.equ MAX_IMAGE,   0x10000000      // largest memory this SoC is built with
+.equ BAD_HEADER,  0xbad00001      // odd, never a real entry point
+.equ BAD_CKSUM,   0xbad00003
+.equ BLOCK,       512
+.equ RX_CSAAT,    0x13ff          // csaat | RX | 512 bytes
 
     .section .text.init
     .globl _start
 _start:
-    // Ways stay scratchpad, this code runs from the OCM
+    // Keep the OCM ways in scratchpad mode
     li      t0, SCB_HBCTL
     li      t1, 1
     sw      t1, 0(t0)
 
-    // mtime runs at MTIME_HZ whatever the core clock is, the aclint comes out
-    // of reset at 1:1
+    // Run mtime at MTIME_HZ
     lui     t0, %hi(ACLINT_TICK)
     li      t1, MTIME_HZ
     sw      t1, 0(t0)
     li      t1, F_CPU
     sw      t1, 4(t0)
 
-    // the apheleiaOS stub expects the divisor set
+    // Set the UART divisor expected by apheleiaOS
     li      t0, UART0
     li      t1, 0x80
     sw      t1, UART_LCR(t0)
@@ -58,7 +56,7 @@ _start:
 
     lui     t0, 0x60000
 
-    // fresh read, the ROM released CS: 03 00 02 00 LSB first, address 0x200
+    // Read from flash offset 0x200
     li      t1, 0x00020003
     sw      t1, SPI_TXDATA(t0)
     li      t1, 0x2203              // csaat | TX | 4 bytes
@@ -67,7 +65,7 @@ _start:
     li      t1, RX_CSAAT
     sw      t1, SPI_COMMAND(t0)
 
-    // Header: magic, length, checksum
+    // Validate the image header
     jal     rx_word
     li      t1, MAGIC
     bne     a0, t1, bad_header
@@ -100,7 +98,7 @@ next_block:
     li      s1, BLOCK/4
     j       copy
 
-    // the cache cannot be enabled from the OCM, finish from RAM
+    // Finish from RAM before enabling the cache
 done:
     bne     s3, s2, bad_cksum
     mv      s0, a1                  // just past the image
@@ -121,7 +119,6 @@ bad_header:
 bad_cksum:
     li      a0, BAD_CKSUM
 
-// leave the code in scratch, wait for an entry point
 park:
     li      t0, SCB_SCRATCH
     sw      a0, 0(t0)
@@ -138,7 +135,6 @@ tramp:
     jr      t0
 tramp_end:
 
-// One word out of the rx fifo
 rx_word:
 1:  lw      a0, SPI_STATUS(t0)
     slli    a0, a0, 7               // rxempty is bit 24

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
 // Zero stage boot loader. PA0 low parks for the debug module, high loads a
-// second stage from QSPI flash and runs it from zero.
+// first stage from QSPI flash and runs it from zero.
 
 .section .text
 .global _start
@@ -21,7 +21,7 @@
 .equ SPI_COMMAND,  0x28
 .equ SPI_RXDATA,   0x2c
 .equ SPI_TXDATA,   0x30
-.equ STAGE_BYTES,  512           # one RX command's worth
+.equ FSBL_BYTES,  512           # one RX command's worth
 
 _start:
     lui t0, 0x40000
@@ -49,12 +49,12 @@ qspi:
     sw t1, SPI_COMMAND(t0)
     li t1, 0x11ff                # RX | 512 bytes, releases CS
     sw t1, SPI_COMMAND(t0)
-    li a0, -STAGE_BYTES          # counts up to zero
+    li a0, -FSBL_BYTES          # counts up to zero
 2:  lw t2, SPI_STATUS(t0)
     slli t2, t2, 7               # rxempty is bit 24
     bltz t2, 2b
     lw t2, SPI_RXDATA(t0)
-    sw t2, STAGE_BYTES(a0)
+    sw t2, FSBL_BYTES(a0)
     addi a0, a0, 4
     bnez a0, 2b
     fence.i
