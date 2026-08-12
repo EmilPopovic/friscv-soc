@@ -67,12 +67,10 @@ logic       ctr_access_illegal;
 always_comb begin
     selected_is_ctr  = 1'b1;
     selected_ctr_bit = 5'd0;
-    case (selected_csr)
-        CSR_CYCLE, CSR_CYCLEH:     selected_ctr_bit = 5'd0;
-        CSR_TIME, CSR_TIMEH:       selected_ctr_bit = 5'd1;
-        CSR_INSTRET, CSR_INSTRETH: selected_ctr_bit = 5'd2;
-        default:                   selected_is_ctr = 1'b0;
-    endcase
+    if (selected_csr == CSR_CYCLE || selected_csr == CSR_CYCLEH) selected_ctr_bit = 5'd0;
+    else if (selected_csr == CSR_TIME || selected_csr == CSR_TIMEH) selected_ctr_bit = 5'd1;
+    else if (selected_csr == CSR_INSTRET || selected_csr == CSR_INSTRETH) selected_ctr_bit = 5'd2;
+    else selected_is_ctr = 1'b0;
 end
 
 // Determine if current mode can access selected counter.

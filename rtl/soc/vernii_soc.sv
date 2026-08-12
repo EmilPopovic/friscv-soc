@@ -13,6 +13,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Emil Popović <mail@emilpopovic.me>
+// Matej Jurasić <matej.jurasic@cappig.dev>
 
 `include "axi/assign.svh"
 `include "apb/typedef.svh"
@@ -99,14 +102,19 @@ module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t;
 logic por_rstn;  // power-on reset synchronizer
 logic soc_rstn, soc_rstn_async;
 
+`pragma diagnostic push
+`pragma diagnostic ignore="-Wempty-output-connection"
 rstgen i_rstgen_por (
     .clk_i       ( i_clk       ),
     .rst_ni      ( i_rstn      ),
     .test_mode_i ( i_test_mode ),
-    .rst_no      ( por_rstn ),
-    .init_no     (          )
+    .rst_no      ( por_rstn    ),
+    .init_no     (             )
 );
+`pragma diagnostic pop
 
+`pragma diagnostic push
+`pragma diagnostic ignore="-Wempty-output-connection"
 rstgen i_rstgen_soc (
     .clk_i       ( i_clk          ),
     .rst_ni      ( soc_rstn_async ),
@@ -114,6 +122,7 @@ rstgen i_rstgen_soc (
     .rst_no      ( soc_rstn       ),
     .init_no     (                )
 );
+`pragma diagnostic pop
 
 // ============================================================
 // CPU subsystem
@@ -316,7 +325,7 @@ endfunction
 
 function automatic int unsigned count_ext_rules();
     count_ext_rules = 0;
-    for (int i = 0; i < NumExtRegSlv; i++) begin
+    for (int unsigned i = 0; i < NumExtRegSlv; i++) begin
         if (rule_populated(ExtRegSlvRules[i])) count_ext_rules++;
     end
 endfunction
@@ -332,17 +341,16 @@ function automatic xbar_rule_32_t [NoRegRules-1:0] gen_reg_rules();
     n             = 0;
 
     // External rules go in first, internal take priority in case of overlap
-    for (int i = 0; i < NumExtRegSlv; i++) begin
+    for (int unsigned i = 0; i < NumExtRegSlv; i++) begin
         if (rule_populated(ExtRegSlvRules[i])) begin
             rule     = ExtRegSlvRules[i];
-            rule.idx = rule.idx + 32'(NumIntRegPorts);
-
+            rule.idx = rule.idx + NumIntRegPorts;
             gen_reg_rules[n] = rule;
             n++;
         end
     end
 
-    for (int i = 0; i < NoIntRegRules; i++) begin
+    for (int unsigned i = 0; i < NoIntRegRules; i++) begin
         gen_reg_rules[NoExtRegRules + i] = IntRegRules[i];
     end
 endfunction
@@ -374,6 +382,9 @@ for (genvar e = 0; e < NumExtRegSlv; e++) begin : gen_chk_ext_rule
 end
 
 logic [RegPortWidth-1:0] reg_select;
+
+`pragma diagnostic push
+`pragma diagnostic ignore="-Wempty-output-connection"
 addr_decode #(
     .NoIndices ( NoRegPorts              ),
     .NoRules   ( NoRegRules              ),
@@ -388,6 +399,7 @@ addr_decode #(
     .en_default_idx_i ( 1'b1                     ),
     .default_idx_i    ( (RegPortWidth)'(ErrPort) )
 );
+`pragma diagnostic pop
 
 `REG_TIE_OFF(ErrPort)
 
@@ -497,6 +509,8 @@ logic        sba_req, sba_we, sba_gnt, sba_rvalid, sba_err, sba_other_err;
 logic [31:0] sba_addr, sba_wdata, sba_rdata;
 logic [3:0]  sba_be;
 
+`pragma diagnostic push
+`pragma diagnostic ignore="-Wempty-output-connection"
 dm_top #(
     .NrHarts       ( 1          ),
     .BusWidth      ( 32         ),
@@ -543,11 +557,14 @@ dm_top #(
     .dmi_resp_ready_i     ( dmi_resp_ready ),
     .dmi_resp_o           ( dmi_resp       )
 );
+`pragma diagnostic pop
 
 logic jtag_trstn, jtag_trstn_async;
 
 assign jtag_trstn_async = i_rstn & i_jtag_trstn;
 
+`pragma diagnostic push
+`pragma diagnostic ignore="-Wempty-output-connection"
 rstgen i_rstgen_tck (
     .clk_i       ( i_jtag_tck       ),
     .rst_ni      ( jtag_trstn_async ),
@@ -555,6 +572,7 @@ rstgen i_rstgen_tck (
     .rst_no      ( jtag_trstn       ),
     .init_no     (                  )
 );
+`pragma diagnostic pop
 
 dmi_jtag #(
     .IdcodeValue ( 32'h00000DB3 )
@@ -648,6 +666,8 @@ reg_to_apb #(
 logic uart0_irq;
 
 // APB -> 16550 UART
+`pragma diagnostic push
+`pragma diagnostic ignore="-Wempty-output-connection"
 apb_uart_wrap #(
     .apb_req_t ( apb_req_t  ),
     .apb_rsp_t ( apb_resp_t )
@@ -668,6 +688,7 @@ apb_uart_wrap #(
     .rts_no    (               ),
     .dtr_no    (               )
 );
+`pragma diagnostic pop
 
 // ============================================================
 // GPIO Port A
@@ -791,6 +812,8 @@ always_comb begin
 end
 
 // The tick generator comes out of reset at a 1:1 ratio
+`pragma diagnostic push
+`pragma diagnostic ignore="-Wempty-output-connection"
 aclint #(
     .NumHarts      ( 1         ),
     .DefaultTarget ( 1         ),
@@ -807,5 +830,6 @@ aclint #(
     .ssip_set_o (                        ),
     .mtime_o    ( mtime                  )
 );
+`pragma diagnostic pop
 
 endmodule

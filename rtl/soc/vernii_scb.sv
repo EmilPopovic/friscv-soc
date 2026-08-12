@@ -5,16 +5,18 @@
 // you may not use this file except in compliance with the License, or,
 // at your option, the Apache License version 2.0.
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
+//
+// Emil Popović <mail@emilpopovic.me>
 
 /*
  * System Control Block
  */
 
-module vernii_scb #(
+module vernii_scb import vernii_pkg::*; #(
     parameter int unsigned NumPads    = 25,
     parameter int unsigned OcmLlcWays = 4,
-    parameter type         reg_req_t  = logic,
-    parameter type         reg_rsp_t  = logic
+    parameter type         reg_req_t  = vernii_reg_req_t,
+    parameter type         reg_rsp_t  = vernii_reg_rsp_t
 ) (
     input  logic clk_i,
     input  logic rst_ni,
@@ -30,8 +32,6 @@ module vernii_scb #(
     output logic                  o_crpsel,
     output logic                  o_llcinv
 );
-
-localparam int unsigned DW = $bits(reg_req_i.wdata);
 
 // Byte offsets within the block's register page
 localparam logic [11:0] OFF_SCRATCH0 = 12'h000;
@@ -139,8 +139,7 @@ always_comb begin
         OFF_HBCTL:    rdata = {31'h0, r_hb_en};
         OFF_LLCSEL:   rdata = {{32-OcmLlcWays{1'b0}}, {r_llcsel}};
         OFF_CRPSEL:   rdata = {31'h0, r_crpsel};
-        OFF_LLCINV:   rdata = 32'h0;   // write-only, the invalidate is done by the
-                                       // time the store retires
+        OFF_LLCINV:   rdata = 32'h0;   // write-only, the invalidate is done by the time the store retires
         default:      map_err = 1'b1;
     endcase
 end

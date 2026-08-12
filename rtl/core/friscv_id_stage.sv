@@ -432,26 +432,21 @@ assign jal_target_out = jal_ok_out ? jal_target : '0;
 // target_misaligned is only active when the instruction is a JAL/JALR and the target address is misaligned.
 // misaligned_tartget is the computed target address for JAL/JALR, used to update tval, 0 otherwise.
 always_comb begin
-    case (ir_buff.r.opcode)
-        JALR: begin
-            // Also detect misalignment on the commiting cycle of the instruction updating the source register.
-            automatic addr_t jalr_base = (rd_sel_in != 0 && ir_buff.r.rs1 == rd_sel_in) ? rd_data_in : jump_base;
-            automatic data_t jalr_imm = {{21{ir_buff.b[31]}}, ir_buff.b[30:20]};
-            automatic addr_t target = (jalr_base + jalr_imm) & ~ 32'd1;
-            target_misaligned = target[1] && instr_valid_buff;
-            misaligned_target = target;
-        end
-        JAL: begin
-            automatic data_t jal_imm = {{12{ir_buff.b[31]}}, ir_buff.b[19:12], ir_buff.b[20], ir_buff.b[30:21], 1'b0};
-            automatic addr_t target = pc_in_buff + jal_imm;
-            target_misaligned = target[1] && instr_valid_buff;
-            misaligned_target = target;
-        end
-        default: begin
-            target_misaligned = 1'b0;
-            misaligned_target = '0;
-        end
-    endcase
+    if (ir_buff.r.opcode == JALR) begin
+        automatic addr_t jalr_base = (rd_sel_in != 0 && ir_buff.r.rs1 == rd_sel_in) ? rd_data_in : jump_base;
+        automatic data_t jalr_imm = {{21{ir_buff.b[31]}}, ir_buff.b[30:20]};
+        automatic addr_t target = (jalr_base + jalr_imm) & ~ 32'd1;
+        target_misaligned = target[1] && instr_valid_buff;
+        misaligned_target = target;
+    end else if (ir_buff.r.opcode == JAL) begin
+        automatic data_t jal_imm = {{12{ir_buff.b[31]}}, ir_buff.b[19:12], ir_buff.b[20], ir_buff.b[30:21], 1'b0};
+        automatic addr_t target = pc_in_buff + jal_imm;
+        target_misaligned = target[1] && instr_valid_buff;
+        misaligned_target = target;
+    end else begin
+        target_misaligned = 1'b0;
+        misaligned_target = '0;
+    end
 end
 
 // Compute the final target of a JAL/JALR.
@@ -460,24 +455,19 @@ always_comb begin
     if (!trap_out) begin
         automatic addr_t jal_target_base = '0;
         automatic data_t jal_imm = '0;
-
-        case (ir_buff.r.opcode)
-            JALR: begin
-                jal_ok_out = !target_misaligned;
-                jal_target_base = (rd_sel_in != 0 && ir_buff.r.rs1 == rd_sel_in) ? rd_data_in : jump_base;
-                jal_imm = {{21{ir_buff.b[31]}}, ir_buff.b[30:20]};  // I-type immediate
-                jal_target = (jal_target_base + jal_imm) & ~32'h1;
-            end
-            JAL: begin
-                jal_ok_out = !target_misaligned;
-                jal_imm = {{12{ir_buff.b[31]}}, ir_buff.b[19:12], ir_buff.b[20], ir_buff.b[30:21], 1'b0};  // J-type immediate
-                jal_target = pc_in_buff + jal_imm;
-            end
-            default: begin
-                jal_ok_out = 1'b0;
-                jal_target = '0;
-            end
-        endcase
+        if (ir_buff.r.opcode == JALR) begin
+            jal_ok_out = !target_misaligned;
+            jal_target_base = (rd_sel_in != 0 && ir_buff.r.rs1 == rd_sel_in) ? rd_data_in : jump_base;
+            jal_imm = {{21{ir_buff.b[31]}}, ir_buff.b[30:20]};  // I-type immediate
+            jal_target = (jal_target_base + jal_imm) & ~32'h1;
+        end else if (ir_buff.r.opcode == JAL) begin
+            jal_ok_out = !target_misaligned;
+            jal_imm = {{12{ir_buff.b[31]}}, ir_buff.b[19:12], ir_buff.b[20], ir_buff.b[30:21], 1'b0};  // J-type immediate
+            jal_target = pc_in_buff + jal_imm;
+        end else begin
+            jal_ok_out = 1'b0;
+            jal_target = '0;
+        end
     end else begin
         jal_ok_out = 1'b0;
         jal_target = '0;

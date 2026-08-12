@@ -7,7 +7,7 @@
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
 
 module friscv_zsbl_rom import friscv_pkg::*, friscv_mem_pkg::*; #(
-    parameter int unsigned SIZE_BYTES = 64,
+    parameter int unsigned SIZE_BYTES = 128,
     parameter int unsigned BASE_ADDR  = 32'h0020_0000
 ) (
     input  logic  i_clk,
@@ -16,12 +16,12 @@ module friscv_zsbl_rom import friscv_pkg::*, friscv_mem_pkg::*; #(
     output inst_t o_data
 );
 
+import friscv_zsbl_rom_pkg::*;
+
 // Round up size to next power of 2
 localparam int unsigned REAL_SIZE = 1 << $clog2(SIZE_BYTES);
 localparam int unsigned WORDS     = REAL_SIZE / 4;
 localparam int unsigned OFFSET_W  = (WORDS > 1) ? $clog2(WORDS) : 1;
-
-import friscv_zsbl_rom_pkg::*;
 
 inst_t mem [WORDS];
 

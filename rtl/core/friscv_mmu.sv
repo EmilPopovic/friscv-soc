@@ -189,6 +189,8 @@ friscv_tlb #(
 // Arbitration layer
 // ============================================================
 
+`pragma diagnostic push
+`pragma diagnostic ignore="-Wempty-output-connection"
 friscv_l1_arbiter l1_arbiter (
     .i_clk        ( i_clk         ),
     .i_rstn       ( i_rstn        ),
@@ -221,6 +223,7 @@ friscv_l1_arbiter l1_arbiter (
     .o_grant_start_inst( w_grant_start_inst ),
     .o_grant_held ( w_grant_held  )
 );
+`pragma diagnostic pop
 
 // ============================================================
 // Paging layer

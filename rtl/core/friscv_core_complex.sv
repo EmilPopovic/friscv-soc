@@ -175,6 +175,8 @@ logic w_inst_pmp_fault, w_data_pmp_fault;
 
 // The MMU contains an arbiter.
 // If the MMU is disabled, a bare arbiter is instantiated instead.
+`pragma diagnostic push
+`pragma diagnostic ignore="-Wempty-output-connection"
 if (ENABLE_MMU) begin : gen_mmu
     friscv_mmu #(
         .ENFORCE_PMP           ( ENFORCE_PMP           ),
@@ -278,6 +280,7 @@ end else begin : gen_no_mmu
     assign w_inst_pmp_fault = 1'b0;
     assign w_data_pmp_fault = 1'b0;
 end
+`pragma diagnostic pop
 
 // ============================================================
 // Level 2 bus

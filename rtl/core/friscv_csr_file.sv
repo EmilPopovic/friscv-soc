@@ -326,6 +326,8 @@ always_ff @(posedge clk_in or negedge rst_n_in) begin
                 csr.mstatus.mprv <= 1'b0;
 
         end else if (csr_en_in && instr_ret_in && !wb_csr_ro) begin
+            `pragma diagnostic push
+            `pragma diagnostic ignore="-Wcase-enum-explicit"
             case (csr_sel_in)
                 // Supervisor Trap Setup (aliased into mstatus/mie)
                 CSR_SSTATUS: begin
@@ -414,6 +416,7 @@ always_ff @(posedge clk_in or negedge rst_n_in) begin
 
                 default: ;
             endcase
+            `pragma diagnostic pop
         end
 
         // Update counters if not in debug mode with stopcount set
@@ -434,6 +437,8 @@ localparam logic ENABLE_EXTENSION_M = ENABLE_MUL && ENABLE_DIV;
 
 always_comb begin : csr_read
     csr_not_implemented = 1'b0;
+    `pragma diagnostic push
+    `pragma diagnostic ignore="-Wcase-enum-explicit"
     case (selected_csr)
         // Set in block below
         CSR_PMPCFG0:  csr_out = 32'h0;
@@ -517,6 +522,7 @@ always_comb begin : csr_read
             csr_not_implemented = 1'b1;
         end
     endcase
+    `pragma diagnostic pop
 
     // Machine Memory Protection
     if (int'(selected_csr) >= int'(CSR_PMPCFG0) &&

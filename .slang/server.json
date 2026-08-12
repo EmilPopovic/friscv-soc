@@ -10,7 +10,7 @@
         "verif",
         ".bender/git/checkouts"
       ],
-      "excludeDirs": ["build", "node_modules", "obj_dir", "riscv-arch-test", ".bender"]
+      "excludeDirs": ["build", "node_modules", "obj_dir", "riscv-arch-test"]
     }
   ]
 }
