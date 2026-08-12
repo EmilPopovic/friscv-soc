@@ -32,6 +32,7 @@ always_comb begin
   prio_o = '0;
   prio_we_o = '0;
   prio_re_o = '0;
+  ip_re_o = '0;
   ie_o = '0;
   ie_we_o = '0;
   ie_re_o = '0;

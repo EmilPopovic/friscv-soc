@@ -87,7 +87,7 @@ class AddrMap:
       if i[3] != Access.RO:
         output += "  {}_o = '0;\n".format(i[0])
         output += "  {}_we_o = '0;\n".format(i[0])
-        output += "  {}_re_o = '0;\n".format(i[0])
+      output += "  {}_re_o = '0;\n".format(i[0])
     output += "  if (req_i.valid) begin\n"
     output += "    if (req_i.write) begin\n"
     output += "      unique case(req_i.addr)\n"

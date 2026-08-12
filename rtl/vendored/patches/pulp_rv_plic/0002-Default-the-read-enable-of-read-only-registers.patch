@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Emil Popovic <mail@emilpopovic.me>
+Date: Wed, 12 Aug 2026 15:10:00 +0200
+Subject: [PATCH 2/3] Default the read-enable of read-only registers
+
+The generated always_comb defaults every output it emits except the read
+enable of read-only registers: the defaults loop skips those ports
+entirely, but the port list still declares a _re_o for them. The only
+read-only register is the interrupt pending array, so ip_re_o ends up
+assigned in exactly one branch of the read case and held otherwise,
+which infers a latch and shows up as a combinational loop in synthesis.
+
+plic_top leaves ip_re_o unconnected, so this has no functional effect,
+but the latch blocks scan insertion and trips synthesis checks.
+---
+ rtl/gen_plic_addrmap.py | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/rtl/gen_plic_addrmap.py b/rtl/gen_plic_addrmap.py
+index 2a79dc6..bcd20e6 100755
+--- a/rtl/gen_plic_addrmap.py
++++ b/rtl/gen_plic_addrmap.py
+@@ -84,10 +84,12 @@ class AddrMap:
+     output += "  resp_o.rdata = '0;\n"
+     output += "  resp_o.error = '0;\n"
+     for i in self.ports:
++      # Read-only registers have no _o/_we_o, but every port has a _re_o and it needs a
++      # default like the rest, or the always_comb infers a latch on it.
+       if i[3] != Access.RO:
+         output += "  {}_o = '0;\n".format(i[0])
+         output += "  {}_we_o = '0;\n".format(i[0])
+-        output += "  {}_re_o = '0;\n".format(i[0])
++      output += "  {}_re_o = '0;\n".format(i[0])
+     output += "  if (req_i.valid) begin\n"
+     output += "    if (req_i.write) begin\n"
+     output += "      unique case(req_i.addr)\n"
+-- 
+2.55.0
+

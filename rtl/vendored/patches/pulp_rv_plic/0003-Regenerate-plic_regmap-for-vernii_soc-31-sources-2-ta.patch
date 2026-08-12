@@ -1,10 +1,11 @@
-From ec47324981b33acfbd092f317aa6c2e5ca87606d Mon Sep 17 00:00:00 2001
-From: =?UTF-8?q?Emil=20Popovi=C4=87?= <mail@emilpopovic.me>
-Date: Mon, 13 Jul 2026 14:20:56 +0200
-Subject: [PATCH 2/2] Regenerate plic_regmap for vernii_soc (31 sources, 2
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Emil Popovic <mail@emilpopovic.me>
+Date: Wed, 12 Aug 2026 15:11:00 +0200
+Subject: [PATCH 3/3] Regenerate plic_regmap for vernii_soc (31 sources, 2
  targets, max-prio 1)
 
-Generated with: gen_plic_addrmap.py -s 31 -t 2 -p 1
+Generated with: gen_plic_addrmap.py -s 31 -t 2 -p 1, with the read-enable
+default fix from the previous patch applied.
 
 31 is the widest the surrounding PLIC supports: the pending and enable
 registers are single 32-bit words, so plic_top cannot go past 32 sources.
@@ -12,11 +13,11 @@ vernii_soc fixes N_SOURCE at this width and allocates peripheral
 interrupts into it, so changing a peripheral's interrupt count never
 requires regenerating this file.
 ---
- rtl/plic_regmap.sv | 168 +++++++++++++++++++++----------------------
- 1 file changed, 88 insertions(+), 80 deletions(-)
+ rtl/plic_regmap.sv | 89 insertions(+), 80 deletions(-)
+ 1 file changed
 
 diff --git a/rtl/plic_regmap.sv b/rtl/plic_regmap.sv
-index bbf6f94..b884766 100644
+index bbf6f94..d749b47 100644
 --- a/rtl/plic_regmap.sv
 +++ b/rtl/plic_regmap.sv
 @@ -3,18 +3,18 @@ module plic_regs #(
@@ -47,7 +48,15 @@ index bbf6f94..b884766 100644
    output logic [1:0] threshold_we_o,
    output logic [1:0] threshold_re_o,
    input logic [1:0][4:0] cc_i,
-@@ -45,143 +45,147 @@ always_comb begin
+@@ -32,6 +32,7 @@ always_comb begin
+   prio_o = '0;
+   prio_we_o = '0;
+   prio_re_o = '0;
++  ip_re_o = '0;
+   ie_o = '0;
+   ie_we_o = '0;
+   ie_re_o = '0;
+@@ -45,143 +46,147 @@ always_comb begin
      if (req_i.write) begin
        unique case(req_i.addr)
          32'hc000000: begin
@@ -230,7 +239,7 @@ index bbf6f94..b884766 100644
            threshold_we_o[1] = 1'b1;
          end
          32'hc200004: begin
-@@ -197,147 +201,151 @@ always_comb begin
+@@ -197,147 +202,151 @@ always_comb begin
      end else begin
        unique case(req_i.addr)
          32'hc000000: begin
@@ -419,5 +428,5 @@ index bbf6f94..b884766 100644
          end
          32'hc200004: begin
 -- 
-2.43.0
+2.55.0
 

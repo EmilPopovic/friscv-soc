@@ -3,7 +3,7 @@
 / {
     #address-cells = <1>;
     #size-cells = <1>;
-    model = "Vernii FRISC-V";
+    model = "fer,vernii";
     compatible = "fer,vernii";
 
     chosen {
@@ -68,7 +68,7 @@
         #address-cells = <0>;
         #interrupt-cells = <1>;
         interrupts-extended = <&cpu0_intc 11>, <&cpu0_intc 9>;
-        riscv,ndev = <7>;
+        riscv,ndev = <13>;
     };
 
     clint@2000000 {
