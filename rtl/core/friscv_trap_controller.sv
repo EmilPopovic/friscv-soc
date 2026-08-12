@@ -173,6 +173,7 @@ always_comb case (r_current_mode)
 endcase
 
 logic r_mret_inhibit;
+logic mret_active, sret_active, dret_active;
 
 // Check if interrupt is safe to execute - safe if
 //  1) Not returning from a previous interrupt,
@@ -181,7 +182,9 @@ logic r_mret_inhibit;
 // This is to prevent a taken interrupt killing valid instructions, or ret being skipped.
 // A previous interrupt must safely exit before taking the next interrupt.
 logic interrupt_safe;
-assign interrupt_safe = !r_mret_inhibit && !branch_ok_in && instr_valid_in && !debug_mode_active;
+assign interrupt_safe = !r_mret_inhibit &&
+                        !(mret_active || sret_active || dret_active) &&
+                        !branch_ok_in && instr_valid_in && !debug_mode_active;
 
 // A synchronous exception is safe only if the buffer holds a valid instruciton,
 // and a redirect is not being processed that would kill the trapping instruction anyway (branch_ok_in).
@@ -335,7 +338,6 @@ assign ex_trap_commit_out  = trap_out && (trap_src == TRAP_SRC_EX || trap_src ==
 assign mem_trap_commit_out = trap_out && (trap_src == TRAP_SRC_MEM);
 
 // MRET and SRET are detected outside the main decoder to avoid a combinatorial loop and improve timing.
-logic mret_active, sret_active, dret_active;
 assign mret_active = (ir_in.r.opcode == SYSTEM) && (ir_in.r.funct3 == 3'b000) && (ir_in.b[31:20] == 12'b001100000010);
 assign sret_active = (ir_in.r.opcode == SYSTEM) && (ir_in.r.funct3 == 3'b000) && (ir_in.b[31:20] == 12'b000100000010);
 assign dret_active = (ir_in.r.opcode == SYSTEM) && (ir_in.r.funct3 == 3'b000) && (ir_in.b[31:20] == 12'b011110110010);
