@@ -1,11 +1,11 @@
 {
     "recommendations": [
         "hudson-river-trading.vscode-slang",
-        "mshr-h.veriloghdl",
         "ms-vscode.cpptools",
         "mkhl.direnv"
     ],
     "unwantedRecommendations": [
-        "llvm-vs-code-extensions.vscode-clangd"
+        "llvm-vs-code-extensions.vscode-clangd",
+        "mshr-h.veriloghdl"
     ]
 }
