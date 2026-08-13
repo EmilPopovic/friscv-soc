@@ -149,10 +149,10 @@ void validate(const ElfImage& image) {
     }
 }
 
-// FRISCV_HB_CFG="reg:value[,...]" sets the HyperBus controller config before the
+// VERNII_HB_CFG="reg:value[,...]" sets the HyperBus controller config before the
 // program runs, so a sweep does not have to rebuild the program
 void apply_hyperbus_config(Jtag& jtag) {
-    const char* spec = std::getenv("FRISCV_HB_CFG");
+    const char* spec = std::getenv("VERNII_HB_CFG");
 
     if (spec == nullptr) {
         return;
@@ -163,14 +163,14 @@ void apply_hyperbus_config(Jtag& jtag) {
         unsigned long index = std::strtoul(spec, &end, 0);
 
         if (end == spec || *end != ':') {
-            throw std::runtime_error("FRISCV_HB_CFG wants reg:value pairs");
+            throw std::runtime_error("VERNII_HB_CFG wants reg:value pairs");
         }
 
         spec = end + 1;
         unsigned long value = std::strtoul(spec, &end, 0);
 
         if (end == spec) {
-            throw std::runtime_error("FRISCV_HB_CFG wants reg:value pairs");
+            throw std::runtime_error("VERNII_HB_CFG wants reg:value pairs");
         }
 
         jtag.write_memory(HYPER_CFG_BASE + uint32_t(index) * 4,
@@ -181,10 +181,10 @@ void apply_hyperbus_config(Jtag& jtag) {
     }
 }
 
-// FRISCV_LLCSEL marks ways as cache before the program starts, so an image
+// VERNII_LLCSEL marks ways as cache before the program starts, so an image
 // linked into the cached region can run from there
 void apply_cache_config(Jtag& jtag) {
-    const char* mask = std::getenv("FRISCV_LLCSEL");
+    const char* mask = std::getenv("VERNII_LLCSEL");
 
     if (mask == nullptr) {
         return;
@@ -193,11 +193,11 @@ void apply_cache_config(Jtag& jtag) {
     jtag.write_memory(SCB_LLCSEL, word_bytes(uint32_t(std::strtoul(mask, nullptr, 0))));
 }
 
-// FRISCV_UART_DIV programs the 16550 divisor before the image runs, for
+// VERNII_UART_DIV programs the 16550 divisor before the image runs, for
 // software that expects a boot stub to have set the baud rate already, and
 // gives the monitor the bit period that follows from it
 void apply_uart_config(SocTestbench& testbench, Jtag& jtag) {
-    const char* div = std::getenv("FRISCV_UART_DIV");
+    const char* div = std::getenv("VERNII_UART_DIV");
 
     if (div == nullptr) {
         return;
@@ -232,9 +232,9 @@ std::vector<uint8_t> read_file(const char* path) {
     return data;
 }
 
-// FRISCV_FLASH=<file> fills the flash for programs that drive it themselves
+// VERNII_FLASH=<file> fills the flash for programs that drive it themselves
 void apply_flash_image(SocTestbench& testbench) {
-    const char* path = std::getenv("FRISCV_FLASH");
+    const char* path = std::getenv("VERNII_FLASH");
 
     if (path == nullptr) {
         return;
@@ -286,7 +286,7 @@ int qspiboot_command(SocTestbench& testbench, Jtag& jtag, const char* path) {
     std::fprintf(stderr, "flash image %s: %zu bytes\n", path, image.size());
 
     // the second stage sets the divisor, this is just for the decoder
-    if (const char* div = std::getenv("FRISCV_UART_DIV")) {
+    if (const char* div = std::getenv("VERNII_UART_DIV")) {
         testbench.uart().set_divisor(uint32_t(std::strtoul(div, nullptr, 0)));
     }
 
@@ -296,7 +296,7 @@ int qspiboot_command(SocTestbench& testbench, Jtag& jtag, const char* path) {
 
     uint64_t limit = TEST_CYCLES;
 
-    if (const char* env = std::getenv("FRISCV_TEST_CYCLES")) {
+    if (const char* env = std::getenv("VERNII_TEST_CYCLES")) {
         limit = std::strtoull(env, nullptr, 0);
     }
 
@@ -332,7 +332,7 @@ int test_command(SocTestbench& testbench, Jtag& jtag, const char* path) {
 
     uint64_t limit = TEST_CYCLES;
 
-    if (const char* env = std::getenv("FRISCV_TEST_CYCLES")) {
+    if (const char* env = std::getenv("VERNII_TEST_CYCLES")) {
         limit = std::strtoull(env, nullptr, 0);
     }
 

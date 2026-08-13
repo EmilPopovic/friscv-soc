@@ -35,16 +35,16 @@ environment, so changing them needs no rebuild:
 
 | Variable | Default | |
 | --- | --- | --- |
-| `FRISCV_HRAM_LATENCY` | 6 | initial latency in clocks |
+| `VERNII_HRAM_LATENCY` | 6 | initial latency in clocks |
 | `FRISCV_HRAM_FIXED` | 0 | twice the latency on every access |
 | `FRISCV_HRAM_REFRESH_EVERY` | 0 | refresh collision every Nth access |
 | `FRISCV_HRAM_TCSM` | 0 | maximum CS# low clocks, 0 disables the check |
 | `FRISCV_HRAM_STRICT` | 1 | 0 warns instead of aborting |
-| `FRISCV_HB_CFG` | | `reg:value[,...]`, register 0 is `t_latency_access` |
+| `VERNII_HB_CFG` | | `reg:value[,...]`, register 0 is `t_latency_access` |
 
 ```bash
 for lat in 3 4 5 6 7; do
-    FRISCV_HRAM_LATENCY=$lat FRISCV_HB_CFG=0:$lat \
+    VERNII_HRAM_LATENCY=$lat VERNII_HB_CFG=0:$lat \
         obj_dir_soc/vernii_soc test program.elf
 done
 ```
