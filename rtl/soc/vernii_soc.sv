@@ -25,6 +25,8 @@ module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t;
     parameter int unsigned OcmSize          = 32'h0000_2000,
     parameter int unsigned ExtBase          = 32'h8000_0000,
     parameter int unsigned ExtSize          = 32'h0100_0000,
+    parameter int unsigned CachedBase       = ExtBase,
+    parameter int unsigned CachedSize       = ExtSize,
     parameter int unsigned LineBytes        = 32,
     parameter int unsigned Ways             = 4,
     parameter bit          SramTags         = 1'b1,
@@ -200,28 +202,36 @@ logic [Ways-1:0] llcsel;
 logic            crpsel;
 logic            llcinv;
 
+// LLC statistics, single-cycle pulses counted by the SCB
+logic llc_rd_acc, llc_rd_miss, llc_wr_acc;
+
 friscv_mem_if dm_if ();
 friscv_mem_if ext_if ();
 friscv_mem_if soc_if ();
 
 friscv_mem_hub #(
-    .ExtBase   ( ExtBase   ),
-    .ExtSize   ( ExtSize   ),
-    .OcmBase   ( OcmBase   ),
-    .OcmSize   ( OcmSize   ),
-    .LineBytes ( LineBytes ),
-    .Ways      ( Ways      ),
-    .SramTags  ( SramTags  )
+    .ExtBase    ( ExtBase    ),
+    .ExtSize    ( ExtSize    ),
+    .CachedBase ( CachedBase ),
+    .CachedSize ( CachedSize ),
+    .OcmBase    ( OcmBase    ),
+    .OcmSize    ( OcmSize    ),
+    .LineBytes  ( LineBytes  ),
+    .Ways       ( Ways       ),
+    .SramTags   ( SramTags   )
 ) friscv_mem_hub (
     .clk_i,
-    .rst_ni   ( soc_rstn ),
-    .s_cpu_if ( cpu_if   ),
-    .s_dm_if  ( dm_if    ),
-    .m_ext_if ( ext_if   ),
-    .m_sys_if ( soc_if   ),
-    .llcsel_i ( llcsel   ),
-    .crpsel_i ( crpsel   ),
-    .llcinv_i ( llcinv   )
+    .rst_ni    ( soc_rstn    ),
+    .s_cpu_if  ( cpu_if      ),
+    .s_dm_if   ( dm_if       ),
+    .m_ext_if  ( ext_if      ),
+    .m_sys_if  ( soc_if      ),
+    .rd_acc_o  ( llc_rd_acc  ),
+    .rd_miss_o ( llc_rd_miss ),
+    .wr_acc_o  ( llc_wr_acc  ),
+    .llcsel_i  ( llcsel      ),
+    .crpsel_i  ( crpsel      ),
+    .llcinv_i  ( llcinv      )
 );
 
 // ============================================================
@@ -437,13 +447,16 @@ vernii_scb #(
     .OcmLlcWays ( Ways      )
 ) scb (
     .clk_i,
-    .rst_ni    ( soc_rstn             ),
-    .reg_req_i ( reg_dev_req[ScbPort] ),
-    .reg_rsp_o ( reg_dev_rsp[ScbPort] ),
+    .rst_ni          ( soc_rstn             ),
+    .reg_req_i       ( reg_dev_req[ScbPort] ),
+    .reg_rsp_o       ( reg_dev_rsp[ScbPort] ),
     .strap_i,
-    .llcsel_o  ( llcsel               ),
-    .crpsel_o  ( crpsel               ),
-    .llcinv_o  ( llcinv               )
+    .llcsel_o        ( llcsel               ),
+    .crpsel_o        ( crpsel               ),
+    .llcinv_o        ( llcinv               ),
+    .inc_llcrdacc_i  ( llc_rd_acc           ),
+    .inc_llcrdmiss_i ( llc_rd_miss          ),
+    .inc_llcwracc_i  ( llc_wr_acc           )
 );
 
 // ============================================================

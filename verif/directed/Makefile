@@ -8,7 +8,7 @@ SIM             := $(TARGET_SIM_ROOT)/$(SIM_DIR)/vernii_soc
 CROSS   ?= riscv64-unknown-elf-
 CFLAGS  := -march=rv32i_zicsr -mabi=ilp32 -nostdlib -nostartfiles -Wl,--fatal-warnings
 
-TESTS   := llc_tags
+TESTS   := llc_tags llc_counters
 ELFS    := $(addsuffix .elf,$(TESTS))
 
 # All four ways as cache, so the whole image runs through the LLC
@@ -18,14 +18,15 @@ CYCLES  ?= 40000000
 %.elf: %.S link.ld
 	$(CROSS)gcc $(CFLAGS) -T link.ld -o $@ $<
 
-$(SIM):
+.PHONY: sim-build
+sim-build:
 	$(MAKE) -C $(TARGET_SIM_ROOT) soc SOC_DIR=$(SIM_DIR)
 
 .PHONY: all
 all: $(ELFS)
 
 .PHONY: run
-run: $(ELFS) $(SIM)
+run: $(ELFS) sim-build
 	@fail=0; \
 	for t in $(TESTS); do \
 	    printf '%-16s ' "$$t"; \

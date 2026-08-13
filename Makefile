@@ -53,6 +53,13 @@ act-run-soc:
 directed-run:
 	make -C verif/directed run
 
+.PHONY: regression
+regression:
+	make lint
+	make -C verif/riscv-arch-test run-core
+	make -C verif/riscv-arch-test run-soc
+	make -C verif/directed run
+
 .PHONY: clean
 clean:
 	make -C target/sim clean
