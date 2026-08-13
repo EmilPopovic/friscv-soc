@@ -22,14 +22,14 @@ module friscv_id_regfile import friscv_pkg::*, friscv_mem_pkg::*; (
     output data_t     rs2_data_out
 );
 
-data_t regfile [REGISTER_NUM-1:1]; // Register file, x0 is hardwired to 0
+data_t r_regfile [REGISTER_NUM-1:1]; // Register file, x0 is hardwired to 0
 
-assign rs1_data_out = rs1_sel_in == 0 ? '0 : regfile[rs1_sel_in];
-assign rs2_data_out = rs2_sel_in == 0 ? '0 : regfile[rs2_sel_in];
+assign rs1_data_out = rs1_sel_in == 0 ? '0 : r_regfile[rs1_sel_in];
+assign rs2_data_out = rs2_sel_in == 0 ? '0 : r_regfile[rs2_sel_in];
 
 always_ff @(posedge clk_in) begin
     // Never write to x0
-    if (rd_sel_in != 0 && wr_en_in) regfile[rd_sel_in] <= rd_data_in;
+    if (rd_sel_in != 0 && wr_en_in) r_regfile[rd_sel_in] <= rd_data_in;
 end
 
 endmodule

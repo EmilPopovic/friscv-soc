@@ -10,11 +10,11 @@
 
   inputs = {
     nix-eda.url = "github:fossi-foundation/nix-eda";
-
     nixpkgs.follows = "nix-eda/nixpkgs";
+    nixpkgs-slang.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
 
-  outputs = { self, nixpkgs, nix-eda }:
+  outputs = { self, nixpkgs, nixpkgs-slang, nix-eda }:
     let
       systems = [ "x86_64-linux" ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
@@ -25,6 +25,8 @@
             inherit system;
             overlays = [ nix-eda.overlays.default ];
           };
+          # Must stay >= 11.0 for the empty-*-connection diagnostics
+          sv-lang = nixpkgs-slang.legacyPackages.${system}.sv-lang;
           riscv-toolchain = pkgs.stdenv.mkDerivation rec {
             pname = "riscv64-unknown-elf-toolchain";
             version = "2026.04.26";
@@ -100,9 +102,9 @@
               gtkwave
               openocd
               uv
-              sv-lang
               haskellPackages.sv2v
             ]) ++ [
+              sv-lang
               mise
               yosys-full
               riscv-toolchain
