@@ -26,8 +26,6 @@ module vernii_scb import vernii_pkg::*; #(
 
     input  logic [NumPads-1:0] strap_i,
 
-    output logic hb_en_o,
-
     output logic [OcmLlcWays-1:0] llcsel_o,
     output logic                  crpsel_o,
     output logic                  llcinv_o
@@ -36,7 +34,6 @@ module vernii_scb import vernii_pkg::*; #(
 // Byte offsets within the block's register page
 localparam logic [11:0] OFF_SCRATCH0 = 12'h000;
 localparam logic [11:0] OFF_STRAPA   = 12'h004;
-localparam logic [11:0] OFF_HBCTL    = 12'h008;
 localparam logic [11:0] OFF_LLCSEL   = 12'h00C;
 localparam logic [11:0] OFF_CRPSEL   = 12'h010;
 localparam logic [11:0] OFF_LLCINV   = 12'h014;
@@ -52,7 +49,6 @@ assign do_write = reg_req_i.valid && reg_req_i.write;
 // ============================================================
 
 logic [31:0]           r_scratch0;  // SCRATCH0
-logic                  r_hb_en;     // HBCTL.HB_EN
 logic                  r_strapped;  // STRAPA sampled flag
 logic [2:0]            r_strap_dly;
 logic [NumPads-1:0]    r_strapa;    // STRAPA
@@ -77,7 +73,6 @@ end
 always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
         r_scratch0  <= 32'h0;
-        r_hb_en     <= 1'b0;
         r_strapped  <= 1'b0;
         r_strap_dly <= 3'h0;
         r_strapa    <= '0;
@@ -104,10 +99,6 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
             end
         end
 
-        if (do_write && off == OFF_HBCTL && reg_req_i.wstrb[0]) begin
-            r_hb_en <= reg_req_i.wdata[0];
-        end
-
         if (do_write && off == OFF_LLCSEL && reg_req_i.wstrb[0]) begin
             r_llcsel <= reg_req_i.wdata[OcmLlcWays-1:0];
         end
@@ -118,7 +109,6 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
     end
 end
 
-assign hb_en_o = r_hb_en;
 assign llcsel_o = r_llcsel;
 assign crpsel_o = r_crpsel;
 assign llcinv_o = r_llcinv;
@@ -136,7 +126,6 @@ always_comb begin
     case (off)
         OFF_SCRATCH0: rdata = r_scratch0;
         OFF_STRAPA:   rdata = 32'(r_strapa);
-        OFF_HBCTL:    rdata = {31'h0, r_hb_en};
         OFF_LLCSEL:   rdata = {{32-OcmLlcWays{1'b0}}, {r_llcsel}};
         OFF_CRPSEL:   rdata = {31'h0, r_crpsel};
         OFF_LLCINV:   rdata = 32'h0;   // write-only, the invalidate is done by the time the store retires

@@ -430,8 +430,6 @@ end
 // System Control Block
 // ============================================================
 
-logic ext_mem_en;
-
 vernii_scb #(
     .NumPads    ( NumStraps ),
     .reg_req_t  ( reg_req_t ),
@@ -443,7 +441,6 @@ vernii_scb #(
     .reg_req_i ( reg_dev_req[ScbPort] ),
     .reg_rsp_o ( reg_dev_rsp[ScbPort] ),
     .strap_i,
-    .hb_en_o   ( ext_mem_en           ),
     .llcsel_o  ( llcsel               ),
     .crpsel_o  ( crpsel               ),
     .llcinv_o  ( llcinv               )
@@ -452,14 +449,6 @@ vernii_scb #(
 // ============================================================
 // External memory interface
 // ============================================================
-
-friscv_mem_if ext_guarded_if ();
-
-friscv_guard ext_guard (
-    .en_i  ( ext_mem_en     ),
-    .s_mem ( ext_if         ),
-    .m_mem ( ext_guarded_if )
-);
 
 AXI_BUS #(
     .AXI_ADDR_WIDTH ( AddrWidth    ),
@@ -474,9 +463,9 @@ friscv_to_axi4_full_intf #(
     .AxiUserWidth ( AxiUserWidth          )
 ) m_mem (
     .clk_i,
-    .rst_ni ( soc_rstn       ),
-    .s_mem  ( ext_guarded_if ),
-    .m_axi  ( mem_axi        )
+    .rst_ni ( soc_rstn ),
+    .s_mem  ( ext_if   ),
+    .m_axi  ( mem_axi  )
 );
 
 `AXI_ASSIGN_TO_REQ(axi_mem_req_o, mem_axi)
