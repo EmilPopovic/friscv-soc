@@ -5,3 +5,4 @@ result-*
 .bender/
 sources.f
 *.log
+verif/directed/*.elf

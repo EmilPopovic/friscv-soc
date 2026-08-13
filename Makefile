@@ -49,6 +49,10 @@ act-run-core:
 act-run-soc:
 	make -C verif/riscv-arch-test run-soc
 
+.PHONY: directed-run
+directed-run:
+	make -C verif/directed run
+
 .PHONY: clean
 clean:
 	make -C target/sim clean
