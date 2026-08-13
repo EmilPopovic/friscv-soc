@@ -16,7 +16,9 @@
 
 module friscv_cpu_subsystem_core import friscv_pkg::*, friscv_mem_pkg::*; #(
     parameter int unsigned RamBase          = 32'h8000_0000,
-    parameter int unsigned ZsblRomSizeBytes = 0,
+    parameter bit          ZsblRomEnable    = 1'b0,
+    parameter int unsigned ZsblRomWords     = 1,
+    parameter logic [31:0] ZsblRomProg [ZsblRomWords] = '{default: '0},
     parameter int unsigned ZsblRomBase      = 32'h0020_0000,
     parameter int unsigned DmBase           = 32'h0000_0000,
     parameter int unsigned DmHaltOffset     = 32'h800,
@@ -64,7 +66,7 @@ module friscv_cpu_subsystem_core import friscv_pkg::*, friscv_mem_pkg::*; #(
     input  logic         i_dbg_req
 );
 
-localparam int unsigned ResetVec = (ZsblRomSizeBytes > 0) ? ZsblRomBase : RamBase;
+localparam int unsigned ResetVec = ZsblRomEnable ? ZsblRomBase : RamBase;
 
 // Elaboration-time parameter checks
 if (!EnableMul && EnableFastMul) begin : gen_chk_fast_mul_has_mul
@@ -101,7 +103,9 @@ assign w_mem_err = mem_if.err;
 friscv_core_complex #(
     .HartId              ( 0                   ),
     .ResetVec            ( ResetVec            ),
-    .ZsblRomSizeBytes    ( ZsblRomSizeBytes    ),
+    .ZsblRomEnable       ( ZsblRomEnable       ),
+    .ZsblRomWords        ( ZsblRomWords        ),
+    .ZsblRomProg         ( ZsblRomProg         ),
     .DmBase              ( DmBase              ),
     .DmHaltOffset        ( DmHaltOffset        ),
     .DmExcOffset         ( DmExcOffset         ),

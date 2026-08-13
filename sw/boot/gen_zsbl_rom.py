@@ -2,7 +2,7 @@
 # Copyright 2026 FER, HPC Architecture and Application Research Center
 # SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 #
-"""Assemble the ZSBL and emit the package friscv_zsbl_rom.sv reads its words from.
+"""Assemble a ZSBL and emit the package vernii_soc takes its words from.
 
     gen_zsbl_rom.py sw/boot/zsbl.S rtl/core/friscv_zsbl_rom_pkg.sv
 
@@ -101,11 +101,8 @@ def main():
              f"// Generated from {source.name} by {Path(sys.argv[0]).name}, do not edit",
              f"package {out.stem};",
              "",
-             "    import friscv_pkg::*;",
-             "",
              f"    localparam int unsigned ZSBL_PROG_WORDS = {len(words)};",
-             "    localparam int unsigned ZSBL_PROG_BYTES = ZSBL_PROG_WORDS * 4;",
-             f"    localparam inst_t ZSBL_PROG [{len(words)}] = '{{"]
+             f"    localparam logic [31:0] ZSBL_PROG [{len(words)}] = '{{"]
     lines += [f"        32'h{word:08x}{',' if i + 1 < len(words) else ''}"
               for i, word in enumerate(words)]
     lines += ["    };", "", f"endpackage : {out.stem}"]

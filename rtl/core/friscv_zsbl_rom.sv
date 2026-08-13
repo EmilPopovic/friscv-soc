@@ -6,44 +6,40 @@
 // at your option, the Apache License version 2.0.
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
 
-module friscv_zsbl_rom import friscv_pkg::*, friscv_mem_pkg::*; #(
-    parameter int unsigned SizeBytes = 128,
+module friscv_zsbl_rom import friscv_mem_pkg::*; #(
+    parameter int unsigned ProgWords = 1,
+    parameter logic [31:0] Prog [ProgWords] = '{default: '0},
     parameter int unsigned BaseAddr  = 32'h0020_0000
 ) (
     input  logic  i_clk,
     input  logic  i_rstn,
     input  addr_t i_addr,
-    output inst_t o_data
+    output logic [31:0] o_data
 );
 
-import friscv_zsbl_rom_pkg::*;
+// Round the decoded window up to the next power of 2
+localparam int unsigned WORDS    = 1 << $clog2(ProgWords);
+localparam int unsigned OFFSET_W = (WORDS > 1) ? $clog2(WORDS) : 1;
 
-// Round up size to next power of 2
-localparam int unsigned REAL_SIZE = 1 << $clog2(SizeBytes);
-localparam int unsigned WORDS     = REAL_SIZE / 4;
-localparam int unsigned OFFSET_W  = (WORDS > 1) ? $clog2(WORDS) : 1;
+localparam logic [31:0] NOP_INST = 32'h0000_0013;  // addi x0,x0,0
 
-inst_t mem [WORDS];
-
-if (ZSBL_PROG_WORDS > WORDS) begin : gen_zsbl_too_big
-    $fatal(1, "ZSBL needs %0d bytes, REAL_SIZE is %0d", ZSBL_PROG_WORDS*4, REAL_SIZE);
-end
+logic [31:0] mem [WORDS];
 
 logic [OFFSET_W-1:0] w_word_offset;
 
-inst_t r_data;
+logic [31:0] r_data;
 assign o_data = r_data;
 
 assign w_word_offset = OFFSET_W'((i_addr - BaseAddr) >> 2);
 
 always_ff @(posedge i_clk or negedge i_rstn) begin
-    if (!i_rstn) r_data <= NOP;
+    if (!i_rstn) r_data <= NOP_INST;
     else         r_data <= mem[w_word_offset];
 end
 
 for (genvar i = 0; i < WORDS; i++) begin : gen_zsbl_mem
-    if (i < ZSBL_PROG_WORDS) begin : gen_prog
-        assign mem[i] = ZSBL_PROG[i];
+    if (i < ProgWords) begin : gen_prog
+        assign mem[i] = Prog[i];
     end else begin : gen_pad
         assign mem[i] = 32'h0000_0000;
     end

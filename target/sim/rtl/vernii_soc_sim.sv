@@ -16,7 +16,9 @@ module vernii_soc_sim import vernii_pkg::*; #(
     parameter int unsigned LineBytes        = 32,
     parameter int unsigned Ways             = 4,
     parameter bit          SramTags         = 1'b1,
-    parameter int unsigned ZsblRomSizeBytes = friscv_zsbl_rom_pkg::ZSBL_PROG_BYTES,
+    parameter bit          ZsblRomEnable    = 1'b1,
+    parameter int unsigned ZsblRomWords     = friscv_zsbl_rom_pkg::ZSBL_PROG_WORDS,
+    parameter logic [31:0] ZsblRomProg [ZsblRomWords] = friscv_zsbl_rom_pkg::ZSBL_PROG,
     parameter int unsigned NumStraps        = 8
 ) (
     input  logic i_clk,
@@ -114,7 +116,9 @@ vernii_soc #(
     .LineBytes        ( LineBytes        ),
     .Ways             ( Ways             ),
     .SramTags         ( SramTags         ),
-    .ZsblRomSizeBytes ( ZsblRomSizeBytes ),
+    .ZsblRomEnable    ( ZsblRomEnable    ),
+    .ZsblRomWords     ( ZsblRomWords     ),
+    .ZsblRomProg      ( ZsblRomProg      ),
     .NumStraps        ( NumStraps        ),
     .NumExtRegSlv     ( NumExtRegSlv     ),
     .ExtRegSlvRules   ( ExtRegSlvRules   ),

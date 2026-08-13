@@ -14,7 +14,9 @@
 module friscv_core_complex import friscv_pkg::*, friscv_mem_pkg::*; #(
     parameter int unsigned HartId           = 0,
     parameter int unsigned ResetVec         = 32'h8000_0000,
-    parameter int unsigned ZsblRomSizeBytes = 0,
+    parameter bit          ZsblRomEnable    = 1'b0,
+    parameter int unsigned ZsblRomWords     = 1,
+    parameter logic [31:0] ZsblRomProg [ZsblRomWords] = '{default: '0},
     parameter int unsigned DmBase           = 32'h0000_0000,
     parameter int unsigned DmHaltOffset     = 32'h800,
     parameter int unsigned DmExcOffset      = 32'h810,
@@ -437,10 +439,11 @@ end
 // Zero-stage bootloader
 // ============================================================
 
-if (ZsblRomSizeBytes > 0) begin : gen_zsbl_rom
+if (ZsblRomEnable) begin : gen_zsbl_rom
     friscv_zsbl_rom #(
-        .SizeBytes ( ZsblRomSizeBytes ),
-        .BaseAddr  ( ResetVec         )
+        .ProgWords ( ZsblRomWords ),
+        .Prog      ( ZsblRomProg  ),
+        .BaseAddr  ( ResetVec     )
     ) zsbl_rom (
         .i_clk  ( i_clk       ),
         .i_rstn ( i_rstn      ),
@@ -453,7 +456,7 @@ if (ZsblRomSizeBytes > 0) begin : gen_zsbl_rom
 
     // Intercept reads in the ROM address window before they reach AXI
     assign w_l2_is_rom = (w_l2_addr >= ResetVec) &&
-                         (w_l2_addr < ResetVec + ZsblRomSizeBytes) &&
+                         (w_l2_addr < ResetVec + ZsblRomWords * 4) &&
                          (w_l2_rw == RW_READ);
 
     always_ff @(posedge i_clk or negedge i_rstn) begin

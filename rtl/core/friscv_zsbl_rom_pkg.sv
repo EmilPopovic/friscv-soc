@@ -9,11 +9,8 @@
 // Generated from zsbl.S by gen_zsbl_rom.py, do not edit
 package friscv_zsbl_rom_pkg;
 
-    import friscv_pkg::*;
-
     localparam int unsigned ZSBL_PROG_WORDS = 32;
-    localparam int unsigned ZSBL_PROG_BYTES = ZSBL_PROG_WORDS * 4;
-    localparam inst_t ZSBL_PROG [32] = '{
+    localparam logic [31:0] ZSBL_PROG [32] = '{
         32'h400002b7,
         32'h0042a303,
         32'h00137313,

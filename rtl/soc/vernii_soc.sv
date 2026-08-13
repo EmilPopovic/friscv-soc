@@ -35,7 +35,10 @@ module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t;
     parameter bit          EnableExtM       = 1,
     parameter bit          EnableExtA       = 1,
     parameter bit          EnableFastMul    = 0,
-    parameter int unsigned ZsblRomSizeBytes = friscv_zsbl_rom_pkg::ZSBL_PROG_BYTES,
+    parameter bit          ZsblRomEnable    = 1'b1,
+    parameter int unsigned ZsblRomWords     = friscv_zsbl_rom_pkg::ZSBL_PROG_WORDS,
+    parameter logic [31:0] ZsblRomProg [ZsblRomWords] = friscv_zsbl_rom_pkg::ZSBL_PROG,
+    parameter logic [31:0] ZsblBaseAddr     = 32'h0020_0000,
     parameter int unsigned NumStraps        = 8,
     parameter int unsigned NumExtRegSlv     = 1,
     parameter bit          HaltOnEnd        = 0,
@@ -135,7 +138,6 @@ logic        msip, mtip, meip, seip;
 
 localparam logic [31:0] DmBaseAddr   = 32'h0010_0000;
 localparam logic [31:0] DmSize       = 32'h0000_1000;
-localparam logic [31:0] ZsblBaseAddr = 32'h0020_0000;
 
 logic ndmreset;   // non-debug-module reset request from the DM
 logic debug_req;  // async debug request to the hart
@@ -149,7 +151,9 @@ assign soc_rst_no = soc_rstn;
 
 friscv_cpu_subsystem_core #(
     .RamBase            ( ExtBase          ),
-    .ZsblRomSizeBytes   ( ZsblRomSizeBytes ),
+    .ZsblRomEnable      ( ZsblRomEnable    ),
+    .ZsblRomWords       ( ZsblRomWords     ),
+    .ZsblRomProg        ( ZsblRomProg      ),
     .ZsblRomBase        ( ZsblBaseAddr     ),
     .DmBase             ( DmBaseAddr       ),
     .HaltOnEndAddress   ( HaltOnEnd        ),
@@ -183,7 +187,7 @@ if (OcmBase < DmBaseAddr + DmSize &&
     $error("the OCM window (%08x + %08x) covers the debug module at %08x",
            OcmBase, OcmSize, DmBaseAddr);
 end
-localparam int unsigned ZsblRomWindow = (ZsblRomSizeBytes > 0) ? (1 << $clog2(ZsblRomSizeBytes)) : 0;
+localparam int unsigned ZsblRomWindow = ZsblRomEnable ? (1 << $clog2(ZsblRomWords * 4)) : 0;
 
 // Check that a large OCM does not overlap with the ZSBL region
 if (ZsblRomWindow > 0 && OcmBase < ZsblBaseAddr + ZsblRomWindow &&

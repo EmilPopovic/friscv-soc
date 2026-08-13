@@ -47,7 +47,7 @@ assign mem.err = err;
 
 friscv_cpu_subsystem_core #(
     .RamBase          ( 32'h8000_0000 ),
-    .ZsblRomSizeBytes ( 0             ),
+    .ZsblRomEnable    ( 1'b0          ),
     .HaltOnEndAddress ( 1             )
 ) core (
     .i_clk     ( clk   ),
