@@ -107,6 +107,9 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
         r_llcsel    <= '0;
         r_crpsel    <= '0;
         r_llcinv    <= 1'b0;
+        r_llcrdacc  <= '0;
+        r_llcrdmiss <= '0;
+        r_llcwracc  <= '0;
     end else begin
         // Write one to request an invalidate, then self-clear
         r_llcinv <= do_write && off == OFF_LLCINV && reg_req_i.wstrb[0] && reg_req_i.wdata[0];
