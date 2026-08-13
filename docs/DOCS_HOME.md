@@ -1,5 +1,5 @@
 <!-- markdownlint-disable MD041 -->
-[Back to Repository](https://github.com/EmilPopovic/vernii)
+[Back to Repository](https://github.com/EmilPopovic/vernii#vernii)
 <!-- markdownlint-enable MD041 -->
 
 # Vernii
