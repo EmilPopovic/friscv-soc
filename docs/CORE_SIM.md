@@ -1,5 +1,7 @@
 # Core-level Simulation
 
+TODO: merge into new docs
+
 This document describes the contents of `target/sim/cpp/` and `tb_core_main.cpp`.
 The purpose of the core-level simulation is to test the functionality of the
 core without relying on any particular system, such as running `riscv-arch-test`.

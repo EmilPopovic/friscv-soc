@@ -1,5 +1,7 @@
 # Architecture Certification Tests
 
+TODO: merge into new docs
+
 ## Core-level
 
 The [core-level testbench](CORE_SIM.md) can be used to run `riscv-arch-test`,

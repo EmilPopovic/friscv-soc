@@ -4,12 +4,12 @@ Vernii is a minimal Linux-capable 32-bit RISC-V SoC built around the [FRISC-V](h
 
 Vernii is developed as part of the FERICA project, an initiative by the [Faculty of Electrical Engineering and Computing](https://www.fer.unizg.hr/en), [University of Zagreb](https://www.unizg.hr/homepage/).
 
-## Not Implemented
+## Quick Start
 
-- **QSPI input synchronization** - They go straight into `spi_host`, as OpenTitan requires. Must constrain with respect to SCK instead.
-- **AXI atomics** - Atomic instructions (`lr`, `sc`, `amo`) are atomic only from the view of the core (i.e. during interrupts), and not to other devices in the system.
-- **DFT** - No scan implemented.
-- **Zero initialization** - Non-`x0` GPRs and OCM initialize to `X`. Write before reading.
+- To learn how to build and use Vernii, see [Getting Started](docs/GETTING_STARTED.md).
+- To learn about available simulation, FPGA, and ASIC targets, see [Targets](docs/TARGETS.md).
+- For detailed information on Vernii's inner workings, consult the [User Manual](docs/USER_MANUAL.md).
+- Or explore the [documentation](docs/DOCS_HOME.md).
 
 ## License
 
