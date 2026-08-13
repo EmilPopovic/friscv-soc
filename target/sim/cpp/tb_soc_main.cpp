@@ -25,7 +25,6 @@ namespace {
 
 constexpr uint32_t MEM_BASE = 0x80000000;
 constexpr uint32_t UART0_BASE = 0x10000000;
-constexpr uint32_t SCB_HBCTL = 0x40000008;
 constexpr uint32_t SCB_LLCSEL = 0x4000000C;
 constexpr uint32_t HYPER_CFG_BASE = 0x50010000;
 constexpr uint32_t SCRATCH_ADDRESS = 0x40000000;
@@ -182,8 +181,8 @@ void apply_hyperbus_config(Jtag& jtag) {
     }
 }
 
-// FRISCV_LLCSEL enables the HyperBus and marks ways as cache before the program
-// starts, so an image linked into the cached region can run from there
+// FRISCV_LLCSEL marks ways as cache before the program starts, so an image
+// linked into the cached region can run from there
 void apply_cache_config(Jtag& jtag) {
     const char* mask = std::getenv("FRISCV_LLCSEL");
 
@@ -191,7 +190,6 @@ void apply_cache_config(Jtag& jtag) {
         return;
     }
 
-    jtag.write_memory(SCB_HBCTL, word_bytes(1));
     jtag.write_memory(SCB_LLCSEL, word_bytes(uint32_t(std::strtoul(mask, nullptr, 0))));
 }
 

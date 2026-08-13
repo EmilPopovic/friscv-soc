@@ -6,7 +6,6 @@
 // Flash layout: fsbl block, magic, length, checksum, image
 
 .equ SCB_SCRATCH, 0x40000000
-.equ SCB_HBCTL,   0x40000008
 .equ SCB_LLCSEL,  0x4000000C
 .equ UART0,       0x10000000
 .equ UART_DLL,    0x00
@@ -32,11 +31,6 @@
     .section .text.init
     .globl _start
 _start:
-    // Keep the OCM ways in scratchpad mode
-    li      t0, SCB_HBCTL
-    li      t1, 1
-    sw      t1, 0(t0)
-
     // Run mtime at MTIME_HZ
     lui     t0, %hi(ACLINT_TICK)
     li      t1, MTIME_HZ
