@@ -2,9 +2,10 @@
 # Copyright 2026 FER, HPC Architecture and Application Research Center
 # SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 #
+# Matej Jurasić <matej.jurasic@cappig.dev>
 """Assemble a ZSBL and emit the package vernii_soc takes its words from.
 
-    gen_zsbl_rom.py sw/boot/zsbl.S rtl/core/friscv_zsbl_rom_pkg.sv
+    gen_zsbl_rom.py sw/boot/zsbl.S rtl/soc/vernii_zsbl_rom_pkg.sv
 
 Pass the soc that maps the peripherals to check the addresses the loader
 hardcodes, and --check to verify the committed package rather than rewrite it.

@@ -6,8 +6,6 @@
 // at your option, the Apache License version 2.0.
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
 
-`timescale 1ns/1ps
-
 module vernii_soc_sim import vernii_pkg::*; #(
     parameter int unsigned OcmBase          = 32'h0000_0000,
     parameter int unsigned OcmSize          = 32'h0000_2000,
@@ -17,8 +15,8 @@ module vernii_soc_sim import vernii_pkg::*; #(
     parameter int unsigned Ways             = 4,
     parameter bit          SramTags         = 1'b1,
     parameter bit          ZsblRomEnable    = 1'b1,
-    parameter int unsigned ZsblRomWords     = friscv_zsbl_rom_pkg::ZSBL_PROG_WORDS,
-    parameter logic [31:0] ZsblRomProg [ZsblRomWords] = friscv_zsbl_rom_pkg::ZSBL_PROG,
+    parameter int unsigned ZsblRomWords     = vernii_zsbl_rom_pkg::ZSBL_PROG_WORDS,
+    parameter logic [31:0] ZsblRomProg [ZsblRomWords] = vernii_zsbl_rom_pkg::ZSBL_PROG,
     parameter int unsigned NumStraps        = 8
 ) (
     input  logic i_clk,
@@ -97,8 +95,11 @@ localparam axi_pkg::xbar_rule_32_t [NumExtRegSlv-1:0] ExtRegSlvRules = '{
 vernii_axi_req_t  axi_req;
 vernii_axi_resp_t axi_rsp;
 
+`pragma diagnostic push
+`pragma diagnostic ignore="-Wunused-but-set-variable"
 vernii_reg_req_t [NumExtRegSlv-1:0] reg_ext_req;
 vernii_reg_rsp_t [NumExtRegSlv-1:0] reg_ext_rsp;
+`pragma diagnostic pop
 
 for (genvar i = 0; i < NumExtRegSlv; i++) begin : gen_reg_ext_sink
     assign reg_ext_rsp[i].rdata = '0;

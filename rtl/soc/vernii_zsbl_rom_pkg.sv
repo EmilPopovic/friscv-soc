@@ -7,7 +7,7 @@
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
 
 // Generated from zsbl.S by gen_zsbl_rom.py, do not edit
-package friscv_zsbl_rom_pkg;
+package vernii_zsbl_rom_pkg;
 
     localparam int unsigned ZSBL_PROG_WORDS = 32;
     localparam logic [31:0] ZSBL_PROG [32] = '{
@@ -45,4 +45,4 @@ package friscv_zsbl_rom_pkg;
         32'h00000067
     };
 
-endpackage : friscv_zsbl_rom_pkg
+endpackage : vernii_zsbl_rom_pkg

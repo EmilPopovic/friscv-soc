@@ -27,7 +27,7 @@ module friscv_cpu_subsystem_core import friscv_pkg::*, friscv_mem_pkg::*; #(
     // Memory protection and address translation
     parameter logic EnableMmu      = 1,
     parameter logic EnforcePmp     = 0,
-    parameter logic EnforcePtwPmp = 0,
+    parameter logic EnforcePtwPmp  = 0,
     parameter int   PmpEntries     = 8,
     parameter int   PmpUsable      = 8,
     // Must be a power of 2 greater than 1

@@ -24,11 +24,18 @@ lint-slang: sources.f
 lint-verilator: sources.f
 	verilator $(VERILATOR_LINT_FLAGS) verilator_lint.vlt -f sources.f
 
-# friscv_zsbl_rom_pkg.sv is generated from zsbl.S, catch if they drift apart
+# vernii_zsbl_rom_pkg.sv is generated from zsbl.S, catch if they drift apart
 .PHONY: lint-zsbl
 lint-zsbl:
 	python3 sw/boot/gen_zsbl_rom.py sw/boot/zsbl.S \
-		rtl/core/friscv_zsbl_rom_pkg.sv rtl/soc/vernii_soc.sv --check
+		rtl/soc/vernii_zsbl_rom_pkg.sv rtl/soc/vernii_soc.sv --check
+
+# Generate vernii_zsbl_rom_pkg.sv from zsbl.S
+.PHONY: zsbl
+zsbl:
+	python3 sw/boot/gen_zsbl_rom.py \
+		sw/boot/zsbl.S \
+		rtl/soc/vernii_zsbl_rom_pkg.sv
 
 .PHONY: sim
 sim:
