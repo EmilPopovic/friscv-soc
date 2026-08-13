@@ -1,6 +1,6 @@
 # Vernii
 
-Vernii is a minimal Linux-capable 32-bit RISC-V SoC built around the [FRISC-V](https://github.com/friscv/friscv-system-hw) core, using [PULP](https://github.com/pulp-platform) and [OpenTitan](https://github.com/lowRISC/opentitan) peripherals. The system is heavily based on [Cheshire](https://github.com/pulp-platform/cheshire).
+Vernii is a minimal Linux-capable 32-bit RISC-V SoC built around the [FRISC-V](https://github.com/friscv/friscv-system-hw) core, using [PULP](https://github.com/pulp-platform) and [OpenTitan](https://github.com/lowRISC/opentitan) peripherals. The system (and this documentation) is heavily based on [Cheshire](https://github.com/pulp-platform/cheshire).
 
 Vernii is developed as part of the FERICA project, an initiative by the [Faculty of Electrical Engineering and Computing](https://www.fer.unizg.hr/en), [University of Zagreb](https://www.unizg.hr/homepage/).
 
