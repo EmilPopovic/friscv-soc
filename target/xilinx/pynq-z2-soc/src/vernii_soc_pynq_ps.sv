@@ -16,7 +16,7 @@ module vernii_soc_pynq_ps import vernii_pkg::*, axi_pkg::xbar_rule_32_t; #(
     parameter int unsigned MemPsBase = 32'h0010_0000,
     parameter int unsigned ZsblRom   = 1,
     parameter int unsigned NumGpio   = 27,
-    parameter int unsigned NumStraps = 13
+    parameter int unsigned NumStraps = 8
 ) (
     input  wire clk_i,
     input  wire rstn_i,

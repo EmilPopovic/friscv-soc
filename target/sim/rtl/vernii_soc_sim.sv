@@ -17,7 +17,7 @@ module vernii_soc_sim import vernii_pkg::*; #(
     parameter int unsigned Ways             = 4,
     parameter bit          SramTags         = 1'b1,
     parameter int unsigned ZsblRomSizeBytes = friscv_zsbl_rom_pkg::ZSBL_PROG_BYTES,
-    parameter int unsigned NumStraps        = 13
+    parameter int unsigned NumStraps        = 8
 ) (
     input  logic i_clk,
     input  logic i_rstn,
