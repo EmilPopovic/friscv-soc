@@ -5,6 +5,9 @@
 // you may not use this file except in compliance with the License, or,
 // at your option, the Apache License version 2.0.
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
+//
+// Emil Popović <mail@emilpopovic.me>
+// Matej Jurasić <matej.jurasic@cappig.dev>
 
 module vernii_soc_sim import vernii_pkg::*; #(
     parameter int unsigned OcmBase          = 32'h0000_0000,

@@ -2,6 +2,8 @@
 # Copyright 2026 FER, HPC Architecture and Application Research Center
 # SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 #
+# Matej Jurasić <matej.jurasic@cappig.dev>
+#
 """Pack a boot image for the QSPI flash: second stage, header, payload."""
 
 import sys

@@ -2,6 +2,8 @@
 # Copyright 2026 FER, HPC Architecture and Application Research Center
 # SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 #
+# Matej Jurasić <matej.jurasic@cappig.dev>
+#
 # Boot an apheleiaOS flat image on the SoC simulator and print its console.
 # Build the image first, in an apheleiaOS checkout:
 #

@@ -5,6 +5,8 @@
 // you may not use this file except in compliance with the License, or,
 // at your option, the Apache License version 2.0.
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
+//
+// Emil Popović <mail@emilpopovic.me>
 
 module vernii_soc_pynq_ps_wrap #(
     parameter OcmBase   = 32'h8000_0000,

@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# Copyright 2026 FER, HPC Architecture and Application Research Center
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+#
+# Matej Jurasić <matej.jurasic@cappig.dev>
+
 """Wrap a flat boot image in a minimal ELF32 so the testbench can load it.
 
     flat2elf.py <image> <out.elf> [load address]

@@ -1,3 +1,8 @@
+// Copyright 2026 FER, HPC Architecture and Application Research Center
+// SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+//
+// Matej Jurasić <matej.jurasic@cappig.dev>
+
 #pragma once
 
 // Decodes o_uart_tx so simulation can see what software prints. 8N1 only.

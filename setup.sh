@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# Copyright 2026 FER, HPC Architecture and Application Research Center
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+#
+# Emil Popović <mail@emilpopovic.me>
+
 set -euo pipefail
 
 FOSSI_SUBSTITUTER="https://nix-cache.fossi-foundation.org"

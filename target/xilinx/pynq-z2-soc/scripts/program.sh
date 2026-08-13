@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Copyright 2026 FER, HPC Architecture and Application Research Center
 # SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+#
+# Emil Popović <mail@emilpopovic.me>
 
 # Set JP4 to JTAG, connect the PROG micro-USB and power on, then:
 #   scripts/program.sh                  program build/vernii_soc_pynq_ps.bit

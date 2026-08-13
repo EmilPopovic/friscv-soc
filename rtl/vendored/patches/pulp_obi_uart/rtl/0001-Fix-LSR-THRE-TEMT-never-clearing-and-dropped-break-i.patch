@@ -1,5 +1,5 @@
 From a8930bd9a9e0345219aa08c68bce82bbaaa60b31 Mon Sep 17 00:00:00 2001
-From: =?UTF-8?q?Matej=20Jurasi=C4=87?= <matej.jurasic@fer.hr>
+From: =?UTF-8?q?Matej=20Jurasi=C4=87?= <matej.jurasic@cappig.dev>
 Date: Sun, 2 Aug 2026 03:59:07 +0200
 Subject: [PATCH] Fix LSR THRE/TEMT never clearing and dropped break indication
 
