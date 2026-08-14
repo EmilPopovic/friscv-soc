@@ -4,7 +4,7 @@
 #
 # Matej Jurasić <matej.jurasic@cappig.dev>
 #
-"""Pack a boot image for the QSPI flash: second stage, header, payload."""
+"""Pack a boot image for the QSPI flash: fsbl, header, payload."""
 
 import sys
 from pathlib import Path
@@ -21,7 +21,7 @@ def main():
     stage = fsbl.read_bytes()
 
     if len(stage) > BLOCK:
-        raise SystemExit(f"second stage is {len(stage)} bytes, over the {BLOCK} the ROM reads")
+        raise SystemExit(f"fsbl is {len(stage)} bytes, over the {BLOCK} the ROM reads")
 
     image = payload.read_bytes()
     image += bytes(-len(image) % 4)

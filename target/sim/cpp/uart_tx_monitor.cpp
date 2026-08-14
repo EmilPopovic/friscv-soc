@@ -55,8 +55,7 @@ void UartTxMonitor::sample(bool tx) {
                     std::fputc(shifter_, stderr);
                     std::fflush(stderr);
                 } else if (!warned_) {
-                    // A missing stop bit means the program reprogrammed the
-                    // divisor away from the one the testbench was given
+                    // No stop bit: the program changed the divisor
                     warned_ = true;
                     std::fprintf(stderr, "\n[uart] framing error at %u cycles "
                                          "per bit\n", bit_cycles_);

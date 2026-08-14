@@ -3,9 +3,8 @@
 //
 // Matej Jurasić <matej.jurasic@cappig.dev>
 //
-// First stage boot loader. Runs from OCM, copies the flash image to RAM, and
-// boots it
-// Flash layout: fsbl block, magic, length, checksum, image
+// First stage boot loader. Runs from OCM, copies the flash image to RAM and
+// boots it. Flash layout: fsbl block, magic, length, checksum, image
 
 .equ SCB_SCRATCH, 0x40000000
 .equ SCB_LLCSEL,  0x4000000C

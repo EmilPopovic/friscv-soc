@@ -118,8 +118,8 @@ void park(SocTestbench& testbench, Jtag& jtag) {
     wait_for_boot_rom(testbench, jtag);
 }
 
-// The arch-test build relocates the SRAM over MEM_BASE, so "external" means
-// outside the SRAM rather than simply at or above MEM_BASE
+// The arch-test build relocates the SRAM over MEM_BASE, so external means
+// outside the SRAM, not simply at or above MEM_BASE
 bool is_external(uint32_t address) {
     return address < SRAM_BASE || address >= uint64_t(SRAM_BASE) + SRAM_SIZE;
 }
@@ -155,8 +155,8 @@ void validate(const ElfImage& image) {
     }
 }
 
-// VERNII_HB_CFG="reg:value[,...]" sets the HyperBus controller config before the
-// program runs, so a sweep does not have to rebuild the program
+// VERNII_HB_CFG="reg:value[,...]" writes the HyperBus config before the program
+// runs, so a sweep needs no rebuild
 void apply_hyperbus_config(Jtag& jtag) {
     const char* spec = std::getenv("VERNII_HB_CFG");
 
@@ -187,8 +187,8 @@ void apply_hyperbus_config(Jtag& jtag) {
     }
 }
 
-// VERNII_LLCSEL marks ways as cache before the program starts, so an image
-// linked into the cached region can run from there
+// VERNII_LLCSEL marks ways as cache, so an image linked into the cached region
+// can run from there
 void apply_cache_config(Jtag& jtag) {
     const char* mask = std::getenv("VERNII_LLCSEL");
 
@@ -199,9 +199,8 @@ void apply_cache_config(Jtag& jtag) {
     jtag.write_memory(SCB_LLCSEL, word_bytes(uint32_t(std::strtoul(mask, nullptr, 0))));
 }
 
-// VERNII_UART_DIV programs the 16550 divisor before the image runs, for
-// software that expects a boot stub to have set the baud rate already, and
-// gives the monitor the bit period that follows from it
+// VERNII_UART_DIV sets the 16550 divisor for software that expects a boot stub
+// to have done it, and gives the monitor its bit period
 void apply_uart_config(SocTestbench& testbench, Jtag& jtag) {
     const char* div = std::getenv("VERNII_UART_DIV");
 

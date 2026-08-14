@@ -4,13 +4,10 @@
 #
 # Matej Jurasić <matej.jurasic@cappig.dev>
 #
-# Fetch, build and boot apheleiaOS. The checkout and its image live in a
-# gitignored directory; an existing image is booted rather than rebuilt.
+# Fetch, build and boot apheleiaOS. Needs clang, ld.lld and dtc.
 #
-#   scripts/aos.sh      boot, building only if there is no image yet
-#   scripts/aos.sh rebuild  build again first
-#
-# Needs clang, ld.lld and dtc. Everything else is passed through to run_aos.sh.
+#   aos.sh           boot, building only if there is no image yet
+#   aos.sh rebuild   build again first
 
 set -euo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)

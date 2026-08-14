@@ -4,18 +4,13 @@
 #
 # Matej Jurasić <matej.jurasic@cappig.dev>
 #
-# Boot an apheleiaOS flat image on the SoC simulator and print its console.
-# Build the image first, in an apheleiaOS checkout:
+# Boot an apheleiaOS image on the SoC simulator.
 #
-#   make all ARCH=riscv_32 TOOLCHAIN=llvm RISCV_FRISC=true
+#   run_aos.sh ../aos/bin/apheleia_1.0_riscv_32.img
 #
-# then point this at bin/apheleia_*.img:
-#
-#   scripts/run_aos.sh ../aos/bin/apheleia_1.0_riscv_32.img
-#
-# The image loads at MEM_BASE and runs from the cached external memory, so the
-# whole SRAM is free to be cache. Its kernel sits 32 MB in and its scratch area
-# 48 MB in, which is why the memory is sized well past the 16 MB default.
+# The image loads at MEM_BASE and runs from cache, so MEM_SIZE must cover the
+# kernel and scratch addresses it picks. Build it with:
+# make all ARCH=riscv_32 TOOLCHAIN=llvm RISCV_FRISC=true
 
 set -euo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
