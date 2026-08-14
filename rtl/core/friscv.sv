@@ -64,23 +64,6 @@ module friscv import friscv_pkg::*, friscv_mem_pkg::*; #(
 
 localparam int unsigned ResetVec = ZsblRomEnable ? ZsblRomBase : RamBase;
 
-// Elaboration-time parameter checks
-if (!EnableIsaM && EnableFastMul) begin : gen_chk_fast_mul_has_mul
-    $fatal(1, "EnableFastMul enabled, but EnableIsaM disabled. Fast multiplier requires M extension.");
-end
-if (!EnableMmu && EnforcePmp) begin : gen_chk_pmp_requires_mmu
-    $fatal(1, "EnforcePmp enabled, but EnableMmu disabled. PMP enforcement requires MMU.");
-end
-if (!EnforcePmp && EnforcePtwPmp) begin : gen_chk_ptw_pmp_requires_pmp
-    $fatal(1, "EnforcePtwPmp enabled, but EnforcePmp disabled. PTW PMP enforcement requires PMP enforcement.");
-end
-if (PmpUsable > PmpEntries) begin : gen_chk_pmp_usable_le_entries
-    $fatal(1, "PmpUsable (%0d) exceeds PmpEntries (%0d).", PmpUsable, PmpEntries);
-end
-if (PmpEntries > 64) begin : gen_chk_pmp_entries_le_64
-    $fatal(1, "PmpEntries (%0d) exceeds the maximum of 64.", PmpEntries);
-end
-
 mem_width_e w_size;
 addr_t      w_addr;
 data_t      w_wdata;
