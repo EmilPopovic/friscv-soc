@@ -26,6 +26,7 @@ module friscv_datapath import friscv_pkg::*, friscv_mem_pkg::*; #(
     parameter int PmpUsable  = 8,
 
     // Extension selection
+    parameter bit EnableIsaE    = 0,
     parameter bit EnableIsaM    = 1,
     // Use a single-cycle combinational multiplier instead of the iterative multiplier
     parameter bit EnableFastMul = 0,
@@ -267,6 +268,7 @@ friscv_id_stage #(
     .DmBase              ( DmBase              ),
     .DmHaltOffset        ( DmHaltOffset        ),
     .DmExcOffset         ( DmExcOffset         ),
+    .EnableIsaE          ( EnableIsaE          ),
     .EnableIsaM          ( EnableIsaM          ),
     .EnableIsaA          ( EnableIsaA          ),
     .EnforcePmp          ( EnforcePmp          ),

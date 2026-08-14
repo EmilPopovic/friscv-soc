@@ -34,6 +34,7 @@ module friscv import friscv_pkg::*, friscv_mem_pkg::*; #(
     parameter bit EnableFineTlbFlush = 0,
 
     // Extension selection
+    parameter bit EnableIsaE    = 0,
     parameter bit EnableIsaM    = 1,
     // Use a single-cycle combinational multiplier instead of the iterative multiplier
     parameter bit EnableFastMul = 0,
@@ -96,6 +97,7 @@ friscv_core #(
     .ItlbEntries         ( ItlbEntries         ),
     .DtlbEntries         ( DtlbEntries         ),
     .EnableFineTlbFlush  ( EnableFineTlbFlush  ),
+    .EnableIsaE          ( EnableIsaE          ),
     .EnableIsaM          ( EnableIsaM          ),
     .EnableFastMul       ( EnableFastMul       ),
     .EnableIsaA          ( EnableIsaA          ),

@@ -27,6 +27,7 @@ module friscv_csr_file import friscv_pkg::*, friscv_mem_pkg::*; #(
     parameter int unsigned PmpEntries = 8,
     parameter int unsigned PmpUsable  = 8,
 
+    parameter bit EnableIsaE = 0,
     parameter bit EnableIsaM = 1,
     parameter bit EnableIsaA = 1
 ) (
@@ -452,8 +453,8 @@ always_comb begin : csr_read
         CSR_MSTATUS:       csr_out = csr.mstatus;
         // M and A bits are generated dynamically based on parameters.
         // When adding new extensions, set the corresponding MISA bits from config, unless always present.
-        //                                mx----zyxwvutsrqpon m                lkjihgfedcb a
-        CSR_MISA:          csr_out = {19'b0100000000010100000,{EnableIsaM},11'b00010000000,{EnableIsaA}};
+        //                                mx----zyxwvutsrqpon m               lkj i                hgf e               dcb a
+        CSR_MISA:          csr_out = {19'b0100000000010100000,{EnableIsaM},3'b000,{!EnableIsaE},3'b000,{EnableIsaE},3'b000,{EnableIsaA}};
         CSR_MEDELEG:       csr_out = csr.medeleg;
         CSR_MIDELEG:       csr_out = csr.mideleg;
         CSR_MIE:           csr_out = csr.mie;

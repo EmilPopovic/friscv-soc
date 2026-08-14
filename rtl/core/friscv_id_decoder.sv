@@ -7,6 +7,7 @@
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
 
 module friscv_id_decoder import friscv_pkg::*, friscv_mem_pkg::*; #(
+    parameter bit EnableIsaE = 0,
     parameter bit EnableIsaA = 1,
     parameter bit EnableIsaM = 1
 ) (
@@ -115,6 +116,8 @@ always_comb begin
             imm_sel_out = I_TYPE;
             rs1_sel_out = ir_in.r.rs1;
             rd_sel_out  = ir_in.r.rd;
+
+            if (EnableIsaE && (ir_in.r.rs1[4] || ir_in.r.rd[4])) illegal_inst_out = 1'b1;
         end
 
         MISC_MEM: begin
@@ -147,6 +150,8 @@ always_comb begin
             imm_sel_out = S_TYPE;
             rs1_sel_out = ir_in.r.rs1;
             rs2_sel_out = ir_in.r.rs2;
+
+            if (EnableIsaE && (ir_in.r.rs1[4] || ir_in.r.rs2[4])) illegal_inst_out = 1'b1;
         end
 
         AMO: begin
@@ -190,6 +195,8 @@ always_comb begin
                     end
                     default: illegal_inst_out = 1'b1;
                 endcase
+
+                if (EnableIsaE && (ir_in.r.rs1[4] || ir_in.r.rs2[4] || ir_in.r.rd[4])) illegal_inst_out = 1'b1;
             end else begin
                 illegal_inst_out = 1'b1;
             end
@@ -254,6 +261,9 @@ always_comb begin
                  ir_in.r.funct3 == 3'b110 ||
                  ir_in.r.funct3 == 3'b111) && (ir_in.r.funct7 != 7'b0 && ir_in.r.funct7 != 7'b0000001))
                 illegal_inst_out = 1'b1;
+            
+            // E instruction set only has x0-x15, uses rd, rs1, rs2
+            if (EnableIsaE && (ir_in.r.rs1[4] || ir_in.r.rs2[4] || ir_in.r.rd[4])) illegal_inst_out = 1'b1;
         end
 
         OP_IMM: begin  // rd <- rs1 <op> imm
@@ -291,6 +301,9 @@ always_comb begin
                 end
                 default: illegal_inst_out = 1'b1;
             endcase
+
+            // E instruction set only has x0-x15, uses rd, rs1
+            if (EnableIsaE && (ir_in.r.rs1[4] || ir_in.r.rd[4])) illegal_inst_out = 1'b1;
         end
         
         AUIPC: begin  // rd <- PC + (imm << 12)
@@ -301,6 +314,9 @@ always_comb begin
             instr_ex_out.wb_data_sel = WB_DATA_SEL_ALU;
             imm_sel_out = U_TYPE;
             rd_sel_out  = ir_in.r.rd;
+
+            // Uses rd
+            if (EnableIsaE && ir_in.r.rd[4]) illegal_inst_out = 1'b1;
         end
         
         LUI: begin  // rd <- imm << 12
@@ -311,6 +327,9 @@ always_comb begin
             instr_ex_out.wb_data_sel = WB_DATA_SEL_ALU;
             imm_sel_out = U_TYPE;
             rd_sel_out  = ir_in.r.rd;
+
+            // Uses rd
+            if (EnableIsaE && ir_in.r.rd[4]) illegal_inst_out = 1'b1;
         end
         
         BRANCH: begin  // pc <- pc + (imm << 1) if <branch_cond>(rs1, rs2)
@@ -333,6 +352,9 @@ always_comb begin
                 3'b111:  instr_ex_out.branch_cond = COND_GEU;
                 default: illegal_inst_out = 1'b1;
             endcase
+
+            // Uses rs1, rs2
+            if (EnableIsaE && (ir_in.r.rs1[4] || ir_in.r.rs2[4])) illegal_inst_out = 1'b1;
         end
         
         JALR: begin
@@ -349,6 +371,9 @@ always_comb begin
             imm_sel_out = I_TYPE;
             rs1_sel_out = ir_in.r.rs1;
             rd_sel_out  = ir_in.r.rd;
+
+            // Uses rd, rs1
+            if (EnableIsaE && (ir_in.r.rs1[4] || ir_in.r.rd[4])) illegal_inst_out = 1'b1;
         end
         
         JAL: begin
@@ -361,6 +386,9 @@ always_comb begin
 
             imm_sel_out = J_TYPE;
             rd_sel_out  = ir_in.r.rd;
+
+            // Uses rd
+            if (EnableIsaE && ir_in.r.rd[4]) illegal_inst_out = 1'b1;
         end
         
         SYSTEM: begin
@@ -461,6 +489,9 @@ always_comb begin
                     end
                     default: illegal_inst_out = 1'b1;
                 endcase
+
+                // Uses rd, rs1
+                if (EnableIsaE && (ir_in.r.rs1[4] || ir_in.r.rd[4])) illegal_inst_out = 1'b1;
             end
         end
 

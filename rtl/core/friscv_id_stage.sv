@@ -30,6 +30,7 @@ module friscv_id_stage import friscv_pkg::*, friscv_mem_pkg::*; #(
     parameter int unsigned DmExcOffset  = 32'h810,
 
     // Extension selection
+    parameter bit EnableIsaE = 0,
     parameter bit EnableIsaM = 1,
     parameter bit EnableIsaA = 1,
 
@@ -170,7 +171,11 @@ assign jump_base = rs1_out;
 logic regfile_wr_en;
 assign regfile_wr_en = (rd_sel_in != 0) && instr_ret_in;
 
-friscv_id_regfile regfile (
+localparam RegisterNum = EnableIsaE ? 16 : 32;
+
+friscv_id_regfile #(
+    .RegisterNum ( RegisterNum )
+) regfile (
     .clk_in           ( clk_in        ),
     .rs1_sel_in       ( rs1_sel_out   ),
     .rs2_sel_in       ( rs2_sel_out   ),
@@ -254,6 +259,7 @@ friscv_csr_file #(
     .EnforcePmp ( EnforcePmp ),
     .PmpEntries ( PmpEntries ),
     .PmpUsable  ( PmpUsable  ),
+    .EnableIsaE ( EnableIsaE ),
     .EnableIsaM ( EnableIsaM ),
     .EnableIsaA ( EnableIsaA )
  ) friscv_csr_file (
@@ -479,6 +485,7 @@ end
 // ============================================================
 
 friscv_id_decoder #(
+    .EnableIsaE ( EnableIsaE ),
     .EnableIsaA ( EnableIsaA ),
     .EnableIsaM ( EnableIsaM )
 ) friscv_id_decoder (

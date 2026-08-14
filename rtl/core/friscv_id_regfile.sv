@@ -11,7 +11,9 @@
  * Provides two asynchronous read ports and one synchronous write port.
  */
 
-module friscv_id_regfile import friscv_pkg::*, friscv_mem_pkg::*; (
+module friscv_id_regfile import friscv_pkg::*, friscv_mem_pkg::*; #(
+    parameter int unsigned RegisterNum = 32
+) (
     input  logic      clk_in,
     input  reg_addr_t rs1_sel_in,
     input  reg_addr_t rs2_sel_in,
@@ -22,7 +24,11 @@ module friscv_id_regfile import friscv_pkg::*, friscv_mem_pkg::*; (
     output data_t     rs2_data_out
 );
 
-data_t r_regfile [REGISTER_NUM-1:1]; // Register file, x0 is hardwired to 0
+if (RegisterNum < 2) begin : gen_invalid_regfile
+    $fatal(1, "Invalid register file size: %0d. Must be at least 2.", RegisterNum);
+end
+
+data_t r_regfile [RegisterNum-1:1]; // Register file, x0 is hardwired to 0
 
 assign rs1_data_out = rs1_sel_in == 0 ? '0 : r_regfile[rs1_sel_in];
 assign rs2_data_out = rs2_sel_in == 0 ? '0 : r_regfile[rs2_sel_in];
