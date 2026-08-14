@@ -1,8 +1,8 @@
 rtl/core/friscv_pkg.sv
 rtl/core/friscv_amo_unit.sv
-rtl/core/friscv_core_complex.sv
 rtl/core/friscv_core.sv
-rtl/core/friscv_cpu_subsystem_core.sv
+rtl/core/friscv_datapath.sv
+rtl/core/friscv.sv
 rtl/core/friscv_muldiv.sv
 rtl/core/friscv_ex_stage_branch_unit.sv
 rtl/core/friscv_ex_stage.sv

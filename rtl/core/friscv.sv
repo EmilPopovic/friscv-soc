@@ -9,12 +9,9 @@
 /*
  * This module implements the top-level FRISC-V CPU subsystem, connecting the core to external interfaces.
  * It only provides the external memory interface and interrupt inputs.
- *
- * Use this module when instantiating the CPU subsystem in a larger SoC, together with an accompanying adapter.
- * See: friscv_cpu_subsystem_axi.sv for an example of using this core with an AXI4 external bus.
  */
 
-module friscv_cpu_subsystem_core import friscv_pkg::*, friscv_mem_pkg::*; #(
+module friscv import friscv_pkg::*, friscv_mem_pkg::*; #(
     parameter int unsigned RamBase          = 32'h8000_0000,
     parameter bit          ZsblRomEnable    = 1'b0,
     parameter int unsigned ZsblRomWords     = 1,
@@ -25,30 +22,29 @@ module friscv_cpu_subsystem_core import friscv_pkg::*, friscv_mem_pkg::*; #(
     parameter int unsigned DmExcOffset      = 32'h810,
 
     // Memory protection and address translation
-    parameter logic EnableMmu      = 1,
-    parameter logic EnforcePmp     = 0,
-    parameter logic EnforcePtwPmp  = 0,
-    parameter int   PmpEntries     = 8,
-    parameter int   PmpUsable      = 8,
+    parameter bit EnableMmu      = 1,
+    parameter bit EnforcePmp     = 0,
+    parameter bit EnforcePtwPmp  = 0,
+    parameter int PmpEntries     = 8,
+    parameter int PmpUsable      = 8,
     // Must be a power of 2 greater than 1
-    parameter int   ItlbEntries = 2,
-    parameter int   DtlbEntries = 4,
+    parameter int ItlbEntries = 2,
+    parameter int DtlbEntries = 4,
     // If not enabled, any sfence.vma will flush all TLB entries
-    parameter logic EnableFineTlbFlush = 0,
+    parameter bit EnableFineTlbFlush = 0,
 
     // Extension selection
-    parameter logic EnableMul = 1,
-    parameter logic EnableDiv = 1,
+    parameter bit EnableIsaM    = 1,
     // Use a single-cycle combinational multiplier instead of the iterative multiplier
-    parameter logic EnableFastMul = 0,
-    parameter logic EnableExtensionA = 1,
+    parameter bit EnableFastMul = 0,
+    parameter bit EnableIsaA    = 1,
 
     // If enabled, a write to END_ADDRESS will stall the core until reset
-    parameter logic HaltOnEndAddress    = 0,
+    parameter bit HaltOnEndAddress    = 0,
     // If enabled, entering an EBREAK instruction will halt the core until reset
-    parameter logic HaltOnEnterEbreak   = 0,
+    parameter bit HaltOnEnterEbreak   = 0,
     // If enabled, the first MRET or SRET after entering an EBREAK handler will halt the core until reset
-    parameter logic HaltOnRetFromEbreak = 0
+    parameter bit HaltOnRetFromEbreak = 0
 ) (
     input  logic         i_clk,
     input  logic         i_rstn,
@@ -69,8 +65,8 @@ module friscv_cpu_subsystem_core import friscv_pkg::*, friscv_mem_pkg::*; #(
 localparam int unsigned ResetVec = ZsblRomEnable ? ZsblRomBase : RamBase;
 
 // Elaboration-time parameter checks
-if (!EnableMul && EnableFastMul) begin : gen_chk_fast_mul_has_mul
-    $fatal(1, "EnableFastMul enabled, but EnableMul disabled. Fast multiplier requires MUL.");
+if (!EnableIsaM && EnableFastMul) begin : gen_chk_fast_mul_has_mul
+    $fatal(1, "EnableFastMul enabled, but EnableIsaM disabled. Fast multiplier requires M extension.");
 end
 if (!EnableMmu && EnforcePmp) begin : gen_chk_pmp_requires_mmu
     $fatal(1, "EnforcePmp enabled, but EnableMmu disabled. PMP enforcement requires MMU.");
@@ -100,7 +96,7 @@ assign w_mem_err = mem_if.err;
 // Core complex instance
 // ============================================================
 
-friscv_core_complex #(
+friscv_core #(
     .HartId              ( 0                   ),
     .ResetVec            ( ResetVec            ),
     .ZsblRomEnable       ( ZsblRomEnable       ),
@@ -117,10 +113,9 @@ friscv_core_complex #(
     .ItlbEntries         ( ItlbEntries         ),
     .DtlbEntries         ( DtlbEntries         ),
     .EnableFineTlbFlush  ( EnableFineTlbFlush  ),
-    .EnableMul           ( EnableMul           ),
-    .EnableDiv           ( EnableDiv           ),
+    .EnableIsaM          ( EnableIsaM          ),
     .EnableFastMul       ( EnableFastMul       ),
-    .EnableExtensionA    ( EnableExtensionA    ),
+    .EnableIsaA          ( EnableIsaA          ),
     .HaltOnEndAddress    ( HaltOnEndAddress    ),
     .HaltOnEnterEbreak   ( HaltOnEnterEbreak   ),
     .HaltOnRetFromEbreak ( HaltOnRetFromEbreak )

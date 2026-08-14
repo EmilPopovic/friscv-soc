@@ -20,10 +20,9 @@
  */
 
 module friscv_ex_stage import friscv_pkg::*, friscv_mem_pkg::*; #(
-    parameter logic EnableMul     = 1,
-    parameter logic EnableDiv     = 1,
+    parameter bit EnableIsaM    = 1,
     // Use a single-cycle combinational multiplier instead of the iterative multiplier
-    parameter logic EnableFastMul = 0
+    parameter bit EnableFastMul = 0
 ) (
     input  logic           clk_in,
     input  logic           rst_n_in,
@@ -141,14 +140,14 @@ logic        muldiv_en;
 logic        a_signed;
 logic        b_signed;
 
-assign mul_en = EnableMul && ((instr_buff.alu_op == MUL_OP   ) ||
-                              (instr_buff.alu_op == MULH_OP  ) ||
-                              (instr_buff.alu_op == MULHU_OP ) ||
-                              (instr_buff.alu_op == MULHSU_OP));
-assign div_en = EnableDiv && ((instr_buff.alu_op == DIV_OP ) ||
-                              (instr_buff.alu_op == DIVU_OP) ||
-                              (instr_buff.alu_op == REM_OP ) ||
-                              (instr_buff.alu_op == REMU_OP));
+assign mul_en = EnableIsaM && ((instr_buff.alu_op == MUL_OP   ) ||
+                               (instr_buff.alu_op == MULH_OP  ) ||
+                               (instr_buff.alu_op == MULHU_OP ) ||
+                               (instr_buff.alu_op == MULHSU_OP));
+assign div_en = EnableIsaM && ((instr_buff.alu_op == DIV_OP ) ||
+                               (instr_buff.alu_op == DIVU_OP) ||
+                               (instr_buff.alu_op == REM_OP ) ||
+                               (instr_buff.alu_op == REMU_OP));
 assign muldiv_en = (mul_en && !EnableFastMul) || div_en;
 
 assign a_signed = (instr_buff.alu_op == MULH_OP)  ||
@@ -159,7 +158,7 @@ assign b_signed = (instr_buff.alu_op == MULH_OP) ||
                   (instr_buff.alu_op == DIV_OP)  ||
                   (instr_buff.alu_op == REM_OP);
 
-generate if ((EnableMul && !EnableFastMul) || EnableDiv) begin : gen_muldiv
+generate if (EnableIsaM && !EnableFastMul) begin : gen_muldiv
     logic done;
     logic started;
     logic done_hold;
@@ -206,7 +205,7 @@ end endgenerate
 
 data_t mul_res_lo, mul_res_hi;
 
-generate if (EnableMul && EnableFastMul) begin : gen_fast_mul
+generate if (EnableIsaM && EnableFastMul) begin : gen_fast_mul
     logic signed [32:0] op_a, op_b;
     logic signed [65:0] product;
 

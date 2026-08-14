@@ -160,7 +160,7 @@ assign soc_rstn_async = por_rstn & (test_mode_i | ~ndmreset);
 assign por_rst_no = por_rstn;
 assign soc_rst_no = soc_rstn;
 
-friscv_cpu_subsystem_core #(
+friscv #(
     .RamBase            ( ExtBase          ),
     .ZsblRomEnable      ( ZsblRomEnable    ),
     .ZsblRomWords       ( ZsblRomWords     ),
@@ -170,10 +170,9 @@ friscv_cpu_subsystem_core #(
     .HaltOnEndAddress   ( HaltOnEnd        ),
     .ItlbEntries        ( ItlbEntries      ),
     .DtlbEntries        ( DtlbEntries      ),
-    .EnableMul          ( EnableIsaM       ),
-    .EnableDiv          ( EnableIsaM       ),
+    .EnableIsaM         ( EnableIsaM       ),
     .EnableFastMul      ( EnableFastMul    ),
-    .EnableExtensionA   ( EnableIsaA       ),
+    .EnableIsaA         ( EnableIsaA       ),
     .EnforcePmp         ( EnforcePmp       ),
     .EnableFineTlbFlush ( FineTlbFlush     )
 ) cpu_subsystem (

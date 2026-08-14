@@ -7,530 +7,490 @@
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
 
 /*
- * This module implements the FRISC-V core datapath, connecting all pipeline stages.
- * Two memory interfaces are provided, one for instructions and one for data, as well as external interrupt signals.
- * In a multi-core system, make sure that each core has a unique HART_ID, and that one core has HART_ID=0.
+ * This module implements a single FRISC-V core, with everything that is local to the core (including the MMU and AMO unit) integrated into a single module.
+ * Never instantiate a core without this wrapper.
  */
 
 module friscv_core import friscv_pkg::*, friscv_mem_pkg::*; #(
-    parameter int unsigned HartId        = 0,
-    parameter int unsigned ResetVec      = 32'h8000_0000,
-    parameter int unsigned DmBase        = 32'h0000_0000,
-    parameter int unsigned DmHaltOffset = 32'h800,
-    parameter int unsigned DmExcOffset  = 32'h810,
+    parameter int unsigned HartId           = 0,
+    parameter int unsigned ResetVec         = 32'h8000_0000,
+    parameter bit          ZsblRomEnable    = 1'b0,
+    parameter int unsigned ZsblRomWords     = 1,
+    parameter logic [31:0] ZsblRomProg [ZsblRomWords] = '{default: '0},
+    parameter int unsigned DmBase           = 32'h0000_0000,
+    parameter int unsigned DmHaltOffset     = 32'h800,
+    parameter int unsigned DmExcOffset      = 32'h810,
 
     // Memory protection and address translation
-    parameter logic EnableMmu  = 1,
-    parameter logic EnforcePmp = 0,
-    parameter int   PmpEntries = 8,
-    parameter int   PmpUsable  = 8,
+    parameter bit EnableMmu     = 1,
+    parameter bit EnforcePmp    = 0,
+    parameter bit EnforcePtwPmp = 0,
+    parameter int unsigned PmpEntries  = 8,
+    parameter int unsigned PmpUsable   = 8,
+    // Must be a power of 2 greater than 1
+    parameter int unsigned ItlbEntries = 2,
+    parameter int unsigned DtlbEntries = 4,
+    // If not enabled, any sfence.vma will flush all TLB entries
+    parameter bit EnableFineTlbFlush = 0,
 
     // Extension selection
-    parameter logic EnableMul = 1,
-    parameter logic EnableDiv = 1,
+    parameter bit EnableIsaM    = 1,
     // Use a single-cycle combinational multiplier instead of the iterative multiplier
-    parameter logic EnableFastMul = 0,
-    parameter logic EnableExtensionA = 1,
-
+    parameter bit EnableFastMul = 0,
+    parameter bit EnableIsaA    = 1,
+    // If enabled, a write to END_ADDRESS will stall the core until reset
+    parameter bit HaltOnEndAddress = 0,
     // If enabled, entering an EBREAK instruction will halt the core until reset
-    parameter logic HaltOnEnterEbreak = 0,
+    parameter bit HaltOnEnterEbreak = 0,
     // If enabled, the first MRET or SRET after entering an EBREAK handler will halt the core until reset
-    parameter logic HaltOnRetFromEbreak = 0
+    parameter bit HaltOnRetFromEbreak = 0
 ) (
     input  logic       i_clk,
     input  logic       i_rstn,
-    output logic       o_halt,
-    input  logic       i_halt,
-    output logic       o_ex_mem_inflight,
-
-    // Interrupt requests
+    output logic       o_end,
     input  logic       i_msip,
     input  logic       i_mtip,
     input  logic       i_meip,
     input  logic       i_seip,
-
-    // CLINT time
     input  mtime_t     i_mtime,
 
-    // Page fault signals
-    input  logic       i_inst_fault,
-    input  logic       i_load_fault,
-    input  logic       i_store_fault,
-    input  addr_t      i_fault_addr,
-    
-    // Instruction Memory Interface
-    output addr_t      i_mem_addr_out,
-    input  data_t      i_mem_data_in,
-    output logic       i_mem_en_out,
-    input  logic       i_mem_wait_in,
-    input  logic       i_mem_err_in,
-    input  logic       i_mem_pmp_fault_in,
+    output mem_width_e o_mem_size,
+    output addr_t      o_mem_addr,
+    output data_t      o_mem_wdata,
+    input  data_t      i_mem_rdata,
+    output rw_cmd_e    o_mem_rw,
+    input  logic       i_mem_wait,
+    input  logic       i_mem_err,
+    output logic       o_burst_en,
 
-    // Data memory interface 
-    output addr_t      d_mem_addr_out,
-    output data_t      d_mem_data_out,
-    input  data_t      d_mem_data_in,
-    output logic       d_mem_en_out,
-    output logic       d_mem_wr_out,
-    output logic       d_mem_store_like_out,
-    output mem_width_e d_mem_size_out,
-    input  logic       d_mem_wait_in,
-    input  logic       d_mem_err_in,
-    input  logic       d_mem_pmp_fault_in,
-    output amo_op_e    d_mem_amo_op_out,
-
-    // Memory management outputs
-    output satp_t      satp_out,
-    output logic       sum_out,
-    output logic       mxr_out,
-    output mode_e      mode_out,
-    output mode_e      data_mode_out,
-    output logic       flush_tlb_out,
-    output vpn_t       flush_vpn_out,
-    output logic       flush_vpn_en_out,
-    output asid_t      flush_asid_out,
-    output logic       flush_asid_en_out,
-    output pmp_entry_t [PmpEntries-1:0] pmp_table_out,
-
-    input  logic       dbg_req_in
+    input  logic       i_dbg_req
 );
 
-logic flush_if, flush_id;
-logic stall_if, stall_id, stall_ex, stall_mem, stall_wb, flush_ex;
+// ============================================================
+// Level 1 bus: instruction and data memory interfaces
+// ============================================================
 
-// Jump signals
-logic  jump_ok, jal_ok, branch_ok;
-addr_t jump_target, jal_target;  // ex_alu_data_out is branch_target
+// Instruction L1 bus
+addr_t      w_inst_addr;
+data_t      w_inst_data;
+logic       w_inst_en;
+logic       w_inst_wait;
+logic       w_inst_err;
+logic       w_stall_if;
+inst_t      w_zsbl_data;
 
-// IF stage signals
-addr_t if_pc_out, if_pc_plus_4_out;
-data_t if_ir_out;
+// Data L1 bus
+addr_t      w_data_addr;
+data_t      w_data_wdata;
+data_t      w_data_rdata;
+logic       w_data_en;
+logic       w_data_wr;
+logic       w_data_store_like;
+mem_width_e w_data_size;
+logic       w_data_wait;
+logic       w_data_err;
+amo_op_e    w_amo_op;
+logic       w_ex_mem_inflight;
 
-// ID stage signals
-reg_addr_t id_rs1_sel_out, id_rs2_sel_out, id_rd_sel_out;
-addr_t     id_pc_out, id_pc_plus_4_out;
-data_t     id_rs1_out, id_rs2_out, id_imm32_out, id_csr_out;    
-instr_ex_t id_uinstr;
+// ============================================================
+// Protection and Translation signals
+// ============================================================
 
-// EX stage signals
-addr_t          ex_pc_out;
-addr_t          ex_pc_plus_4_out;
-data_t          ex_alu_data_out, ex_store_data_out;
-reg_addr_t      ex_rd_sel_out;
-mem_instr_sel_e ex_mem_instr_sel_out;
-mem_width_e     ex_load_store_width_out;
-wb_data_sel_e   ex_wb_data_sel_out;
-logic           ex_reserve_out;
-logic           ex_conditional_out;
-amo_op_e        ex_amo_op_out;
-csr_addr_e      ex_csr_sel_out;
-data_t          ex_csr_readback_out;
-logic           ex_csr_en_out;
-logic           ex_instr_valid_out;
-logic           ex_muldiv_active;
-addr_t          ex_branch_target;
-ex_trap_e       ex_trap_out;
-addr_t          ex_trap_pc_out;
-addr_t          ex_trap_va_out;
-mode_e          ex_trap_mode_out;
-logic           ex_commit;
+satp_t w_satp;
+logic  w_sum;
+logic  w_mxr;
+mode_e w_mode;
+mode_e w_data_mode;
+logic  w_flush_tlb;
+vpn_t  w_flush_vpn;
+logic  w_flush_vpn_en;
+asid_t w_flush_asid;
+logic  w_flush_asid_en;
 
-logic ex_instr_is_mem;
-assign ex_instr_is_mem = ex_mem_instr_sel_out != MEM_INSTR_NONE;
-assign o_ex_mem_inflight = ex_instr_is_mem;
+// ============================================================
+// Level 2 bus and L1-L2 arbitration
+// ============================================================
 
-// MEM stage signals
-mem_trap_e      mem_trap_out;
-addr_t          mem_trap_pc_out;
-addr_t          mem_trap_va_out;
-mode_e          mem_trap_mode_out;
-addr_t          mem_pc_plus_4_out;
-data_t          mem_alu_data_out;
-data_t          mem_load_data_out;
-data_t          mem_sc_res_out;
-wb_data_sel_e   mem_wb_data_sel_out;
-reg_addr_t      mem_rd_sel_out;
-csr_addr_e      mem_csr_sel_out;
-data_t          mem_csr_data_out;
-data_t          mem_csr_readback_out;
-logic           mem_csr_en_out;
-logic           mem_instr_valid_out;
-logic           mem_commit;
+addr_t      w_l2_req_addr;
+mem_width_e w_l2_req_size;
+data_t      w_l2_req_wdata;
+rw_cmd_e    w_l2_req_rw;
+data_t      w_l2_req_rdata;
+logic       w_l2_req_wait;
+logic       w_l2_req_err;
+amo_op_e    w_l2_req_amo_op;
 
-// WB stage signals
-data_t     wb_rd_data_out;
-reg_addr_t wb_rd_sel_out;
-csr_addr_e wb_csr_sel_out;
-data_t     wb_csr_data_out;
-logic      wb_csr_en_out;
-logic      wb_inst_ret_out;
-logic      wb_instr_valid_out;
+addr_t      w_l2_addr;
+mem_width_e w_l2_size;
+data_t      w_l2_wdata;
+rw_cmd_e    w_l2_rw;
+data_t      w_l2_backend_rdata;
+logic       w_l2_backend_wait;
+logic       w_l2_backend_err;
+amo_op_e    w_l2_amo_op;
 
-// Interrupts
-addr_t id_tvec_out, id_epc_out;
-logic  id_trap_out, id_trap_pending, id_ret_out , id_effective_ret;
-logic  data_addr_virtual;
+// AMO unit signals
+rw_cmd_e    w_amo_rw;
+data_t      w_amo_store_data;
+data_t      w_amo_load_data;
+logic       w_amo_core_wait;
+logic       w_amo_active;
+logic       w_amo_start;
+logic       w_amo_bootstrap;
+logic       r_amo_addr_valid;
+addr_t      r_amo_addr;
+mem_width_e r_amo_size;
 
-assign data_addr_virtual = EnableMmu && (data_mode_out != M_MODE) && (|satp_out.mode);
+assign w_amo_start = (w_l2_amo_op != AMO_NONE) &&
+                     (w_l2_rw != RW_IDLE) &&
+                     !r_amo_addr_valid;
+assign w_amo_bootstrap = (w_l2_amo_op != AMO_NONE) && !r_amo_addr_valid;
 
-friscv_pipeline_control control_unit (
-    // Control signals
-    .flush_if_out     ( flush_if           ),
-    .flush_id_out     ( flush_id           ),
-    .flush_ex_out     ( flush_ex           ),
-    .stall_if_out     ( stall_if           ),
-    .stall_id_out     ( stall_id           ),
-    .stall_ex_out     ( stall_ex           ),
-    .stall_mem_out    ( stall_mem          ),
+always_ff @(posedge i_clk or negedge i_rstn) begin
+    if (!i_rstn) begin
+        r_amo_addr_valid <= 1'b0;
+        r_amo_addr       <= '0;
+        r_amo_size       <= WIDTH_I32;
+    end else begin
+        // Freeze AMO target address and size for the whole LOAD-STORE sequence
+        if (w_amo_start) begin
+            r_amo_addr_valid <= 1'b1;
+            r_amo_addr       <= w_l2_addr;
+            r_amo_size       <= w_l2_size;
+        end else if (r_amo_addr_valid && w_amo_rw == RW_IDLE) begin
+            r_amo_addr_valid <= 1'b0;
+        end
+    end
+end
 
-    // IF stage
-    .jump_ok_out      ( jump_ok            ),
-    .jump_target_out  ( jump_target        ),
-    .eff_ret_out      ( id_effective_ret   ),  
+assign o_mem_size  = w_amo_active ? (r_amo_addr_valid ? r_amo_size : w_l2_size) : w_l2_size;
+assign o_mem_addr  = w_amo_active ? (r_amo_addr_valid ? r_amo_addr : w_l2_addr) : w_l2_addr;
+assign o_mem_wdata = w_amo_active ? w_amo_store_data : w_l2_wdata;
 
-    // ID stage
-    .id_rs1_sel_in    ( id_rs1_sel_out     ),
-    .id_rs2_sel_in    ( id_rs2_sel_out     ),
-    .jal_ok_in        ( jal_ok             ),
-    .jal_target_in    ( jal_target         ),
-    .id_csr_en_in     ( id_uinstr.csr_op   ),
-    .id_csr_sel_in    ( id_uinstr.csr_addr ),
+// Page fault signals
+logic  w_inst_fault, w_load_fault, w_store_fault;
+addr_t w_fault_addr;
 
-    // EX stage
-    .ex_rd_sel_in     ( ex_rd_sel_out      ),
-    .branch_ok_in     ( branch_ok          ),
-    .branch_target_in ( ex_branch_target   ),
-    .ex_csr_en_in     ( ex_csr_en_out      ),
-    .ex_csr_sel_in    ( ex_csr_sel_out     ),
-    .ex_muldiv_active_in ( ex_muldiv_active ),
+pmp_entry_t [PmpEntries-1:0] w_pmp_table;
+logic w_inst_pmp_fault, w_data_pmp_fault;
 
-    // MEM stage
-    .mem_rd_sel_in    ( mem_rd_sel_out     ),
-    .mem_csr_en_in    ( mem_csr_en_out     ),
-    .mem_csr_sel_in   ( mem_csr_sel_out    ),
+// The MMU contains an arbiter.
+// If the MMU is disabled, a bare arbiter is instantiated instead.
+`pragma diagnostic push
+`pragma diagnostic ignore="-Wempty-output-connection"
+if (EnableMmu) begin : gen_mmu
+    friscv_mmu #(
+        .EnforcePmp         ( EnforcePmp         ),
+        .EnforcePtwPmp      ( EnforcePtwPmp      ),
+        .PmpEntries         ( PmpEntries         ),
+        .ItlbEntries        ( ItlbEntries        ),
+        .DtlbEntries        ( DtlbEntries        ),
+        .EnableFineTlbFlush ( EnableFineTlbFlush )
+    ) mmu (
+        .i_clk           ( i_clk           ),
+        .i_rstn          ( i_rstn          ),
 
-    // WB stage
-    .wb_rd_sel_in     ( wb_rd_sel_out      ),
-    .wb_csr_en_in     ( wb_csr_en_out      ),
-    .wb_csr_sel_in    ( wb_csr_sel_out     ),
-    .ex_instr_valid_in ( ex_instr_valid_out ),
-    .mem_instr_valid_in( mem_instr_valid_out),
-    .wb_instr_valid_in ( wb_instr_valid_out ),
+        // Instruction Memory Interface
+        .i_inst_addr     ( w_inst_addr     ),
+        .o_inst_data     ( w_inst_data     ),
+        .i_inst_en       ( w_inst_en       ),
+        .o_inst_wait     ( w_inst_wait     ),
+        .o_inst_err      ( w_inst_err      ),
+        .o_inst_pmp_fault( w_inst_pmp_fault),
 
-    // Older memory operations must drain before return redirects take effect
-    .ex_mem_inflight_in ( ex_instr_is_mem  ),
-    .mem_mem_inflight_in( d_mem_en_out     ),
+        // Data Memory Interface
+        .i_data_addr     ( w_data_addr     ),
+        .i_data_size     ( w_data_size     ),
+        .i_data_wdata    ( w_data_wdata    ),
+        .o_data_rdata    ( w_data_rdata    ),
+        .i_data_en       ( w_data_en       ),
+        .i_data_wr       ( w_data_wr       ),
+        .i_data_store_like ( w_data_store_like ),
+        .o_data_wait     ( w_data_wait     ),
+        .o_data_err      ( w_data_err      ),
+        .o_data_pmp_fault( w_data_pmp_fault),
+        .i_amo_op        ( w_amo_op        ),
 
-    // Memory wait signals
-    .if_wait_in       ( i_mem_wait_in      ),
-    .mem_wait_in      ( d_mem_wait_in      ),
-    
-    // Interrupts
-    .trap_in          ( id_trap_out        ),
-    .trap_pending_in  ( id_trap_pending    ),
-    .ret_in           ( id_ret_out         ),
+        // External Memory Interface
+        .o_mem_size      ( w_l2_req_size   ),
+        .o_mem_addr      ( w_l2_req_addr   ),
+        .o_mem_wdata     ( w_l2_req_wdata  ),
+        .i_mem_rdata     ( w_l2_req_rdata  ),
+        .o_mem_rw        ( w_l2_req_rw     ),
+        .i_mem_wait      ( w_l2_req_wait   ),
+        .i_mem_err       ( w_l2_req_err    ),
+        .o_amo_op        ( w_l2_req_amo_op ),
 
-    .halt_in          ( i_halt             )
-);
+        // Protection and Translation Control
+        .i_satp          ( w_satp          ),
+        .i_sum           ( w_sum           ),
+        .i_mxr           ( w_mxr           ),
+        .i_inst_mode     ( w_mode          ),
+        .i_data_mode     ( w_data_mode     ),
+        .i_flush_tlb     ( w_flush_tlb     ),
+        .i_flush_vpn     ( w_flush_vpn     ),
+        .i_flush_vpn_en  ( w_flush_vpn_en  ),
+        .i_flush_asid    ( w_flush_asid    ),
+        .i_flush_asid_en ( w_flush_asid_en ),
+        .i_pmp_table     ( w_pmp_table     ),
 
-friscv_if_stage #(
-    .ResetVec ( ResetVec )
-) if_stage (
-    .clk_in         ( i_clk             ),
-    .rst_n_in       ( i_rstn            ),
+        // Page fault signals
+        .o_inst_fault    ( w_inst_fault    ),
+        .o_load_fault    ( w_load_fault    ),
+        .o_store_fault   ( w_store_fault   ),
+        .o_fault_addr    ( w_fault_addr    )
+    );
+end else begin : gen_no_mmu
+    friscv_l1_arbiter l1_arbiter (
+        .i_clk        ( i_clk           ),
+        .i_rstn       ( i_rstn          ),
 
-    // Stage control signals
-    .flush_in       ( flush_if          ),
-    .stage_stall_in ( stall_if          ),
-    .i_mem_wait_in  ( i_mem_wait_in     ),
-    .jump_ok_in     ( jump_ok           ),
-    .jump_target_in ( jump_target       ),
+        .i_inst_addr  ( w_inst_addr     ),
+        .o_inst_data  ( w_inst_data     ),
+        .i_inst_en    ( w_inst_en       ),
+        .o_inst_wait  ( w_inst_wait     ),
+        .o_inst_err   ( w_inst_err      ),
 
-    // Outputs to ID stage
-    .pc_out         ( if_pc_out         ),
-    .pc_plus_4_out  ( if_pc_plus_4_out  ),
-    .ir_out         ( if_ir_out         ),
+        .i_data_addr  ( w_data_addr     ),
+        .i_data_size  ( w_data_size     ),
+        .i_data_wdata ( w_data_wdata    ),
+        .o_data_rdata ( w_data_rdata    ),
+        .i_data_en    ( w_data_en       ),
+        .i_data_wr    ( w_data_wr       ),
+        .o_data_wait  ( w_data_wait     ),
+        .o_data_err   ( w_data_err      ),
+        .i_amo_op     ( w_amo_op        ),
 
-    // Instruction memory interface
-    .i_mem_addr_out ( i_mem_addr_out    ),
-    .i_mem_data_in  ( i_mem_data_in     ),
-    .i_mem_en_out   ( i_mem_en_out      ),
+        .o_mem_addr   ( w_l2_req_addr   ),
+        .o_mem_size   ( w_l2_req_size   ),
+        .o_mem_wdata  ( w_l2_req_wdata  ),
+        .i_mem_rdata  ( w_l2_req_rdata  ),
+        .o_mem_rw     ( w_l2_req_rw     ),
+        .i_mem_wait   ( w_l2_req_wait   ),
+        .i_mem_err    ( w_l2_req_err    ),
+        .o_amo_op     ( w_l2_req_amo_op ),
+        .o_grant_start(                 ),
+        .o_grant_start_inst(            ),
+        .o_grant_held (                 )
+    );
 
-    // Interrupts
-    .trap_in        ( id_trap_out       ),
-    .ret_in         ( id_effective_ret  ),
-    .tvec_in        ( id_tvec_out       ),
-    .epc_in         ( id_epc_out        )
-);
+    assign w_inst_fault  = 1'b0;
+    assign w_load_fault  = 1'b0;
+    assign w_store_fault = 1'b0;
+    assign w_fault_addr  = '0;
+    assign w_inst_pmp_fault = 1'b0;
+    assign w_data_pmp_fault = 1'b0;
+end
+`pragma diagnostic pop
 
-friscv_id_stage #(
+// ============================================================
+// Level 2 bus
+// ============================================================
+
+assign w_l2_addr   = w_l2_req_addr;
+assign w_l2_size   = w_l2_req_size;
+assign w_l2_wdata  = w_l2_req_wdata;
+assign w_l2_rw     = w_l2_req_rw;
+assign w_l2_amo_op = (w_l2_req_rw != RW_IDLE) ? w_l2_req_amo_op : AMO_NONE;
+
+assign w_l2_req_wait  = w_l2_backend_wait;
+assign w_l2_req_err   = w_l2_backend_err;
+assign w_l2_req_rdata = w_l2_backend_rdata;
+
+// ============================================================
+// End signal detection on write to END_ADDRESS
+// ============================================================
+
+logic r_end_signal;
+logic r_halt_active;
+logic w_core_halt;
+
+always_ff @(posedge i_clk or negedge i_rstn) begin
+    if (!i_rstn) begin
+        r_end_signal  <= 1'b0;
+        r_halt_active <= 1'b0;
+    end else if (HaltOnEndAddress && w_data_addr == END_ADDRESS && w_data_en && w_data_wr) begin
+        r_end_signal  <= 1'b1;
+        r_halt_active <= 1'b1;
+    end else begin
+        if (w_core_halt)
+            r_halt_active <= 1'b1;
+        if (r_halt_active && !w_ex_mem_inflight && !w_data_en)
+            r_end_signal <= 1'b1;
+    end
+end
+
+assign o_end = r_end_signal;
+assign w_stall_if = w_inst_wait;
+
+// ============================================================
+// Core instance
+// ============================================================
+
+friscv_datapath #(
     .HartId              ( HartId              ),
+    .ResetVec            ( ResetVec            ),
     .DmBase              ( DmBase              ),
     .DmHaltOffset        ( DmHaltOffset        ),
     .DmExcOffset         ( DmExcOffset         ),
-    .EnableMul           ( EnableMul           ),
-    .EnableDiv           ( EnableDiv           ),
-    .EnableExtensionA    ( EnableExtensionA    ),
+    .EnableMmu           ( EnableMmu           ),
     .EnforcePmp          ( EnforcePmp          ),
     .PmpEntries          ( PmpEntries          ),
     .PmpUsable           ( PmpUsable           ),
+    .EnableIsaM          ( EnableIsaM          ),
+    .EnableFastMul       ( EnableFastMul       ),
+    .EnableIsaA          ( EnableIsaA          ),
     .HaltOnEnterEbreak   ( HaltOnEnterEbreak   ),
     .HaltOnRetFromEbreak ( HaltOnRetFromEbreak )
-) id_stage (
-    .clk_in           ( i_clk            ), 
-    .rst_n_in         ( i_rstn           ),
-    .halt_out         ( o_halt           ),
-    .dbg_req_in       ( dbg_req_in       ),
+) cpu_0 (
+    .i_clk            ( i_clk           ),
+    .i_rstn           ( i_rstn          ),
+    .o_halt           ( w_core_halt     ),
+    .i_halt           ( r_halt_active   ),
+    .o_ex_mem_inflight( w_ex_mem_inflight ),
 
-    .branch_ok_in     ( branch_ok        ),
-    
     // Interrupt requests
-    .msip_in          ( i_msip           ),
-    .mtip_in          ( i_mtip           ),
-    .meip_in          ( i_meip           ),
-    .seip_in          ( i_seip           ),
+    .i_msip           ( i_msip          ),
+    .i_mtip           ( i_mtip          ),
+    .i_meip           ( i_meip          ),
+    .i_seip           ( i_seip          ),
 
     // CLINT time
-    .mtime_in         ( i_mtime          ),
+    .i_mtime          ( i_mtime         ),
 
-    // Page fault signals, from MMU
-    .inst_fault_in    ( i_inst_fault     ),
-    .fault_addr_in    ( i_fault_addr     ),
-    .inst_err_in      ( i_mem_err_in     ),
-    .inst_pmp_fault_in( i_mem_pmp_fault_in ),
+    // Page fault signals
+    .i_inst_fault     ( w_inst_fault    ),
+    .i_load_fault     ( w_load_fault    ),
+    .i_store_fault    ( w_store_fault   ),
+    .i_fault_addr     ( w_fault_addr    ),
 
-    // Page fault signals, from MEM stage
-    .mem_trap_in      ( mem_trap_out     ),
-    .mem_trap_pc_in   ( mem_trap_pc_out  ),
-    .mem_trap_va_in   ( mem_trap_va_out  ),
-    .mem_trap_mode_in ( mem_trap_mode_out),
-    .mem_trap_commit_out ( mem_commit    ),
-
-    // EX stage trap
-    .ex_trap_in       ( ex_trap_out      ),
-    .ex_trap_pc_in    ( ex_trap_pc_out   ),
-    .ex_trap_va_in    ( ex_trap_va_out   ),
-    .ex_trap_mode_in  ( ex_trap_mode_out ),
-    .ex_trap_commit_out ( ex_commit      ),
-
-    // Stage control signals
-    .flush_in         ( flush_id         ),
-    .stage_stall_in   ( stall_id         ),
-
-    // Outputs to control logic
-    .rs1_sel_out      ( id_rs1_sel_out   ),
-    .rs2_sel_out      ( id_rs2_sel_out   ),
-    .rd_sel_out       ( id_rd_sel_out    ),
-    .jal_ok_out       ( jal_ok           ),
-    .jal_target_out   ( jal_target       ),
-
-    // Inputs from IF stage
-    .pc_in            ( if_pc_out        ),
-    .pc_plus_4_in     ( if_pc_plus_4_out ),
-    .ir_in            ( if_ir_out        ),
-
-    // Outputs to EX stage
-    .pc_out           ( id_pc_out        ),
-    .pc_plus_4_out    ( id_pc_plus_4_out ),
-    .rs1_out          ( id_rs1_out       ),
-    .rs2_out          ( id_rs2_out       ),
-    .imm32_out        ( id_imm32_out     ),
-    .csr_out          ( id_csr_out       ),
-    .instr_ex_out     ( id_uinstr        ),
-
-    // Inputs from older stages
-    .ex_rd_sel_in     ( ex_rd_sel_out    ),
-    .mem_rd_sel_in    ( mem_rd_sel_out   ),
-    .ex_muldiv_active_in ( ex_muldiv_active ),
-
-    // Inputs from WB stage
-    .rd_sel_in        ( wb_rd_sel_out    ),
-    .rd_data_in       ( wb_rd_data_out   ),
-    .csr_sel_in       ( wb_csr_sel_out   ),
-    .csr_data_in      ( wb_csr_data_out  ),
-    .csr_en_in        ( wb_csr_en_out    ),
-    .instr_ret_in     ( wb_inst_ret_out  ),
-
-    // CSR write-in-flight visibility
-    .ex_csr_en_in     ( ex_csr_en_out    ),
-    .mem_csr_en_in    ( mem_csr_en_out   ),
-    .wb_csr_en_in     ( wb_csr_en_out    ),
-    .ex_mem_inflight_in( ex_instr_is_mem ),
-    .mem_mem_inflight_in( d_mem_en_out   ),
-    
-    // Interrupts
-    .tvec_out         ( id_tvec_out      ), 
-    .epc_out          ( id_epc_out       ),
-    .trap_out         ( id_trap_out      ),
-    .trap_pending_out ( id_trap_pending  ),
-    .ret_out          ( id_ret_out       ),
-    .ret_commit_in    ( id_effective_ret ),
-
-    // Outputs to MMU
-    .satp_out         ( satp_out         ),
-    .sum_out          ( sum_out          ),
-    .mxr_out          ( mxr_out          ),
-    .mode_out         ( mode_out         ),
-    .data_mode_out    ( data_mode_out    ),
-    .pmp_table_out    ( pmp_table_out    )
-);
-
-friscv_ex_stage #(
-    .EnableMul     ( EnableMul     ),
-    .EnableDiv     ( EnableDiv     ),
-    .EnableFastMul ( EnableFastMul )
-) ex_stage (
-    .clk_in               ( i_clk                   ),
-    .rst_n_in             ( i_rstn                  ),
-
-    // Stage control signals
-    .stage_stall_in       ( stall_ex                ),
-    .stage_flush_in       ( flush_ex                ),
-
-    // Inputs from ID stage
-    .pc_in                ( id_pc_out               ),
-    .pc_plus_4_in         ( id_pc_plus_4_out        ),
-    .rs1_in               ( id_rs1_out              ),
-    .rs2_in               ( id_rs2_out              ),
-    .imm32_in             ( id_imm32_out            ),
-    .csr_in               ( id_csr_out              ),
-    .rs1_sel_in           ( id_rs1_sel_out          ),
-    .rs2_sel_in           ( id_rs2_sel_out          ),
-    .rd_sel_in            ( id_rd_sel_out           ),
-    .mode_in              ( mode_out                ),
-    .instr_ex_in          ( id_uinstr               ),
-
-    // Outputs to MEM stage
-    .pc_out               ( ex_pc_out               ),
-    .pc_plus_4_out        ( ex_pc_plus_4_out        ),
-    .alu_data_out         ( ex_alu_data_out         ),
-    .rd_sel_out           ( ex_rd_sel_out           ),
-    .store_data_out       ( ex_store_data_out       ),
-    .mem_instr_sel_out    ( ex_mem_instr_sel_out    ),
-    .load_store_width_out ( ex_load_store_width_out ),
-    .wb_data_sel_out      ( ex_wb_data_sel_out      ),
-    .reserve_out          ( ex_reserve_out          ),
-    .conditional_out      ( ex_conditional_out      ),
-    .amo_op_out           ( ex_amo_op_out           ),
-    .csr_sel_out          ( ex_csr_sel_out          ),
-    .csr_readback_out     ( ex_csr_readback_out     ),
-    .csr_en_out           ( ex_csr_en_out           ),
-    .instr_valid_out      ( ex_instr_valid_out      ),
-    .mode_out             ( ex_trap_mode_out        ),
-
-    // Outputs to control logic
-    .branch_ok_out        ( branch_ok               ),
-    .muldiv_active_out    ( ex_muldiv_active        ),
-    .branch_target_out    ( ex_branch_target        ),
-    .flush_tlb_out        ( flush_tlb_out           ),
-    .flush_vpn_out        ( flush_vpn_out           ),
-    .flush_vpn_en_out     ( flush_vpn_en_out        ),
-    .flush_asid_out       ( flush_asid_out          ),
-    .flush_asid_en_out    ( flush_asid_en_out       ),
-
-    // Trap signals
-    .trap_commit_in       ( ex_commit               ),
-    .trap_out             ( ex_trap_out             ),
-    .trap_pc_out          ( ex_trap_pc_out          ),
-    .trap_va_out          ( ex_trap_va_out          )
-);
-
-friscv_mem_stage mem_stage (
-    .clk_in              ( i_clk                   ),
-    .rst_n_in            ( i_rstn                  ),
-
-    // Stage control signals
-    .stage_stall_in      ( stall_mem               ),
-    .trap_commit_in      ( id_trap_out             ),
-    .addr_virtual_in     ( data_addr_virtual       ),
-
-    // Inputs from EX stage
-    .pc_in               ( ex_pc_out               ),
-    .pc_plus_4_in        ( ex_pc_plus_4_out        ),
-    .alu_data_in         ( ex_alu_data_out         ),
-    .rd_sel_in           ( ex_rd_sel_out           ),
-    .store_data_in       ( ex_store_data_out       ),
-    .mem_instr_sel_in    ( ex_mem_instr_sel_out    ),
-    .load_store_width_in ( ex_load_store_width_out ),
-    .wb_data_sel_in      ( ex_wb_data_sel_out      ),
-    .csr_sel_in          ( ex_csr_sel_out          ),
-    .csr_readback_in     ( ex_csr_readback_out     ),
-    .csr_en_in           ( ex_csr_en_out           ),
-    .instr_valid_in      ( ex_instr_valid_out      ),
-    .mode_in             ( ex_trap_mode_out        ),
-
-    // Page fault inputs from MMU
-    .load_fault_in       ( i_load_fault            ),
-    .store_fault_in      ( i_store_fault           ),
-    .fault_addr_in       ( i_fault_addr            ),
-
-    // Page fault outputs to ID stage
-    .mem_trap_out        ( mem_trap_out            ),
-    .mem_trap_pc_out     ( mem_trap_pc_out         ),
-    .mem_trap_va_out     ( mem_trap_va_out         ),
-    .mem_trap_mode_out   ( mem_trap_mode_out       ),
-
-    // AMO control
-    .reserve_in          ( ex_reserve_out          ),
-    .conditional_in      ( ex_conditional_out      ),
-    .clear_reserve_in    ( mem_commit              ),
-    .amo_op_in           ( ex_amo_op_out           ),
-
-    // Outputs to WB stage
-    .pc_plus_4_out       ( mem_pc_plus_4_out       ),
-    .alu_data_out        ( mem_alu_data_out        ),
-    .load_data_out       ( mem_load_data_out       ),
-    .sc_res_out          ( mem_sc_res_out          ),
-    .wb_data_sel_out     ( mem_wb_data_sel_out     ),
-    .rd_sel_out          ( mem_rd_sel_out          ),
-    .csr_sel_out         ( mem_csr_sel_out         ),
-    .csr_data_out        ( mem_csr_data_out        ),
-    .csr_readback_out    ( mem_csr_readback_out    ),
-    .csr_en_out          ( mem_csr_en_out          ),
-    .instr_valid_out     ( mem_instr_valid_out     ),
+    // Instruction Memory Interface
+    .i_mem_addr_out   ( w_inst_addr     ),
+    .i_mem_data_in    ( w_inst_data     ),
+    .i_mem_en_out     ( w_inst_en       ),
+    .i_mem_wait_in    ( w_stall_if      ),
+    .i_mem_err_in     ( w_inst_err      ),
+    .i_mem_pmp_fault_in ( w_inst_pmp_fault ),
 
     // Data memory interface
-    .d_mem_addr_out      ( d_mem_addr_out          ),
-    .d_mem_data_out      ( d_mem_data_out          ),
-    .d_mem_data_in       ( d_mem_data_in           ),
-    .d_mem_en_out        ( d_mem_en_out            ),
-    .d_mem_wr_out        ( d_mem_wr_out            ),
-    .d_mem_store_like_out ( d_mem_store_like_out   ),
-    .d_mem_size_out      ( d_mem_size_out          ),
-    .d_mem_wait_in       ( d_mem_wait_in           ),
-    .d_mem_err_in        ( d_mem_err_in            ),
-    .d_mem_pmp_fault_in  ( d_mem_pmp_fault_in      ),
-    .d_mem_amo_op_out    ( d_mem_amo_op_out        )
+    .d_mem_addr_out   ( w_data_addr     ),
+    .d_mem_data_out   ( w_data_wdata    ),
+    .d_mem_data_in    ( w_data_rdata    ),
+    .d_mem_en_out     ( w_data_en       ),
+    .d_mem_wr_out     ( w_data_wr       ),
+    .d_mem_store_like_out ( w_data_store_like ),
+    .d_mem_size_out   ( w_data_size     ),
+    .d_mem_wait_in    ( w_data_wait     ),
+    .d_mem_err_in     ( w_data_err      ),
+    .d_mem_pmp_fault_in ( w_data_pmp_fault ),
+    .d_mem_amo_op_out ( w_amo_op        ),
+
+    // Memory management outputs
+    .satp_out         ( w_satp          ),
+    .sum_out          ( w_sum           ),
+    .mxr_out          ( w_mxr           ),
+    .mode_out         ( w_mode          ),
+    .data_mode_out    ( w_data_mode     ),
+    .flush_tlb_out    ( w_flush_tlb     ),
+    .flush_vpn_out    ( w_flush_vpn     ),
+    .flush_vpn_en_out ( w_flush_vpn_en  ),
+    .flush_asid_out   ( w_flush_asid    ),
+    .flush_asid_en_out( w_flush_asid_en ),
+    .pmp_table_out    ( w_pmp_table     ),
+
+    .dbg_req_in       ( i_dbg_req       )
 );
 
-assign stall_wb = stall_mem;
+// ============================================================
+// Atomic memory operations
+// ============================================================
 
-friscv_wb_stage wb_stage (
-    .clk_in          ( i_clk                  ),
-    .rst_n_in        ( i_rstn                 ),
-    .stage_stall_in  ( stall_wb               ),
+amo_op_e w_eff_amo;
+assign w_eff_amo = r_amo_addr_valid ? w_l2_amo_op : AMO_NONE;
 
-    // Inputs from MEM stage
-    .pc_plus_4_in    ( mem_pc_plus_4_out      ),
-    .alu_data_in     ( mem_alu_data_out       ),
-    .load_data_in    ( mem_load_data_out      ),
-    .sc_res_in       ( mem_sc_res_out         ),
-    .wb_data_sel_in  ( mem_wb_data_sel_out    ),
-    .rd_sel_in       ( mem_rd_sel_out         ),
-    .csr_sel_in      ( mem_csr_sel_out        ),
-    .csr_data_in     ( mem_csr_data_out       ),
-    .csr_readback_in ( mem_csr_readback_out   ),
-    .csr_en_in       ( mem_csr_en_out         ),
-    .instr_valid_in  ( mem_instr_valid_out    ),
+if (EnableIsaA) begin : gen_amo
+    friscv_amo_unit amo_unit (
+        .i_clk            ( i_clk            ),
+        .i_rstn           ( i_rstn           ),
+        .i_amo_op         ( w_eff_amo        ),
+        .i_rs2_val        ( w_l2_wdata       ),
+        .o_core_load_data ( w_amo_load_data  ),
+        .o_core_wait      ( w_amo_core_wait  ),
+        .i_mem_wait       ( i_mem_wait       ),
+        .i_mem_err        ( i_mem_err        ),
+        .o_mem_rw         ( w_amo_rw         ),
+        .i_mem_load_data  ( i_mem_rdata      ),
+        .o_mem_store_data ( w_amo_store_data )
+    );
+    // Keep AMO path selected across both LOAD and STORE phases
+    assign w_amo_active = w_amo_bootstrap || (w_eff_amo != AMO_NONE) || (w_amo_rw != RW_IDLE);
+end else begin : gen_no_amo
+    assign w_amo_active     = 1'b0;
+    assign w_amo_rw         = RW_IDLE;
+    assign w_amo_store_data = '0;
+    assign w_amo_load_data  = '0;
+    assign w_amo_core_wait  = 1'b0;
+    assign w_amo_bootstrap  = 1'b0;
+end
 
-    // Outputs to ID stage
-    .rd_data_out     ( wb_rd_data_out         ),
-    .rd_sel_out      ( wb_rd_sel_out          ),
-    .csr_sel_out     ( wb_csr_sel_out         ),
-    .csr_data_out    ( wb_csr_data_out        ),
-    .csr_en_out      ( wb_csr_en_out          ),
-    .instr_valid_out ( wb_instr_valid_out     ),
-    .inst_ret_out    ( wb_inst_ret_out        )
-);
+// ============================================================
+// Zero-stage bootloader
+// ============================================================
+
+if (ZsblRomEnable) begin : gen_zsbl_rom
+    friscv_zsbl_rom #(
+        .ProgWords ( ZsblRomWords ),
+        .Prog      ( ZsblRomProg  ),
+        .BaseAddr  ( ResetVec     )
+    ) zsbl_rom (
+        .i_clk  ( i_clk       ),
+        .i_rstn ( i_rstn      ),
+        .i_addr ( w_l2_addr   ),
+        .o_data ( w_zsbl_data )
+    );
+
+    logic w_l2_is_rom;
+    logic r_rom_valid;
+
+    // Intercept reads in the ROM address window before they reach AXI
+    assign w_l2_is_rom = (w_l2_addr >= ResetVec) &&
+                         (w_l2_addr < ResetVec + ZsblRomWords * 4) &&
+                         (w_l2_rw == RW_READ);
+
+    always_ff @(posedge i_clk or negedge i_rstn) begin
+        if (!i_rstn) begin
+            r_rom_valid <= 1'b0;
+        end else begin
+            r_rom_valid <= w_l2_is_rom && !r_rom_valid;
+        end
+    end
+
+    assign w_l2_backend_rdata = r_rom_valid ? w_zsbl_data :
+                                w_amo_active ? w_amo_load_data : i_mem_rdata;
+
+    assign w_l2_backend_wait = r_rom_valid ? 1'b0 :
+                               w_amo_bootstrap ? 1'b1 :
+                               w_amo_active ? w_amo_core_wait : i_mem_wait;
+
+    assign w_l2_backend_err = r_rom_valid ? 1'b0 : i_mem_err;
+
+    assign o_mem_rw   = w_l2_is_rom ? RW_IDLE :
+                        w_amo_bootstrap ? RW_IDLE :
+                        w_amo_active ? w_amo_rw :
+                        w_l2_rw;
+
+end else begin : gen_no_zsbl_rom
+    // No ROM, pass through all reads/writes to AXI (or AMO unit)
+    assign w_l2_backend_rdata = w_amo_active ? w_amo_load_data : i_mem_rdata;
+    assign w_l2_backend_wait  = w_amo_bootstrap ? 1'b1 :
+                                w_amo_active ? w_amo_core_wait :
+                                i_mem_wait;
+    assign w_l2_backend_err = i_mem_err;
+    assign o_mem_rw   = w_amo_bootstrap ? RW_IDLE :
+                        w_amo_active ? w_amo_rw :
+                        w_l2_rw;
+end
+
+assign o_burst_en = 1'b0;
 
 endmodule

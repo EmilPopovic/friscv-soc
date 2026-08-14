@@ -25,9 +25,9 @@ module friscv_trap_controller import friscv_pkg::*, friscv_mem_pkg::*; #(
     parameter int unsigned DmExcOffset  = 32'h810,
 
     // If enabled, entering an EBREAK instruction will halt the core until reset
-    parameter logic HaltOnEnterEbreak = 0,
+    parameter bit HaltOnEnterEbreak = 0,
     // If enabled, the first MRET or SRET after entering an EBREAK handler will halt the core until reset
-    parameter logic HaltOnRetFromEbreak = 0
+    parameter bit HaltOnRetFromEbreak = 0
 ) (
     input  logic      clk_in,
     input  logic      rst_n_in,

@@ -30,19 +30,18 @@ module friscv_id_stage import friscv_pkg::*, friscv_mem_pkg::*; #(
     parameter int unsigned DmExcOffset  = 32'h810,
 
     // Extension selection
-    parameter logic EnableMul = 1,
-    parameter logic EnableDiv = 1,
-    parameter logic EnableExtensionA = 1,
+    parameter bit EnableIsaM = 1,
+    parameter bit EnableIsaA = 1,
 
     // Memory protection
-    parameter logic EnforcePmp = 0,
-    parameter int   PmpEntries = 8,
-    parameter int   PmpUsable  = 8,
+    parameter bit EnforcePmp = 0,
+    parameter int unsigned PmpEntries = 8,
+    parameter int unsigned PmpUsable  = 8,
 
     // If enabled, entering an EBREAK instruction will halt the core until reset
-    parameter logic HaltOnEnterEbreak   = 0,
+    parameter bit HaltOnEnterEbreak   = 0,
     // If enabled, the first MRET or SRET after entering an EBREAK handler will halt the core until reset
-    parameter logic HaltOnRetFromEbreak = 0
+    parameter bit HaltOnRetFromEbreak = 0
 ) (
     input  logic      clk_in,
     input  logic      rst_n_in,
@@ -251,13 +250,12 @@ logic [2:0] dcsr_cause;
 logic       mret_commit, sret_commit, dret_commit;
 
 friscv_csr_file #(
-    .HartId           ( HartId           ),
-    .EnforcePmp       ( EnforcePmp       ),
-    .PmpEntries       ( PmpEntries       ),
-    .PmpUsable        ( PmpUsable        ),
-    .EnableMul        ( EnableMul        ),
-    .EnableDiv        ( EnableDiv        ),
-    .EnableExtensionA ( EnableExtensionA )
+    .HartId     ( HartId     ),
+    .EnforcePmp ( EnforcePmp ),
+    .PmpEntries ( PmpEntries ),
+    .PmpUsable  ( PmpUsable  ),
+    .EnableIsaM ( EnableIsaM ),
+    .EnableIsaA ( EnableIsaA )
  ) friscv_csr_file (
     .clk_in              ( clk_in              ),
     .rst_n_in            ( rst_n_in            ),
@@ -481,9 +479,8 @@ end
 // ============================================================
 
 friscv_id_decoder #(
-    .EnableExtensionA ( EnableExtensionA ),
-    .EnableMul        ( EnableMul        ),
-    .EnableDiv        ( EnableDiv        )
+    .EnableIsaA ( EnableIsaA ),
+    .EnableIsaM ( EnableIsaM )
 ) friscv_id_decoder (
     .ir_in                  ( ir_buff             ),
     .mode_in                ( current_mode        ),

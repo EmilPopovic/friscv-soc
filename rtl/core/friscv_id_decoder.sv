@@ -7,9 +7,8 @@
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
 
 module friscv_id_decoder import friscv_pkg::*, friscv_mem_pkg::*; #(
-    parameter logic EnableExtensionA = 1,
-    parameter logic EnableMul        = 1,
-    parameter logic EnableDiv        = 1
+    parameter bit EnableIsaA = 1,
+    parameter bit EnableIsaM = 1
 ) (
     input  instr_op_t ir_in,
     input  mode_e     mode_in,
@@ -151,7 +150,7 @@ always_comb begin
         end
 
         AMO: begin
-            if (EnableExtensionA) begin
+            if (EnableIsaA) begin
                 case (ir_in.r.funct3)
                     3'b010: begin  // RV32A Standard Extension instructions
                         instr_ex_out.wb_data_sel = WB_DATA_SEL_MEM;
@@ -211,38 +210,38 @@ always_comb begin
 
             case (ir_in.r.funct3)
                 3'b000:
-                    if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = ADD_OP;                 // ADD
-                    else if (ir_in.r.funct7 == 7'b0100000) instr_ex_out.alu_op = SUB_OP;                 // SUB
-                    else if (ir_in.r.funct7 == 7'b0000001 && EnableMul) instr_ex_out.alu_op = MUL_OP;    // MUL
+                    if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = ADD_OP;                  // ADD
+                    else if (ir_in.r.funct7 == 7'b0100000) instr_ex_out.alu_op = SUB_OP;                  // SUB
+                    else if (ir_in.r.funct7 == 7'b0000001 && EnableIsaM) instr_ex_out.alu_op = MUL_OP;    // MUL
                     else illegal_inst_out = 1'b1;
                 3'b001:
-                    if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = SLL_OP;                 // SLL
-                    else if (ir_in.r.funct7 == 7'b0000001 && EnableMul) instr_ex_out.alu_op = MULH_OP;   // MULH
+                    if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = SLL_OP;                  // SLL
+                    else if (ir_in.r.funct7 == 7'b0000001 && EnableIsaM) instr_ex_out.alu_op = MULH_OP;   // MULH
                     else illegal_inst_out = 1'b1;
                 3'b010:
-                    if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = SLT_OP;                 // SLT
-                    else if (ir_in.r.funct7 == 7'b0000001 && EnableMul) instr_ex_out.alu_op = MULHSU_OP; // MULHSU
+                    if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = SLT_OP;                  // SLT
+                    else if (ir_in.r.funct7 == 7'b0000001 && EnableIsaM) instr_ex_out.alu_op = MULHSU_OP; // MULHSU
                     else illegal_inst_out = 1'b1;
                 3'b011:
-                    if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = SLTU_OP;                // SLTU
-                    else if (ir_in.r.funct7 == 7'b0000001 && EnableMul) instr_ex_out.alu_op = MULHU_OP;  // MULHU
+                    if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = SLTU_OP;                 // SLTU
+                    else if (ir_in.r.funct7 == 7'b0000001 && EnableIsaM) instr_ex_out.alu_op = MULHU_OP;  // MULHU
                     else illegal_inst_out = 1'b1;
                 3'b100:
                     if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = XOR_OP;  // XOR
-                    else if (ir_in.r.funct7 == 7'b0000001 && EnableDiv) instr_ex_out.alu_op = DIV_OP;    // DIV
+                    else if (ir_in.r.funct7 == 7'b0000001 && EnableIsaM) instr_ex_out.alu_op = DIV_OP;    // DIV
                     else illegal_inst_out = 1'b1;
                 3'b101:
                     if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = SRL_OP;  // SRL
                     else if (ir_in.r.funct7 == 7'b0100000) instr_ex_out.alu_op = SRA_OP;  // SRA
-                    else if (ir_in.r.funct7 == 7'b0000001 && EnableDiv) instr_ex_out.alu_op = DIVU_OP;   // DIVU
+                    else if (ir_in.r.funct7 == 7'b0000001 && EnableIsaM) instr_ex_out.alu_op = DIVU_OP;   // DIVU
                     else illegal_inst_out = 1'b1;
                 3'b110:
                     if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = OR_OP;    // OR
-                    else if (ir_in.r.funct7 == 7'b0000001 && EnableDiv) instr_ex_out.alu_op = REM_OP;    // REM
+                    else if (ir_in.r.funct7 == 7'b0000001 && EnableIsaM) instr_ex_out.alu_op = REM_OP;    // REM
                     else illegal_inst_out = 1'b1;
                 3'b111:
                     if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = AND_OP;   // AND
-                    else if (ir_in.r.funct7 == 7'b0000001 && EnableDiv) instr_ex_out.alu_op = REMU_OP;   // REMU
+                    else if (ir_in.r.funct7 == 7'b0000001 && EnableIsaM) instr_ex_out.alu_op = REMU_OP;   // REMU
                     else illegal_inst_out = 1'b1;
                 default: illegal_inst_out = 1'b1;
             endcase

@@ -46,7 +46,7 @@ assign mem.wait_req = stall;
 assign mem.beat_valid = beat_valid;
 assign mem.err = err;
 
-friscv_cpu_subsystem_core #(
+friscv #(
     .RamBase          ( 32'h8000_0000 ),
     .ZsblRomEnable    ( 1'b0          ),
     .HaltOnEndAddress ( 1             )

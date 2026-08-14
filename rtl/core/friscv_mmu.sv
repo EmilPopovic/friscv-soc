@@ -12,14 +12,14 @@
  */
 
 module friscv_mmu import friscv_pkg::*, friscv_mem_pkg::*; #(
-    parameter logic EnforcePmp    = 0,
-    parameter logic EnforcePtwPmp = 0,
-    parameter int   PmpEntries    = 8,
+    parameter bit EnforcePmp    = 0,
+    parameter bit EnforcePtwPmp = 0,
+    parameter int unsigned PmpEntries    = 8,
     // Must be a power of 2 greater than 1
-    parameter int   ItlbEntries = 2,
-    parameter int   DtlbEntries = 4,
+    parameter int unsigned ItlbEntries = 2,
+    parameter int unsigned DtlbEntries = 4,
     // If not enabled, any sfence.vma will flush all TLB entries
-    parameter logic EnableFineTlbFlush = 0
+    parameter bit EnableFineTlbFlush = 0
 ) (
     input  logic        i_clk,
     input  logic        i_rstn,
