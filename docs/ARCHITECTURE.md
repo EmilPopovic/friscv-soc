@@ -6,8 +6,8 @@
 
 <!-- markdownlint-disable MD033 -->
 <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./figures/arch-diagram-dark-transparent.svg">
-    <img alt="Architecture Diagram" src="./figures/arch-diagram-light-transparent.svg" width="700">
+    <source media="(prefers-color-scheme: dark)" srcset="./figures/block-diagram-transparent-dark.svg">
+    <img alt="Block Diagram" src="./figures/block-diagram-transparent-light.svg" height="500">
 </picture>
 <!-- markdownlint-enable MD033 -->
 

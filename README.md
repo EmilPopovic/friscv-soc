@@ -4,8 +4,8 @@ Vernii is a minimal Linux-capable 32-bit RISC-V SoC built around the [FRISC-V](h
 
 <!-- markdownlint-disable MD033 -->
 <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./docs/figures/arch-diagram-dark-transparent.svg">
-    <img alt="Architecture Diagram" src="./docs/figures/arch-diagram-light-transparent.svg" width="500">
+    <source media="(prefers-color-scheme: dark)" srcset="./docs/figures/block-diagram-transparent-dark.svg">
+    <img alt="Block Diagram" src="./docs/figures/block-diagram-transparent-light.svg" height="500">
 </picture>
 <!-- markdownlint-enable MD033 -->
 
