@@ -14,9 +14,6 @@
 module friscv_core import friscv_pkg::*, friscv_mem_pkg::*; #(
     parameter int unsigned HartId           = 0,
     parameter int unsigned ResetVec         = 32'h8000_0000,
-    parameter bit          ZsblRomEnable    = 1'b0,
-    parameter int unsigned ZsblRomWords     = 1,
-    parameter logic [31:0] ZsblRomProg [ZsblRomWords] = '{default: '0},
     parameter int unsigned DmBase           = 32'h0000_0000,
     parameter int unsigned DmHaltOffset     = 32'h800,
     parameter int unsigned DmExcOffset      = 32'h810,
@@ -95,7 +92,6 @@ logic       w_inst_en;
 logic       w_inst_wait;
 logic       w_inst_err;
 logic       w_stall_if;
-inst_t      w_zsbl_data;
 
 // Data L1 bus
 addr_t      w_data_addr;
@@ -452,63 +448,17 @@ end else begin : gen_no_amo
     assign w_amo_bootstrap  = 1'b0;
 end
 
-// ============================================================
-// Zero-stage bootloader
-// ============================================================
+assign w_l2_backend_rdata = w_amo_active ? w_amo_load_data : i_mem_rdata;
 
-if (ZsblRomEnable) begin : gen_zsbl_rom
-    friscv_zsbl_rom #(
-        .ProgWords ( ZsblRomWords ),
-        .Prog      ( ZsblRomProg  ),
-        .BaseAddr  ( ResetVec     )
-    ) zsbl_rom (
-        .i_clk  ( i_clk       ),
-        .i_rstn ( i_rstn      ),
-        .i_addr ( w_l2_addr   ),
-        .o_data ( w_zsbl_data )
-    );
+assign w_l2_backend_wait  = w_amo_bootstrap ? 1'b1 :
+                            w_amo_active ? w_amo_core_wait :
+                            i_mem_wait;
 
-    logic w_l2_is_rom;
-    logic r_rom_valid;
+assign w_l2_backend_err = i_mem_err;
 
-    // Intercept reads in the ROM address window before they reach AXI
-    assign w_l2_is_rom = (w_l2_addr >= ResetVec) &&
-                         (w_l2_addr < ResetVec + ZsblRomWords * 4) &&
-                         (w_l2_rw == RW_READ);
-
-    always_ff @(posedge i_clk or negedge i_rstn) begin
-        if (!i_rstn) begin
-            r_rom_valid <= 1'b0;
-        end else begin
-            r_rom_valid <= w_l2_is_rom && !r_rom_valid;
-        end
-    end
-
-    assign w_l2_backend_rdata = r_rom_valid ? w_zsbl_data :
-                                w_amo_active ? w_amo_load_data : i_mem_rdata;
-
-    assign w_l2_backend_wait = r_rom_valid ? 1'b0 :
-                               w_amo_bootstrap ? 1'b1 :
-                               w_amo_active ? w_amo_core_wait : i_mem_wait;
-
-    assign w_l2_backend_err = r_rom_valid ? 1'b0 : i_mem_err;
-
-    assign o_mem_rw   = w_l2_is_rom ? RW_IDLE :
-                        w_amo_bootstrap ? RW_IDLE :
-                        w_amo_active ? w_amo_rw :
-                        w_l2_rw;
-
-end else begin : gen_no_zsbl_rom
-    // No ROM, pass through all reads/writes to AXI (or AMO unit)
-    assign w_l2_backend_rdata = w_amo_active ? w_amo_load_data : i_mem_rdata;
-    assign w_l2_backend_wait  = w_amo_bootstrap ? 1'b1 :
-                                w_amo_active ? w_amo_core_wait :
-                                i_mem_wait;
-    assign w_l2_backend_err = i_mem_err;
-    assign o_mem_rw   = w_amo_bootstrap ? RW_IDLE :
-                        w_amo_active ? w_amo_rw :
-                        w_l2_rw;
-end
+assign o_mem_rw = w_amo_bootstrap ? RW_IDLE :
+                  w_amo_active ? w_amo_rw :
+                  w_l2_rw;
 
 assign o_burst_en = 1'b0;
 

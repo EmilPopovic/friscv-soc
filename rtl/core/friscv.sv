@@ -12,11 +12,7 @@
  */
 
 module friscv import friscv_pkg::*, friscv_mem_pkg::*; #(
-    parameter int unsigned RamBase          = 32'h8000_0000,
-    parameter bit          ZsblRomEnable    = 1'b0,
-    parameter int unsigned ZsblRomWords     = 1,
-    parameter logic [31:0] ZsblRomProg [ZsblRomWords] = '{default: '0},
-    parameter int unsigned ZsblRomBase      = 32'h0020_0000,
+    parameter int unsigned ResetVec         = 32'h8000_0000,
     parameter int unsigned DmBase           = 32'h0000_0000,
     parameter int unsigned DmHaltOffset     = 32'h800,
     parameter int unsigned DmExcOffset      = 32'h810,
@@ -63,7 +59,6 @@ module friscv import friscv_pkg::*, friscv_mem_pkg::*; #(
     input  logic         i_dbg_req
 );
 
-localparam int unsigned ResetVec = ZsblRomEnable ? ZsblRomBase : RamBase;
 
 mem_width_e w_size;
 addr_t      w_addr;
@@ -83,9 +78,6 @@ assign w_mem_err = mem_if.err;
 friscv_core #(
     .HartId              ( 0                   ),
     .ResetVec            ( ResetVec            ),
-    .ZsblRomEnable       ( ZsblRomEnable       ),
-    .ZsblRomWords        ( ZsblRomWords        ),
-    .ZsblRomProg         ( ZsblRomProg         ),
     .DmBase              ( DmBase              ),
     .DmHaltOffset        ( DmHaltOffset        ),
     .DmExcOffset         ( DmExcOffset         ),

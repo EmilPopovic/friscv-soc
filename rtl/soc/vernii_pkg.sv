@@ -29,6 +29,6 @@ typedef logic [AxiUserWidth-1:0] user_t;
 `AXI_TYPEDEF_ALL(vernii_axi, addr_t, id_t, data_t, strb_t, user_t)
 `REG_BUS_TYPEDEF_ALL(vernii_reg, addr_t, data_t, strb_t)
 
-localparam int unsigned NumIntRegPorts = 8;
+localparam int unsigned NumIntRegPorts = 9;
 
 endpackage

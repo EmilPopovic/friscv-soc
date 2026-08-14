@@ -47,8 +47,7 @@ assign mem.beat_valid = beat_valid;
 assign mem.err = err;
 
 friscv #(
-    .RamBase          ( 32'h8000_0000 ),
-    .ZsblRomEnable    ( 1'b0          ),
+    .ResetVec         ( 32'h8000_0000 ),
     .HaltOnEndAddress ( 1             )
 ) core (
     .i_clk     ( clk   ),

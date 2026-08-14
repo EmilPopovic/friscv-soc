@@ -161,12 +161,12 @@ assign soc_rstn_async = por_rstn & (test_mode_i | ~ndmreset);
 assign por_rst_no = por_rstn;
 assign soc_rst_no = soc_rstn;
 
+// The zsbl rom is a reg-bus peripheral, the core just boots at its base
+localparam int unsigned ZsblRomWindow = ZsblRomEnable ? (1 << $clog2(ZsblRomWords * 4)) : 0;
+localparam int unsigned ResetVec      = ZsblRomEnable ? ZsblBaseAddr : ExtBase;
+
 friscv #(
-    .RamBase            ( ExtBase          ),
-    .ZsblRomEnable      ( ZsblRomEnable    ),
-    .ZsblRomWords       ( ZsblRomWords     ),
-    .ZsblRomProg        ( ZsblRomProg      ),
-    .ZsblRomBase        ( ZsblBaseAddr     ),
+    .ResetVec           ( ResetVec         ),
     .DmBase             ( DmBaseAddr       ),
     .HaltOnEndAddress   ( HaltOnEnd        ),
     .ItlbEntries        ( ItlbEntries      ),
@@ -395,7 +395,6 @@ if (OcmBase < DmBaseAddr + DmSize &&
     $error("the OCM window (%08x + %08x) covers the debug module at %08x",
            OcmBase, OcmSize, DmBaseAddr);
 end
-localparam int unsigned ZsblRomWindow = ZsblRomEnable ? (1 << $clog2(ZsblRomWords * 4)) : 0;
 
 // Check that a large OCM does not overlap with the ZSBL region
 if (ZsblRomWindow > 0 && OcmBase < ZsblBaseAddr + ZsblRomWindow &&
@@ -512,7 +511,8 @@ localparam int unsigned GpioAPort = 3;
 localparam int unsigned PlicPort  = 4;
 localparam int unsigned Qspi0Port = 5;
 localparam int unsigned ClintPort = 6;
-localparam int unsigned ErrPort   = 7;
+localparam int unsigned ZsblPort  = 7;
+localparam int unsigned ErrPort   = 8;
 
 localparam int unsigned NoRegPorts   = NumIntRegPorts + NumExtRegSlv;
 localparam int unsigned RegPortWidth = $clog2(NoRegPorts);
@@ -529,7 +529,7 @@ reg_rsp_t [NoRegPorts-1:0] reg_dev_rsp;
     assign reg_dev_rsp[port].error = 1'b1;  \
     assign reg_dev_rsp[port].ready = 1'b1;
 
-localparam int unsigned NoIntRegRules = 7;
+localparam int unsigned NoIntRegRules = 8;
 
 localparam xbar_rule_32_t [NoIntRegRules-1:0] IntRegRules = '{
     '{ idx: DmPort,    start_addr: DmBaseAddr,    end_addr: DmBaseAddr + DmSize },
@@ -538,7 +538,8 @@ localparam xbar_rule_32_t [NoIntRegRules-1:0] IntRegRules = '{
     '{ idx: Uart0Port, start_addr: 32'h1000_0000, end_addr: 32'h1000_1000 },
     '{ idx: GpioAPort, start_addr: 32'h2000_0000, end_addr: 32'h2000_0040 },
     '{ idx: ScbPort,   start_addr: 32'h4000_0000, end_addr: 32'h4000_1000 },
-    '{ idx: Qspi0Port, start_addr: 32'h6000_0000, end_addr: 32'h6000_1000 }
+    '{ idx: Qspi0Port, start_addr: 32'h6000_0000, end_addr: 32'h6000_1000 },
+    '{ idx: ZsblPort,  start_addr: ZsblBaseAddr,  end_addr: ZsblBaseAddr + ZsblRomWindow }
 };
 
 function automatic int unsigned count_ext_rules();
@@ -643,6 +644,23 @@ end
 // ============================================================
 // System Control Block
 // ============================================================
+
+if (ZsblRomEnable) begin : gen_zsbl_rom
+    vernii_zsbl_rom #(
+        .ProgWords ( ZsblRomWords ),
+        .Prog      ( ZsblRomProg  ),
+        .BaseAddr  ( ZsblBaseAddr ),
+        .reg_req_t ( reg_req_t    ),
+        .reg_rsp_t ( reg_rsp_t    )
+    ) zsbl_rom (
+        .clk_i,
+        .rst_ni    ( soc_rstn              ),
+        .reg_req_i ( reg_dev_req[ZsblPort] ),
+        .reg_rsp_o ( reg_dev_rsp[ZsblPort] )
+    );
+end else begin : gen_no_zsbl_rom
+    `REG_TIE_OFF(ZsblPort)
+end
 
 vernii_scb #(
     .NumPads    ( NumStraps ),

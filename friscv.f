@@ -20,5 +20,4 @@ rtl/core/friscv_pmp_check.sv
 rtl/core/friscv_ptw.sv
 rtl/core/friscv_tlb.sv
 rtl/core/friscv_wb_stage.sv
-rtl/core/friscv_zsbl_rom.sv
 target/sim/rtl/friscv_cpu_verilator.sv
