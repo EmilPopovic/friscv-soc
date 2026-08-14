@@ -46,8 +46,8 @@ packages:
       Git: https://github.com/EmilPopovic/friscv-mem-if.git
     dependencies: []
   friscv-mem-utils:
-    revision: aa58d212889b797f1185547c15ba6fd50d9a00af
-    version: 2.0.1
+    revision: bc873fd875108f743483df69c9ab350170ba1255
+    version: 3.0.0
     source:
       Git: https://github.com/EmilPopovic/friscv-mem-utils.git
     dependencies:

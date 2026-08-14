@@ -20,7 +20,7 @@
 `include "axi/assign.svh"
 `include "apb/typedef.svh"
 
-module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t; #(
+module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t, friscv_mem_pkg::RW_IDLE, friscv_mem_pkg::WIDTH_I32; #(
     parameter int unsigned OcmBase          = 32'h0000_0000,
     parameter int unsigned OcmSize          = 32'h0000_2000,
     parameter int unsigned ExtBase          = 32'h8000_0000,
@@ -34,8 +34,8 @@ module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t;
     parameter int unsigned DtlbEntries      = 4,
     parameter bit          FineTlbFlush     = 0,
     parameter bit          EnforcePmp       = 0,
-    parameter bit          EnableExtM       = 1,
-    parameter bit          EnableExtA       = 1,
+    parameter bit          EnableIsaM       = 1,
+    parameter bit          EnableIsaA       = 1,
     parameter bit          EnableFastMul    = 0,
     parameter bit          ZsblRomEnable    = 1'b1,
     parameter int unsigned ZsblRomWords     = vernii_zsbl_rom_pkg::ZSBL_PROG_WORDS,
@@ -46,11 +46,16 @@ module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t;
     parameter bit          HaltOnEnd        = 0,
     parameter int unsigned NumExtIrq        = 2,
     parameter int unsigned NumGpioAIrq      = 8,
-    parameter axi_pkg::xbar_rule_32_t [NumExtRegSlv-1:0] ExtRegSlvRules = '{default: '0},
+    parameter bit          EnableSAxiGp     = 1'b0,
+    parameter int unsigned NumSAxiGpRules   = 1,
+    parameter type axi_lite_req_t = vernii_axi_lite_req_t,
+    parameter type axi_lite_rsp_t = vernii_axi_lite_resp_t,
     parameter type axi_req_t = vernii_axi_req_t,
     parameter type axi_rsp_t = vernii_axi_resp_t,
     parameter type reg_req_t = vernii_reg_req_t,
-    parameter type reg_rsp_t = vernii_reg_rsp_t
+    parameter type reg_rsp_t = vernii_reg_rsp_t,
+    parameter axi_pkg::xbar_rule_32_t [NumExtRegSlv-1:0]   ExtRegSlvRules = '{default: '0},
+    parameter axi_pkg::xbar_rule_32_t [NumSAxiGpRules-1:0] SAxiGpRules    = '{default: '0}
 ) (
     input  logic  clk_i,
     input  logic  rst_ni,
@@ -62,11 +67,15 @@ module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t;
 
     output logic  end_o,
 
-    // External memory
-    output axi_req_t axi_mem_req_o,
-    input  axi_rsp_t axi_mem_rsp_i,
+    // External general-purpose subordinate port
+    input  axi_lite_req_t s_axi_gp_req_i,
+    output axi_lite_rsp_t s_axi_gp_rsp_o,
 
-    // External register slaves
+    // External high-performance manager port
+    output axi_req_t m_axi_hp_req_o,
+    input  axi_rsp_t m_axi_hp_rsp_i,
+
+    // External register manager port
     output reg_req_t [NumExtRegSlv-1:0] reg_ext_req_o,
     input  reg_rsp_t [NumExtRegSlv-1:0] reg_ext_rsp_i,
 
@@ -161,10 +170,10 @@ friscv_cpu_subsystem_core #(
     .HaltOnEndAddress   ( HaltOnEnd        ),
     .ItlbEntries        ( ItlbEntries      ),
     .DtlbEntries        ( DtlbEntries      ),
-    .EnableMul          ( EnableExtM       ),
-    .EnableDiv          ( EnableExtM       ),
+    .EnableMul          ( EnableIsaM       ),
+    .EnableDiv          ( EnableIsaM       ),
     .EnableFastMul      ( EnableFastMul    ),
-    .EnableExtensionA   ( EnableExtA       ),
+    .EnableExtensionA   ( EnableIsaA       ),
     .EnforcePmp         ( EnforcePmp       ),
     .EnableFineTlbFlush ( FineTlbFlush     )
 ) cpu_subsystem (
@@ -181,7 +190,203 @@ friscv_cpu_subsystem_core #(
 );
 
 // ============================================================
-// Memory hub {cpu, dm} -> {soc, mem}
+// Address rule helpers
+// ============================================================
+
+function automatic bit rule_populated(input xbar_rule_32_t rule);
+    rule_populated = rule.start_addr != rule.end_addr;
+endfunction
+
+function automatic logic [31:0] rule_end(input xbar_rule_32_t rule);
+    rule_end = (rule.end_addr == '0) ? '1 : rule.end_addr;
+endfunction
+
+// ============================================================
+// External GP subordinate port -> FRISC-V memory interface
+// ============================================================
+
+// axi_lite -> axi -> mem -> friscv_mem_if
+// Done this way to avoid having to implement any new protocol converter.
+
+localparam int unsigned SAxiIdWidth = AxiIdWidth;
+
+localparam int unsigned SAxiGpBusPort = 0;
+localparam int unsigned SAxiGpErrPort = 1;
+localparam int unsigned SAxiGpPorts   = 2;
+
+vernii_axi_req_t  s_axi_gp_req;
+vernii_axi_resp_t s_axi_gp_rsp;
+
+vernii_axi_req_t  [SAxiGpPorts-1:0] s_axi_gp_dev_req;
+vernii_axi_resp_t [SAxiGpPorts-1:0] s_axi_gp_dev_rsp;
+
+friscv_mem_if s_gp_mem_if ();
+
+// Check that each SAxiGpRule has end_addr >= start_addr
+for (genvar g = 0; g < NumSAxiGpRules; g++) begin : gen_chk_gp_rule
+    if (rule_populated(SAxiGpRules[g]) &&
+        rule_end(SAxiGpRules[g]) < SAxiGpRules[g].start_addr) begin : gen_chk_range
+        $fatal(1, "SAxiGpRules[%0d] ends (%08x) below where it starts (%08x)",
+               g, SAxiGpRules[g].end_addr, SAxiGpRules[g].start_addr);
+    end
+end
+
+// An access is allowed on AXI GP if it matches any populated SAxiGpRule
+function automatic bit s_axi_gp_allowed(input addr_t addr);
+    s_axi_gp_allowed = 1'b0;
+    for (int unsigned i = 0; i < NumSAxiGpRules; i++) begin
+        if (rule_populated(SAxiGpRules[i]) &&
+            addr >= SAxiGpRules[i].start_addr && addr < rule_end(SAxiGpRules[i])) begin
+            s_axi_gp_allowed = 1'b1;
+        end
+    end
+endfunction
+
+// axi_lite -> axi
+axi_lite_to_axi #(
+    .AxiDataWidth ( DataWidth         ),
+    .req_lite_t   ( axi_lite_req_t    ),
+    .resp_lite_t  ( axi_lite_rsp_t    ),
+    .axi_req_t    ( vernii_axi_req_t  ),
+    .axi_resp_t   ( vernii_axi_resp_t )
+) i_s_axi_lite_to_axi (
+    .slv_req_lite_i  ( s_axi_gp_req_i ),
+    .slv_resp_lite_o ( s_axi_gp_rsp_o ),
+    .slv_aw_cache_i  ( '0             ),
+    .slv_ar_cache_i  ( '0             ),
+    .mst_req_o       ( s_axi_gp_req   ),
+    .mst_resp_i      ( s_axi_gp_rsp   )
+);
+
+logic s_axi_gp_aw_select, s_axi_gp_ar_select;
+
+// Forward the request to the bus (SAxiGpBusPort) if allowed, otherwise to the error port (SAxiGpErrPort)
+assign s_axi_gp_aw_select = (EnableSAxiGp && s_axi_gp_allowed(s_axi_gp_req.aw.addr))
+                          ? 1'(SAxiGpBusPort) : 1'(SAxiGpErrPort);
+assign s_axi_gp_ar_select = (EnableSAxiGp && s_axi_gp_allowed(s_axi_gp_req.ar.addr))
+                          ? 1'(SAxiGpBusPort) : 1'(SAxiGpErrPort);
+
+// Demux between the bus and error ports (s_axi_gp -> {bus_port, error_port})
+axi_demux_simple #(
+    .AxiIdWidth  ( SAxiIdWidth       ),
+    .AtopSupport ( 1'b0              ),
+    .axi_req_t   ( vernii_axi_req_t  ),
+    .axi_resp_t  ( vernii_axi_resp_t ),
+    .NoMstPorts  ( SAxiGpPorts       ),
+    .AxiLookBits ( SAxiIdWidth       )
+) i_s_axi_gp_demux (
+    .clk_i,
+    .rst_ni          ( soc_rstn           ),
+    .test_i          ( test_mode_i        ),
+    .slv_req_i       ( s_axi_gp_req       ),
+    .slv_aw_select_i ( s_axi_gp_aw_select ),
+    .slv_ar_select_i ( s_axi_gp_ar_select ),
+    .slv_resp_o      ( s_axi_gp_rsp       ),
+    .mst_reqs_o      ( s_axi_gp_dev_req   ),
+    .mst_resps_i     ( s_axi_gp_dev_rsp   )
+);
+
+// Error port answering with DECERR if
+//  1) SAxiGp is disabled or
+//  2) the access is not allowed by any SAxiGpRule
+axi_err_slv #(
+    .AxiIdWidth ( SAxiIdWidth          ),
+    .axi_req_t  ( vernii_axi_req_t     ),
+    .axi_resp_t ( vernii_axi_resp_t    ),
+    .Resp       ( axi_pkg::RESP_DECERR ),
+    .RespWidth  ( DataWidth            ),
+    .RespData   ( 32'h0BAD_0BAD        ),
+    .ATOPs      ( 1'b0                 )
+) i_s_axi_gp_err_slv (
+    .clk_i,
+    .rst_ni     ( soc_rstn                        ),
+    .test_i     ( test_mode_i                     ),
+    .slv_req_i  ( s_axi_gp_dev_req[SAxiGpErrPort] ),
+    .slv_resp_o ( s_axi_gp_dev_rsp[SAxiGpErrPort] )
+);
+
+generate if (EnableSAxiGp) begin : gen_axi_gp
+
+    // IF SAxiGp is enabled, generate the bus adapters between AXI and
+    // the mem_hub's friscv_mem_if
+
+    logic s_mem_req, s_mem_gnt, s_mem_we, s_mem_rvalid, s_mem_err;
+    logic [AddrWidth-1:0] s_mem_addr;
+    logic [DataWidth-1:0] s_mem_wdata, s_mem_rdata;
+    logic [StrbWidth-1:0] s_mem_strb;
+
+    // axi -> mem
+    `pragma diagnostic push
+    `pragma diagnostic ignore="-Wempty-output-connection"
+    axi_to_detailed_mem #(
+        .axi_req_t  ( vernii_axi_req_t  ),
+        .axi_resp_t ( vernii_axi_resp_t ),
+        .AddrWidth  ( AddrWidth         ),
+        .DataWidth  ( DataWidth         ),
+        .IdWidth    ( SAxiIdWidth       )
+    ) i_s_axi_to_mem (
+        .clk_i,
+        .rst_ni       ( soc_rstn                        ),
+        .busy_o       ( /* unused */                    ),
+        .axi_req_i    ( s_axi_gp_dev_req[SAxiGpBusPort] ),
+        .axi_resp_o   ( s_axi_gp_dev_rsp[SAxiGpBusPort] ),
+        .mem_req_o    ( s_mem_req                       ),
+        .mem_gnt_i    ( s_mem_gnt                       ),
+        .mem_addr_o   ( s_mem_addr                      ),
+        .mem_wdata_o  ( s_mem_wdata                     ),
+        .mem_strb_o   ( s_mem_strb                      ),
+        .mem_atop_o   ( /* unused */                    ),
+        .mem_lock_o   ( /* unused */                    ),
+        .mem_we_o     ( s_mem_we                        ),
+        .mem_id_o     ( /* unused */                    ),
+        .mem_user_o   ( /* unused */                    ),
+        .mem_cache_o  ( /* unused */                    ),
+        .mem_prot_o   ( /* unused */                    ),
+        .mem_qos_o    ( /* unused */                    ),
+        .mem_region_o ( /* unused */                    ),
+        .mem_rvalid_i ( s_mem_rvalid                    ),
+        .mem_rdata_i  ( s_mem_rdata                     ),
+        .mem_err_i    ( s_mem_err                       ),
+        .mem_exokay_i ( '0                              )
+    );
+    `pragma diagnostic pop
+
+    // mem -> friscv_mem_if
+    `pragma diagnostic push
+    `pragma diagnostic ignore="-Wempty-output-connection"
+    mem_to_friscv mem_to_friscv (
+        .clk_i,
+        .rst_ni      ( soc_rstn     ),
+        .req_i       ( s_mem_req    ),
+        .addr_i      ( s_mem_addr   ),
+        .we_i        ( s_mem_we     ),
+        .wdata_i     ( s_mem_wdata  ),
+        .be_i        ( s_mem_strb   ),
+        .gnt_o       ( s_mem_gnt    ),
+        .rvalid_o    ( s_mem_rvalid ),
+        .err_o       ( s_mem_err    ),
+        .other_err_o ( /* unused */ ),
+        .rdata_o     ( s_mem_rdata  ),
+        .m_mem       ( s_gp_mem_if  )
+    );
+    `pragma diagnostic pop
+
+end else begin : gen_no_axi_gp
+
+    // The bus port of the demux is never selected, so it never sees a request
+    assign s_axi_gp_dev_rsp[SAxiGpBusPort] = '0;
+
+    // And the hub never sees a transfer from this port
+    assign s_gp_mem_if.rw       = RW_IDLE;
+    assign s_gp_mem_if.size     = WIDTH_I32;
+    assign s_gp_mem_if.addr     = '0;
+    assign s_gp_mem_if.wdata    = '0;
+    assign s_gp_mem_if.burst_en = 1'b0;
+
+end endgenerate
+
+// ============================================================
+// Memory hub {cpu, s_axi_gp, dm} -> {soc, m_axi_hp}
 // ============================================================
 
 if (OcmBase < DmBaseAddr + DmSize &&
@@ -209,6 +414,11 @@ friscv_mem_if dm_if ();
 friscv_mem_if ext_if ();
 friscv_mem_if soc_if ();
 
+// S port A: CPU
+// S port B: External GP AXI
+// S port DM: Debug module
+// M port EXT: External memory
+// M port SYS: System peripherals
 friscv_mem_hub #(
     .ExtBase    ( ExtBase    ),
     .ExtSize    ( ExtSize    ),
@@ -222,7 +432,8 @@ friscv_mem_hub #(
 ) friscv_mem_hub (
     .clk_i,
     .rst_ni    ( soc_rstn    ),
-    .s_cpu_if  ( cpu_if      ),
+    .s_a_if    ( cpu_if      ),
+    .s_b_if    ( s_gp_mem_if ),
     .s_dm_if   ( dm_if       ),
     .m_ext_if  ( ext_if      ),
     .m_sys_if  ( soc_if      ),
@@ -328,14 +539,6 @@ localparam xbar_rule_32_t [NoIntRegRules-1:0] IntRegRules = '{
     '{ idx: ScbPort,   start_addr: 32'h4000_0000, end_addr: 32'h4000_1000 },
     '{ idx: Qspi0Port, start_addr: 32'h6000_0000, end_addr: 32'h6000_1000 }
 };
-
-function automatic bit rule_populated(input xbar_rule_32_t rule);
-    rule_populated = rule.start_addr != rule.end_addr;
-endfunction
-
-function automatic logic [31:0] rule_end(input xbar_rule_32_t rule);
-    rule_end = (rule.end_addr == '0) ? '1 : rule.end_addr;
-endfunction
 
 function automatic int unsigned count_ext_rules();
     count_ext_rules = 0;
@@ -481,8 +684,8 @@ friscv_to_axi4_full_intf #(
     .m_axi  ( mem_axi  )
 );
 
-`AXI_ASSIGN_TO_REQ(axi_mem_req_o, mem_axi)
-`AXI_ASSIGN_FROM_RESP(mem_axi, axi_mem_rsp_i)
+`AXI_ASSIGN_TO_REQ(m_axi_hp_req_o, mem_axi)
+`AXI_ASSIGN_FROM_RESP(mem_axi, m_axi_hp_rsp_i)
 
 // ============================================================
 // Debugger

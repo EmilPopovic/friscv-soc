@@ -25,6 +25,7 @@ typedef logic [StrbWidth-1:0]    strb_t;
 typedef logic [AxiIdWidth-1:0]   id_t;
 typedef logic [AxiUserWidth-1:0] user_t;
 
+`AXI_LITE_TYPEDEF_ALL(vernii_axi_lite, addr_t, data_t, strb_t)
 `AXI_TYPEDEF_ALL(vernii_axi, addr_t, id_t, data_t, strb_t, user_t)
 `REG_BUS_TYPEDEF_ALL(vernii_reg, addr_t, data_t, strb_t)
 
