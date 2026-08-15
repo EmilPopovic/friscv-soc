@@ -46,9 +46,6 @@ module friscv_if_stage import friscv_pkg::*, friscv_mem_pkg::*; #(
 addr_t pc_reg;
 inst_t ir_buff;
 logic  r_fetch_active;
-// Set when a redirect (interrupt/jump/mret/flush) fires while a fetch is in-flight.
-// The in-flight AXI response will arrive for the old address,
-// we must discard it and re-issue the fetch for the redirect target.
 logic  r_flush_pending;
 
 always_ff @(posedge clk_in or negedge rst_n_in) begin
@@ -70,8 +67,6 @@ always_ff @(posedge clk_in or negedge rst_n_in) begin
             ir_buff         <= NOP;
             r_flush_pending <= r_fetch_active && i_mem_wait_in;
         end else if (r_flush_pending && !i_mem_wait_in) begin
-            // Stale AXI response arrived for the old address.
-            // Discard it, hold pc_reg at the redirect target, restart fetch.
             r_fetch_active  <= 1'b1;
             r_flush_pending <= 1'b0;
         end else if (!stage_stall_in) begin
@@ -91,7 +86,6 @@ always_comb begin
     i_mem_en_out = r_fetch_active;
 
     if (r_flush_pending) begin
-        // Suppress stale data from reaching the ID stage
         ir_out = NOP;
     end else if (r_fetch_active) begin
         if (i_mem_wait_in) begin
