@@ -78,6 +78,12 @@ packages:
     - common_cells
     - register_interface
     - tech_cells_generic
+  reg-rom:
+    revision: 29447f72abd1e42424df50f4a42a8c4f4ea5e5ee
+    version: 0.1.1
+    source:
+      Git: https://github.com/cappig/reg-rom.git
+    dependencies: []
   register_interface:
     revision: 146501d80052b61475cdc333d3aab4cd769fd5dc
     version: 0.3.9

@@ -646,9 +646,9 @@ end
 // ============================================================
 
 if (ZsblRomEnable) begin : gen_zsbl_rom
-    vernii_zsbl_rom #(
-        .ProgWords ( ZsblRomWords ),
-        .Prog      ( ZsblRomProg  ),
+    reg_rom #(
+        .NumWords  ( ZsblRomWords ),
+        .Data      ( ZsblRomProg  ),
         .BaseAddr  ( ZsblBaseAddr ),
         .reg_req_t ( reg_req_t    ),
         .reg_rsp_t ( reg_rsp_t    )
