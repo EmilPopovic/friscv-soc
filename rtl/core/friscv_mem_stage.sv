@@ -19,6 +19,7 @@ module friscv_mem_stage import friscv_pkg::*, friscv_mem_pkg::*; (
     input  logic           stage_stall_in,
     input  logic           trap_commit_in,
     input  logic           addr_virtual_in,
+    output logic           csr_is_serializing_out,
 
     // Inputs from EX stage
     input  addr_t          pc_in,
@@ -34,6 +35,7 @@ module friscv_mem_stage import friscv_pkg::*, friscv_mem_pkg::*; (
     input  logic           csr_en_in,
     input  logic           instr_valid_in,
     input  mode_e          mode_in,
+    input  logic           csr_is_serializing_in,
 
     // AMO control
     input  logic           reserve_in,
@@ -96,6 +98,7 @@ typedef struct packed {
     csr_addr_e      csr_sel;
     data_t          csr_readback;
     logic           csr_en;
+    logic           csr_is_serializing;
     logic           instr_valid;
     mode_e          mode;
 } mem_pipe_t;
@@ -117,6 +120,7 @@ localparam mem_pipe_t MEM_PIPE_BUBBLE = '{
     csr_sel: CSR_ZERO,
     csr_readback: '0,
     csr_en: 1'b0,
+    csr_is_serializing: 1'b0,
     instr_valid: 1'b0,
     mode: M_MODE
 };
@@ -151,6 +155,7 @@ assign csr_sel_out      = pipe_buff.csr_sel;
 assign csr_data_out     = pipe_buff.alu_data;
 assign csr_readback_out = pipe_buff.csr_readback;
 assign csr_en_out       = pipe_buff.csr_en && !w_mem_completion_fault;
+assign csr_is_serializing_out = pipe_buff.csr_is_serializing;
 
 data_t load_data;
 data_t load_data_buff;  // Buffered load data
@@ -309,6 +314,7 @@ always_ff @(posedge clk_in or negedge rst_n_in) begin
                     csr_sel: csr_sel_in,
                     csr_readback: csr_readback_in,
                     csr_en: csr_en_in,
+                    csr_is_serializing: csr_is_serializing_in,
                     instr_valid: instr_valid_in,
                     mode: mode_in
                 };

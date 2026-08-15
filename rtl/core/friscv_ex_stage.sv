@@ -66,6 +66,7 @@ module friscv_ex_stage import friscv_pkg::*, friscv_mem_pkg::*; #(
     output logic           branch_ok_out,
     output logic           muldiv_active_out,
     output addr_t          branch_target_out,
+    output logic           csr_is_serializing_out,
 
     // Trap signals
     input  logic           trap_commit_in,
@@ -339,6 +340,7 @@ assign flush_vpn_out        = vpn_t'(rs1_buff[31:12]);
 assign flush_vpn_en_out     = (rs1_sel_buff != 5'b0);
 assign flush_asid_out       = asid_t'(rs2_buff[8:0]);
 assign flush_asid_en_out    = (rs2_sel_buff != 5'b0);
+assign csr_is_serializing_out = instr_buff.csr_is_serializing;
 
 // ============================================================
 // ALU input select

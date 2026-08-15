@@ -35,6 +35,7 @@ module friscv_pipeline_control import friscv_pkg::*, friscv_mem_pkg::*; (
     input  addr_t     jal_target_in,
     input  logic      id_csr_en_in,
     input  csr_addr_e id_csr_sel_in,
+    input  logic      id_csr_is_counter_in,
 
     // EX stage
     input  reg_addr_t ex_rd_sel_in,
@@ -43,11 +44,13 @@ module friscv_pipeline_control import friscv_pkg::*, friscv_mem_pkg::*; (
     input  logic      ex_csr_en_in,
     input  csr_addr_e ex_csr_sel_in,
     input  logic      ex_muldiv_active_in,
+    input  logic      ex_csr_is_serializing_in,
 
     // MEM stage
     input  reg_addr_t mem_rd_sel_in,
     input  logic      mem_csr_en_in,
     input  csr_addr_e mem_csr_sel_in,
+    input  logic      mem_csr_is_serializing_in,
 
     // WB stage
     input  reg_addr_t wb_rd_sel_in,
@@ -56,6 +59,7 @@ module friscv_pipeline_control import friscv_pkg::*, friscv_mem_pkg::*; (
     input  logic      ex_instr_valid_in,
     input  logic      mem_instr_valid_in,
     input  logic      wb_instr_valid_in,
+    input  logic      wb_csr_is_serializing_in,
 
     // Older memory ops ahead of a return must retire before redirecting to epc
     input  logic      ex_mem_inflight_in,
@@ -79,31 +83,6 @@ logic counter_csr_hazard;
 logic mem_stall, hazard_stall, trap_pending_stall;
 logic id_stall;
 
-// satp changes the address translation context globally, so younger
-// instructions must wait for the committed update.
-function automatic logic is_serializing_csr(csr_addr_e csr_sel);
-    is_serializing_csr = 1'b0;
-    if (csr_sel == CSR_MSTATUS ||
-        csr_sel == CSR_SSTATUS ||
-        csr_sel == CSR_MEDELEG ||
-        csr_sel == CSR_MIDELEG ||
-        csr_sel == CSR_SATP) begin
-        is_serializing_csr = 1'b1;
-    end
-endfunction
-
-function automatic logic is_counter_csr(csr_addr_e csr_sel);
-    is_counter_csr = 1'b0;
-    if (csr_sel == CSR_CYCLE ||
-        csr_sel == CSR_CYCLEH ||
-        csr_sel == CSR_TIME ||
-        csr_sel == CSR_TIMEH ||
-        csr_sel == CSR_INSTRET ||
-        csr_sel == CSR_INSTRETH) begin
-        is_counter_csr = 1'b1;
-    end
-endfunction
-
 logic effective_jal, effective_ret;
 
 always_comb begin
@@ -122,12 +101,12 @@ always_comb begin
 
     // Serialize only the narrow always-serializing CSR subset.
     // Trap-control CSRs are still ordered by the trap/return hazards.
-    serializing_csr_hazard = (ex_csr_en_in  && is_serializing_csr(ex_csr_sel_in))  ||
-                             (mem_csr_en_in && is_serializing_csr(mem_csr_sel_in)) ||
-                             (wb_csr_en_in  && is_serializing_csr(wb_csr_sel_in));
+    serializing_csr_hazard = (ex_csr_en_in  && ex_csr_is_serializing_in)  ||
+                             (mem_csr_en_in && mem_csr_is_serializing_in) ||
+                             (wb_csr_en_in  && wb_csr_is_serializing_in);
 
     // Counter CSR operations must wait for valid instructions to commit
-    counter_csr_hazard = id_csr_en_in && is_counter_csr(id_csr_sel_in) &&
+    counter_csr_hazard = id_csr_en_in && id_csr_is_counter_in &&
                          (ex_instr_valid_in || mem_instr_valid_in || wb_instr_valid_in);
 
     // Stall while trap is pending

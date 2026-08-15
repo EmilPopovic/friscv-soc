@@ -18,6 +18,7 @@ module friscv_wb_stage import friscv_pkg::*, friscv_mem_pkg::*; (
 
     // Stage control
     input  logic         stage_stall_in,
+    output logic         csr_is_serializing_out,
 
     // Inputs from MEM stage
     input  addr_t        pc_plus_4_in,
@@ -30,6 +31,7 @@ module friscv_wb_stage import friscv_pkg::*, friscv_mem_pkg::*; (
     input  data_t        csr_data_in,
     input  data_t        csr_readback_in,
     input  logic         csr_en_in,
+    input  logic         csr_is_serializing_in,
     input  logic         instr_valid_in,
 
     // Outputs to ID stage (regfile write, CSR write, instret)
@@ -52,6 +54,7 @@ csr_addr_e    csr_sel_buff;
 data_t        csr_data_buff;
 data_t        csr_readback_buff;
 logic         csr_en_buff;
+logic         csr_is_serializing_buff;
 logic         instr_valid_buff;
 
 always_ff @(posedge clk_in or negedge rst_n_in) begin
@@ -66,6 +69,7 @@ always_ff @(posedge clk_in or negedge rst_n_in) begin
         csr_data_buff     <= '0;
         csr_readback_buff <= '0;
         csr_en_buff       <= 1'b0;
+        csr_is_serializing_buff <= 1'b0;
         instr_valid_buff  <= 1'b0;
     end else if (!stage_stall_in) begin
         pc_plus_4_buff    <= pc_plus_4_in;
@@ -78,6 +82,7 @@ always_ff @(posedge clk_in or negedge rst_n_in) begin
         csr_data_buff     <= csr_data_in;
         csr_readback_buff <= csr_readback_in;
         csr_en_buff       <= csr_en_in;
+        csr_is_serializing_buff <= csr_is_serializing_in;
         instr_valid_buff  <= instr_valid_in;
     end
 end
@@ -86,6 +91,7 @@ assign rd_sel_out   = rd_sel_buff;
 assign csr_sel_out  = csr_sel_buff;
 assign csr_data_out = csr_data_buff;
 assign csr_en_out   = csr_en_buff;
+assign csr_is_serializing_out = csr_is_serializing_buff;
 assign instr_valid_out = instr_valid_buff;
 assign inst_ret_out = instr_valid_buff && !stage_stall_in;
 

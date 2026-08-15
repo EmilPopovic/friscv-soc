@@ -91,6 +91,7 @@ module friscv_id_stage import friscv_pkg::*, friscv_mem_pkg::*; #(
 
     output logic      jal_ok_out,
     output addr_t     jal_target_out,
+    output logic      csr_is_counter_out,
 
     // Inputs from IF stage
     input  addr_t     pc_in,
@@ -483,6 +484,8 @@ end
 // ============================================================
 // Instruction decoding
 // ============================================================
+
+assign csr_is_counter_out = instr_ex_out.csr_is_counter;
 
 friscv_id_decoder #(
     .EnableIsaE ( EnableIsaE ),

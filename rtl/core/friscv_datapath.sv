@@ -111,6 +111,7 @@ reg_addr_t id_rs1_sel_out, id_rs2_sel_out, id_rd_sel_out;
 addr_t     id_pc_out, id_pc_plus_4_out;
 data_t     id_rs1_out, id_rs2_out, id_imm32_out, id_csr_out;    
 instr_ex_t id_uinstr;
+logic      id_csr_is_counter;
 
 // EX stage signals
 addr_t          ex_pc_out;
@@ -134,6 +135,7 @@ addr_t          ex_trap_pc_out;
 addr_t          ex_trap_va_out;
 mode_e          ex_trap_mode_out;
 logic           ex_commit;
+logic           ex_csr_is_serializing;
 
 logic ex_instr_is_mem;
 assign ex_instr_is_mem = ex_mem_instr_sel_out != MEM_INSTR_NONE;
@@ -156,6 +158,7 @@ data_t          mem_csr_readback_out;
 logic           mem_csr_en_out;
 logic           mem_instr_valid_out;
 logic           mem_commit;
+logic           mem_csr_is_serializing;
 
 // WB stage signals
 data_t     wb_rd_data_out;
@@ -165,6 +168,7 @@ data_t     wb_csr_data_out;
 logic      wb_csr_en_out;
 logic      wb_inst_ret_out;
 logic      wb_instr_valid_out;
+logic      wb_csr_is_serializing;
 
 // Interrupts
 addr_t id_tvec_out, id_epc_out;
@@ -195,6 +199,7 @@ friscv_pipeline_control control_unit (
     .jal_target_in    ( jal_target         ),
     .id_csr_en_in     ( id_uinstr.csr_op   ),
     .id_csr_sel_in    ( id_uinstr.csr_addr ),
+    .id_csr_is_counter_in ( id_csr_is_counter ),
 
     // EX stage
     .ex_rd_sel_in     ( ex_rd_sel_out      ),
@@ -203,11 +208,13 @@ friscv_pipeline_control control_unit (
     .ex_csr_en_in     ( ex_csr_en_out      ),
     .ex_csr_sel_in    ( ex_csr_sel_out     ),
     .ex_muldiv_active_in ( ex_muldiv_active ),
+    .ex_csr_is_serializing_in ( ex_csr_is_serializing ),
 
     // MEM stage
     .mem_rd_sel_in    ( mem_rd_sel_out     ),
     .mem_csr_en_in    ( mem_csr_en_out     ),
     .mem_csr_sel_in   ( mem_csr_sel_out    ),
+    .mem_csr_is_serializing_in ( mem_csr_is_serializing ),
 
     // WB stage
     .wb_rd_sel_in     ( wb_rd_sel_out      ),
@@ -216,6 +223,7 @@ friscv_pipeline_control control_unit (
     .ex_instr_valid_in ( ex_instr_valid_out ),
     .mem_instr_valid_in( mem_instr_valid_out),
     .wb_instr_valid_in ( wb_instr_valid_out ),
+    .wb_csr_is_serializing_in ( wb_csr_is_serializing ),
 
     // Older memory operations must drain before return redirects take effect
     .ex_mem_inflight_in ( ex_instr_is_mem  ),
@@ -323,6 +331,7 @@ friscv_id_stage #(
     .rd_sel_out       ( id_rd_sel_out    ),
     .jal_ok_out       ( jal_ok           ),
     .jal_target_out   ( jal_target       ),
+    .csr_is_counter_out ( id_csr_is_counter ),
 
     // Inputs from IF stage
     .pc_in            ( if_pc_out        ),
@@ -385,6 +394,7 @@ friscv_ex_stage #(
     // Stage control signals
     .stage_stall_in       ( stall_ex                ),
     .stage_flush_in       ( flush_ex                ),
+    .csr_is_serializing_out ( ex_csr_is_serializing ),
 
     // Inputs from ID stage
     .pc_in                ( id_pc_out               ),
@@ -442,6 +452,7 @@ friscv_mem_stage mem_stage (
     .stage_stall_in      ( stall_mem               ),
     .trap_commit_in      ( id_trap_out             ),
     .addr_virtual_in     ( data_addr_virtual       ),
+    .csr_is_serializing_out ( mem_csr_is_serializing ),
 
     // Inputs from EX stage
     .pc_in               ( ex_pc_out               ),
@@ -455,6 +466,7 @@ friscv_mem_stage mem_stage (
     .csr_sel_in          ( ex_csr_sel_out          ),
     .csr_readback_in     ( ex_csr_readback_out     ),
     .csr_en_in           ( ex_csr_en_out           ),
+    .csr_is_serializing_in ( ex_csr_is_serializing ),
     .instr_valid_in      ( ex_instr_valid_out      ),
     .mode_in             ( ex_trap_mode_out        ),
 
@@ -508,6 +520,7 @@ friscv_wb_stage wb_stage (
     .clk_in          ( i_clk                  ),
     .rst_n_in        ( i_rstn                 ),
     .stage_stall_in  ( stall_wb               ),
+    .csr_is_serializing_out ( wb_csr_is_serializing ),
 
     // Inputs from MEM stage
     .pc_plus_4_in    ( mem_pc_plus_4_out      ),
@@ -520,6 +533,7 @@ friscv_wb_stage wb_stage (
     .csr_data_in     ( mem_csr_data_out       ),
     .csr_readback_in ( mem_csr_readback_out   ),
     .csr_en_in       ( mem_csr_en_out         ),
+    .csr_is_serializing_in ( mem_csr_is_serializing ),
     .instr_valid_in  ( mem_instr_valid_out    ),
 
     // Outputs to ID stage

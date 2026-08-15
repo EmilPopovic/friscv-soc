@@ -35,6 +35,34 @@ module friscv_id_decoder import friscv_pkg::*, friscv_mem_pkg::*; #(
     output logic      ebreak_active_out
 );
 
+// When addint C extension, do not decode here
+// Add pre-decoder that expands compressed instructions and then feed the expanded instruction here
+
+// satp changes the address translation context globally, so younger
+// instructions must wait for the committed update.
+function automatic logic is_serializing_csr(csr_addr_e csr_sel);
+    is_serializing_csr = 1'b0;
+    if (csr_sel == CSR_MSTATUS ||
+        csr_sel == CSR_SSTATUS ||
+        csr_sel == CSR_MEDELEG ||
+        csr_sel == CSR_MIDELEG ||
+        csr_sel == CSR_SATP) begin
+        is_serializing_csr = 1'b1;
+    end
+endfunction
+
+function automatic logic is_counter_csr(csr_addr_e csr_sel);
+    is_counter_csr = 1'b0;
+    if (csr_sel == CSR_CYCLE ||
+        csr_sel == CSR_CYCLEH ||
+        csr_sel == CSR_TIME ||
+        csr_sel == CSR_TIMEH ||
+        csr_sel == CSR_INSTRET ||
+        csr_sel == CSR_INSTRETH) begin
+        is_counter_csr = 1'b1;
+    end
+endfunction
+
 csr_addr_e selected_csr;
 assign selected_csr = csr_addr_e'(ir_in.b[31:20]);
 
@@ -90,7 +118,8 @@ always_comb begin
     instr_ex_out = NOP_CTRL;
     instr_ex_out.instr_valid = instr_valid;
     instr_ex_out.csr_addr = selected_csr;
-
+    instr_ex_out.csr_is_serializing = is_serializing_csr(selected_csr);
+    instr_ex_out.csr_is_counter = is_counter_csr(selected_csr);
     rs1_sel_out = 5'b0;
     rs2_sel_out = 5'b0;
     rd_sel_out  = 5'b0;
@@ -234,20 +263,20 @@ always_comb begin
                     else if (ir_in.r.funct7 == 7'b0000001 && EnableIsaM) instr_ex_out.alu_op = MULHU_OP;  // MULHU
                     else illegal_inst_out = 1'b1;
                 3'b100:
-                    if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = XOR_OP;  // XOR
+                    if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = XOR_OP;                  // XOR
                     else if (ir_in.r.funct7 == 7'b0000001 && EnableIsaM) instr_ex_out.alu_op = DIV_OP;    // DIV
                     else illegal_inst_out = 1'b1;
                 3'b101:
-                    if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = SRL_OP;  // SRL
-                    else if (ir_in.r.funct7 == 7'b0100000) instr_ex_out.alu_op = SRA_OP;  // SRA
+                    if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = SRL_OP;                  // SRL
+                    else if (ir_in.r.funct7 == 7'b0100000) instr_ex_out.alu_op = SRA_OP;                  // SRA
                     else if (ir_in.r.funct7 == 7'b0000001 && EnableIsaM) instr_ex_out.alu_op = DIVU_OP;   // DIVU
                     else illegal_inst_out = 1'b1;
                 3'b110:
-                    if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = OR_OP;    // OR
+                    if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = OR_OP;                   // OR
                     else if (ir_in.r.funct7 == 7'b0000001 && EnableIsaM) instr_ex_out.alu_op = REM_OP;    // REM
                     else illegal_inst_out = 1'b1;
                 3'b111:
-                    if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = AND_OP;   // AND
+                    if      (ir_in.r.funct7 == 7'b0000000) instr_ex_out.alu_op = AND_OP;                  // AND
                     else if (ir_in.r.funct7 == 7'b0000001 && EnableIsaM) instr_ex_out.alu_op = REMU_OP;   // REMU
                     else illegal_inst_out = 1'b1;
                 default: illegal_inst_out = 1'b1;
@@ -395,8 +424,8 @@ always_comb begin
             if (ir_in.r.funct3 == 3'b0) begin  // Non-CSR SYSTEM instructions
                 case (ir_in.r.funct7)
                     7'b0001001: begin  // SFENCE.VMA
-                        if      (ir_in.r.rd != 5'b0) illegal_inst_out = 1'b1;                         // SFENCE.VMA requires rd=x0.
-                        else if (mode_in == U_MODE) illegal_inst_out = 1'b1;                     // U-mode cannot execute SFENCE.VMA.
+                        if      (ir_in.r.rd != 5'b0) illegal_inst_out = 1'b1;           // SFENCE.VMA requires rd=x0.
+                        else if (mode_in == U_MODE) illegal_inst_out = 1'b1;            // U-mode cannot execute SFENCE.VMA.
                         else if (mode_in == S_MODE && tvm_in) illegal_inst_out = 1'b1;  // S-mode with TVM=1 cannot execute SFENCE.VMA.
                         else begin
                             instr_ex_out.sfence_vma = 1'b1;

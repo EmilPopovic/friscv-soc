@@ -437,6 +437,8 @@ package friscv_pkg;
         logic           mret_en;
         logic           sret_en;
         csr_addr_e      csr_addr;
+        logic           csr_is_serializing;
+        logic           csr_is_counter;
         logic           sfence_vma;
     } instr_ex_t;
 
@@ -461,6 +463,8 @@ package friscv_pkg;
         mret_en: 1'b0,   
         sret_en: 1'b0,
         csr_addr: CSR_ZERO,
+        csr_is_serializing: 1'b0,
+        csr_is_counter: 1'b0,
         sfence_vma: 1'b0
     };
 

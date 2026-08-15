@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refactored `rtl/core/`.
 - Moved parameter check to `friscv_core.sv`.
 - Moved the ZSBL ROM out of the CPU core and onto the SoC register bus.
+- Serializing and counter CSR checks now done in the decoder.
 
 ### Added
 
