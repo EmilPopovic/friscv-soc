@@ -19,7 +19,9 @@
  * for one cycle to avoid repeat flushes that cause a livelock.
  */
 
-module friscv_ex_stage import friscv_pkg::*; #(
+module friscv_ex_stage
+    import friscv_pkg::*;
+#(
     parameter bit EnableIsaM    = 1,
     // Use a single-cycle combinational multiplier instead of the iterative multiplier
     parameter bit EnableFastMul = 0

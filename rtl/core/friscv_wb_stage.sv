@@ -13,7 +13,9 @@
  * register file, as well as control signals for writing to CSRs and updating instret.
  */
 
-module friscv_wb_stage import friscv_pkg::*; (
+module friscv_wb_stage
+    import friscv_pkg::*;
+(
     input  logic         clk_i,
     input  logic         rst_ni,
 

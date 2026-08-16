@@ -11,7 +11,9 @@
  * Provides two asynchronous read ports and one synchronous write port.
  */
 
-module friscv_regfile import friscv_pkg::*; #(
+module friscv_regfile
+    import friscv_pkg::*;
+#(
     parameter int unsigned RegisterNum = 32
 ) (
     input  logic      clk_i,

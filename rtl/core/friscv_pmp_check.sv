@@ -13,7 +13,9 @@
  * If no access_* is set, fault will never assert.
  */
 
-module friscv_pmp_check import friscv_pkg::*; #(
+module friscv_pmp_check
+    import friscv_pkg::*;
+#(
     parameter int unsigned PmpEntries = 8
 ) (
     input  addr_t                        pa_i,

@@ -13,7 +13,9 @@
  * for division. Inputs and outputs must be registered across pipeline stalls.
  */
 
-module friscv_muldiv import friscv_pkg::*; (
+module friscv_muldiv
+    import friscv_pkg::*;
+(
     input  logic        clk_i,
     input  logic        rst_ni,
     input  logic        flush_i,

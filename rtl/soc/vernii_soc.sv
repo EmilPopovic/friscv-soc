@@ -19,9 +19,14 @@
 
 `include "apb/typedef.svh"
 
-module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t,
-                        friscv_mem_pkg::friscv_mem_req_t, friscv_mem_pkg::friscv_mem_rsp_t,
-                        friscv_mem_pkg::MEM_REQ_IDLE; #(
+module vernii_soc
+    import vernii_pkg::*;
+    import axi_pkg::xbar_rule_32_t;
+    import dm::hartinfo_t;
+    import friscv_mem_pkg::friscv_mem_req_t;
+    import friscv_mem_pkg::friscv_mem_rsp_t;
+    import friscv_mem_pkg::MEM_REQ_IDLE;
+#(
     parameter int unsigned OcmBase          = 32'h0000_0000,
     parameter int unsigned OcmSize          = 32'h0000_2000,
     parameter int unsigned ExtBase          = 32'h8000_0000,

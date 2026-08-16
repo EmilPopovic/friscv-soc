@@ -20,7 +20,9 @@
  * the retiring CSR write on those cycles.
  */
 
-module friscv_csr_file import friscv_pkg::*; #(
+module friscv_csr_file
+    import friscv_pkg::*;
+#(
     parameter int unsigned HartId = 0,
 
     parameter bit          EnforcePmp = 0,

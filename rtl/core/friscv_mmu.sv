@@ -12,7 +12,9 @@
  * and memory interface arbitration.
  */
 
-module friscv_mmu import friscv_pkg::*; #(
+module friscv_mmu
+    import friscv_pkg::*;
+#(
     parameter bit          EnforcePmp    = 0,
     parameter bit          EnforcePtwPmp = 0,
     parameter int unsigned PmpEntries    = 8,

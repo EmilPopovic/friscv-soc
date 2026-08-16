@@ -6,7 +6,9 @@
 // at your option, the Apache License version 2.0.
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
 
-module friscv_arbiter import friscv_pkg::*; (
+module friscv_arbiter
+    import friscv_pkg::*;
+(
     input  logic       clk_i,
     input  logic       rst_ni,
 

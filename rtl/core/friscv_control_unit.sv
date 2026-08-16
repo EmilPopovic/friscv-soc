@@ -16,7 +16,9 @@
  * entire pipeline is needed.
  */
 
-module friscv_control_unit import friscv_pkg::*; (
+module friscv_control_unit
+    import friscv_pkg::*;
+(
     // Control signals
     output logic      flush_if_o,
     output logic      flush_id_o,

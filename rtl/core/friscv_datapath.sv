@@ -12,7 +12,9 @@
  * In a multi-core system, make sure that each core has a unique HART_ID, and that one core has HART_ID=0.
  */
 
-module friscv_datapath import friscv_pkg::*; #(
+module friscv_datapath
+    import friscv_pkg::*;
+#(
     parameter int unsigned HartId        = 0,
     parameter int unsigned ResetVec      = 32'h8000_0000,
     parameter int unsigned DmBase        = 32'h0000_0000,

@@ -12,7 +12,9 @@
  * System Control Block
  */
 
-module vernii_scb import vernii_pkg::*; #(
+module vernii_scb
+    import vernii_pkg::*;
+#(
     parameter int unsigned BootSelW   = 2,
     parameter int unsigned OcmLlcWays = 4,
     parameter type         reg_req_t  = vernii_reg_req_t,

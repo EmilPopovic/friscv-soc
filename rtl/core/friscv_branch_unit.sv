@@ -12,7 +12,9 @@
  * It asserts misaligned_out if the target address is not properly aligned, and the redirect should otherwise be taken.
  */
 
-module friscv_branch_unit import friscv_pkg::*; (
+module friscv_branch_unit
+    import friscv_pkg::*;
+(
     input  jump_sel_e    branch_jal_sel_i,
     input  branch_cond_e branch_cond_i,
     input  data_t        src1_i,
