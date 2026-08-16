@@ -710,7 +710,8 @@ vernii_scb #(
     .BootSelW   ( BootSelW  ),
     .reg_req_t  ( reg_req_t ),
     .reg_rsp_t  ( reg_rsp_t ),
-    .OcmLlcWays ( Ways      )
+    .OcmLlcWays ( Ways      ),
+    .OcmOnly    ( OcmOnly   )
 ) i_scb (
     .clk_i,
     .rst_ni          ( soc_rst_n            ),

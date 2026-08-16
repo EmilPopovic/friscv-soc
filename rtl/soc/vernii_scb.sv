@@ -17,6 +17,7 @@ module vernii_scb
 #(
     parameter int unsigned BootSelW   = 2,
     parameter int unsigned OcmLlcWays = 4,
+    parameter bit          OcmOnly    = 1'b0,
     parameter type         reg_req_t  = vernii_reg_req_t,
     parameter type         reg_rsp_t  = vernii_reg_rsp_t
 ) (
@@ -41,7 +42,7 @@ module vernii_scb
 localparam logic [11:0] OFF_SCRATCH0   = 12'h000;
 localparam logic [11:0] OFF_BOOTSEL    = 12'h004;
 localparam logic [11:0] OFF_LLCSEL     = 12'h00C;
-localparam logic [11:0] OFF_CRPSEL     = 12'h010;
+localparam logic [11:0] OFF_LLCCRPSEL  = 12'h010;
 localparam logic [11:0] OFF_LLCINV     = 12'h014;
 localparam logic [11:0] OFF_LLCRDACC   = 12'h018;
 localparam logic [11:0] OFF_LLCRDACCH  = 12'h01C;
@@ -61,13 +62,13 @@ assign do_write = reg_req_i.valid && reg_req_i.write;
 ///////////////
 
 logic [31:0]           scratch0;  // SCRATCH0
+logic [BootSelW-1:0]   bootsel;   // BOOTSEL
 logic [OcmLlcWays-1:0] llcsel;    // LLCSEL
-logic                  crpsel;    // CRPSEL
+logic                  llccrpsel; // LLCCRPSEL
 logic                  llcinv;    // LLCINV
 logic [63:0]           llcrdacc;  // LLCRDACC
 logic [63:0]           llcrdmiss; // LLCRDMISS
 logic [63:0]           llcwracc;  // LLCWRACC
-logic [BootSelW-1:0]   bootsel;   // BOOTSEL
 
 logic inc_llcrdacc, inc_llcrdmiss, inc_llcwracc;
 
@@ -119,11 +120,11 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
     end
 end
 
-// CRPSEL
+// LLCCRPSEL
 always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (!rst_ni) crpsel <= '0;
-    else if (do_write && off == OFF_CRPSEL && reg_req_i.wstrb[0]) begin
-        crpsel <= reg_req_i.wdata[0];
+    if (!rst_ni) llccrpsel <= '0;
+    else if (do_write && off == OFF_LLCCRPSEL && reg_req_i.wstrb[0]) begin
+        llccrpsel <= reg_req_i.wdata[0];
     end
 end
 
@@ -169,7 +170,7 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
 end
 
 assign llcsel_o = llcsel;
-assign crpsel_o = crpsel;
+assign crpsel_o = llccrpsel;
 assign llcinv_o = llcinv;
 
 /////////////////////
@@ -185,16 +186,35 @@ always_comb begin
     unique case (off)
         OFF_SCRATCH0:   rdata = scratch0;
         OFF_BOOTSEL:    rdata = 32'(bootsel);
-        OFF_LLCSEL:     rdata = {{32-OcmLlcWays{1'b0}}, {llcsel}};
-        OFF_CRPSEL:     rdata = {31'h0, crpsel};
-        OFF_LLCINV:     rdata = 32'h0;   // write-only
-        OFF_LLCRDACC:   rdata = llcrdacc [31:0];
-        OFF_LLCRDACCH:  rdata = llcrdacc [63:32];
-        OFF_LLCRDMISS:  rdata = llcrdmiss[31:0];
-        OFF_LLCRDMISSH: rdata = llcrdmiss[63:32];
-        OFF_LLCWRACC:   rdata = llcwracc [31:0];
-        OFF_LLCWRACCH:  rdata = llcwracc [63:32];
-        default:        map_err = 1'b1;
+        // LLC* are only accessible if OcmOnly is not set (LLC is present)
+        OFF_LLCSEL:
+            if (!OcmOnly) rdata = {{32-OcmLlcWays{1'b0}}, {llcsel}};
+            else map_err = 1'b1;
+        OFF_LLCCRPSEL:
+            if (!OcmOnly) rdata = {31'h0, llccrpsel};
+            else map_err = 1'b1;
+        OFF_LLCINV:
+            if (!OcmOnly) rdata = 32'h0;   // write-only
+            else map_err = 1'b1;
+        OFF_LLCRDACC:
+            if (!OcmOnly) rdata = llcrdacc [31:0];
+            else map_err = 1'b1;
+        OFF_LLCRDACCH:
+            if (!OcmOnly) rdata = llcrdacc [63:32];
+            else map_err = 1'b1;
+        OFF_LLCRDMISS:
+            if (!OcmOnly) rdata = llcrdmiss[31:0];
+            else map_err = 1'b1;
+        OFF_LLCRDMISSH:
+            if (!OcmOnly) rdata = llcrdmiss[63:32];
+            else map_err = 1'b1;
+        OFF_LLCWRACC:
+            if (!OcmOnly) rdata = llcwracc [31:0];
+            else map_err = 1'b1;
+        OFF_LLCWRACCH:
+            if (!OcmOnly) rdata = llcwracc [63:32];
+            else map_err = 1'b1;
+        default: map_err = 1'b1;
     endcase
 end
 
