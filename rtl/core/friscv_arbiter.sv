@@ -6,13 +6,7 @@
 // at your option, the Apache License version 2.0.
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
 
-/*
- * State-machine-based arbiter for the shared memory interfaces of a single core.
- * Takes requests from IF and MEM, grants one, forwards it to the external memory
- * interface. A grant is held until the transaction completes, then priority rotates.
- */
-
-module friscv_l1_arbiter import friscv_pkg::*, friscv_mem_pkg::*; (
+module friscv_arbiter import friscv_pkg::*; (
     input  logic       i_clk,
     input  logic       i_rstn,
 

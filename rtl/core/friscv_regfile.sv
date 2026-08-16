@@ -11,17 +11,17 @@
  * Provides two asynchronous read ports and one synchronous write port.
  */
 
-module friscv_id_regfile import friscv_pkg::*, friscv_mem_pkg::*; #(
+module friscv_regfile import friscv_pkg::*; #(
     parameter int unsigned RegisterNum = 32
 ) (
-    input  logic      clk_in,
-    input  reg_addr_t rs1_sel_in,
-    input  reg_addr_t rs2_sel_in,
-    input  reg_addr_t rd_sel_in,
-    input  data_t     rd_data_in,
-    input  logic      wr_en_in,
-    output data_t     rs1_data_out,
-    output data_t     rs2_data_out
+    input  logic      clk_i,
+    input  reg_addr_t rs1_sel_i,
+    input  reg_addr_t rs2_sel_i,
+    input  reg_addr_t rd_sel_i,
+    input  data_t     rd_i,
+    input  logic      wen_i,
+    output data_t     rs1_o,
+    output data_t     rs2_o
 );
 
 if (RegisterNum < 2) begin : gen_invalid_regfile
@@ -30,12 +30,12 @@ end
 
 data_t r_regfile [RegisterNum-1:1]; // Register file, x0 is hardwired to 0
 
-assign rs1_data_out = rs1_sel_in == 0 ? '0 : r_regfile[rs1_sel_in];
-assign rs2_data_out = rs2_sel_in == 0 ? '0 : r_regfile[rs2_sel_in];
+assign rs1_o = rs1_sel_i == 0 ? '0 : r_regfile[rs1_sel_i];
+assign rs2_o = rs2_sel_i == 0 ? '0 : r_regfile[rs2_sel_i];
 
-always_ff @(posedge clk_in) begin
+always_ff @(posedge clk_i) begin
     // Never write to x0
-    if (rd_sel_in != 0 && wr_en_in) r_regfile[rd_sel_in] <= rd_data_in;
+    if (rd_sel_i != 0 && wen_i) r_regfile[rd_sel_i] <= rd_i;
 end
 
 endmodule

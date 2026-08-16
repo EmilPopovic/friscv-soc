@@ -21,7 +21,7 @@
  * friscv_csr_file, with the trap controller commanding CSR trap captures through a dedicated commit interface.
  */
 
-module friscv_id_stage import friscv_pkg::*, friscv_mem_pkg::*; #(
+module friscv_id_stage import friscv_pkg::*; #(
     parameter int unsigned HartId = 0,
 
     // Debug module parameters
@@ -174,17 +174,17 @@ assign regfile_wr_en = (rd_sel_in != 0) && instr_ret_in;
 
 localparam RegisterNum = EnableIsaE ? 16 : 32;
 
-friscv_id_regfile #(
+friscv_regfile #(
     .RegisterNum ( RegisterNum )
-) regfile (
-    .clk_in           ( clk_in        ),
-    .rs1_sel_in       ( rs1_sel_out   ),
-    .rs2_sel_in       ( rs2_sel_out   ),
-    .rd_sel_in        ( rd_sel_in     ),
-    .rd_data_in       ( rd_data_in    ),
-    .wr_en_in         ( regfile_wr_en ),
-    .rs1_data_out     ( rs1_out       ),
-    .rs2_data_out     ( rs2_out       )
+) i_regfile (
+    .clk_i     ( clk_in        ),
+    .rs1_sel_i ( rs1_sel_out   ),
+    .rs2_sel_i ( rs2_sel_out   ),
+    .rd_sel_i  ( rd_sel_in     ),
+    .rd_i      ( rd_data_in    ),
+    .wen_i     ( regfile_wr_en ),
+    .rs1_o     ( rs1_out       ),
+    .rs2_o     ( rs2_out       )
 );
 
 // ============================================================
@@ -263,7 +263,7 @@ friscv_csr_file #(
     .EnableIsaE ( EnableIsaE ),
     .EnableIsaM ( EnableIsaM ),
     .EnableIsaA ( EnableIsaA )
- ) friscv_csr_file (
+) i_csr_file (
     .clk_in              ( clk_in              ),
     .rst_n_in            ( rst_n_in            ),
     .mode_in             ( current_mode        ),
@@ -328,7 +328,7 @@ friscv_trap_controller #(
     .DmExcOffset         ( DmExcOffset         ),
     .HaltOnEnterEbreak   ( HaltOnEnterEbreak   ),
     .HaltOnRetFromEbreak ( HaltOnRetFromEbreak )
-) friscv_trap_controller (
+) i_trap_controller (
     .clk_in                 ( clk_in               ),
     .rst_n_in               ( rst_n_in             ),
     .halt_out               ( halt_out             ),
@@ -487,11 +487,11 @@ end
 
 assign csr_is_counter_out = instr_ex_out.csr_is_counter;
 
-friscv_id_decoder #(
+friscv_decoder #(
     .EnableIsaE ( EnableIsaE ),
     .EnableIsaA ( EnableIsaA ),
     .EnableIsaM ( EnableIsaM )
-) friscv_id_decoder (
+) i_decoder (
     .ir_in                  ( ir_buff             ),
     .mode_in                ( current_mode        ),
     .dbg_active_in          ( debug_mode_active   ),

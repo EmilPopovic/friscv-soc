@@ -39,20 +39,13 @@ packages:
     source:
       Git: https://github.com/pulp-platform/common_verification.git
     dependencies: []
-  friscv-mem-if:
-    revision: 22690117aeb6f18e1a35d0b01146fcf142c4a0cb
-    version: 0.1.0
-    source:
-      Git: https://github.com/EmilPopovic/friscv-mem-if.git
-    dependencies: []
   friscv-mem-utils:
-    revision: bc873fd875108f743483df69c9ab350170ba1255
-    version: 3.0.0
+    revision: 82b59615740517bc953cede2f5b35b39bf3e83ad
+    version: 4.0.0
     source:
       Git: https://github.com/EmilPopovic/friscv-mem-utils.git
     dependencies:
     - axi
-    - friscv-mem-if
   obi:
     revision: 0155fc34e900c7c884e081c0a1114a247937ff69
     version: 0.1.7

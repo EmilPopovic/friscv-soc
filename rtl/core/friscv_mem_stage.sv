@@ -11,7 +11,7 @@
  * It handles memory accesses, load data capture and expansion, LR/SC operations, and page fault handling.
  */
 
-module friscv_mem_stage import friscv_pkg::*, friscv_mem_pkg::*; (
+module friscv_mem_stage import friscv_pkg::*; (
     input  logic           clk_in,
     input  logic           rst_n_in,
 

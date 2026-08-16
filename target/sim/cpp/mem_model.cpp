@@ -12,9 +12,9 @@
 #define MIN_RAND_WAIT (1)
 #define MAX_RAND_WAIT (3)
 
-#define SIZE_BYTE (0b000)
-#define SIZE_HALF (0b001)
-#define SIZE_WORD (0b010)
+#define SIZE_BYTE (0b00)
+#define SIZE_HALF (0b01)
+#define SIZE_WORD (0b10)
 
 MemModel::MemModel(PagedMem* mem, int wait_cycles) {
     this->mem = mem;

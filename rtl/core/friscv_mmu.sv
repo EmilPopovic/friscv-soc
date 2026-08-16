@@ -11,7 +11,7 @@
  * It handles virtual to physical address translation, TLB management, page fault generation, and memory interface arbitration.
  */
 
-module friscv_mmu import friscv_pkg::*, friscv_mem_pkg::*; #(
+module friscv_mmu import friscv_pkg::*; #(
     parameter bit EnforcePmp    = 0,
     parameter bit EnforcePtwPmp = 0,
     parameter int unsigned PmpEntries    = 8,
@@ -126,7 +126,7 @@ assign w_data_pa = w_paging_en ? {w_dtlb_ppn[PA_PPN_W-1:0], i_data_addr[11:0]} :
 friscv_tlb #(
     .EntryCount         ( ItlbEntries        ),
     .EnableFineTlbFlush ( EnableFineTlbFlush )
-) itlb (
+) i_itlb (
     .i_clk           ( i_clk           ),
     .i_rstn          ( i_rstn          ),
 
@@ -157,7 +157,7 @@ friscv_tlb #(
 friscv_tlb #(
     .EntryCount         ( DtlbEntries        ),
     .EnableFineTlbFlush ( EnableFineTlbFlush )
-) dtlb (
+) i_dtlb (
     .i_clk           ( i_clk           ),
     .i_rstn          ( i_rstn          ),
 
@@ -191,7 +191,7 @@ friscv_tlb #(
 
 `pragma diagnostic push
 `pragma diagnostic ignore="-Wempty-output-connection"
-friscv_l1_arbiter l1_arbiter (
+friscv_arbiter i_arbiter (
     .i_clk        ( i_clk         ),
     .i_rstn       ( i_rstn        ),
 
@@ -326,7 +326,7 @@ addr_t w_ptw_fault_addr;
 logic w_walk_req;
 logic w_ptw_pmp_fault, w_ptw_access_fault;
 
-friscv_ptw ptw (
+friscv_ptw i_ptw (
     .i_clk           ( i_clk             ),
     .i_rstn          ( i_rstn            ),
 
@@ -373,14 +373,14 @@ friscv_ptw ptw (
 if (EnforcePmp && EnforcePtwPmp) begin : gen_ptw_pmp_check
     friscv_pmp_check #(
         .PmpEntries ( PmpEntries )
-    ) pmp_chk_ptw (
-        .i_pa        ( w_walk_addr     ),
-        .i_access_r  ( w_walk_req      ),
-        .i_access_w  ( 1'b0            ),
-        .i_access_x  ( 1'b0            ),
-        .i_mode      ( S_MODE          ),
-        .i_pmp_table ( i_pmp_table     ),
-        .o_fault     ( w_ptw_pmp_fault )
+    ) i_pmp_chk_ptw (
+        .pa_i        ( w_walk_addr     ),
+        .access_r_i  ( w_walk_req      ),
+        .access_w_i  ( 1'b0            ),
+        .access_x_i  ( 1'b0            ),
+        .mode_i      ( S_MODE          ),
+        .pmp_table_i ( i_pmp_table     ),
+        .fault_o     ( w_ptw_pmp_fault )
     );
 end else begin : gen_no_ptw_pmp_check
     assign w_ptw_pmp_fault = 1'b0;
@@ -410,26 +410,26 @@ assign w_grant_pmp_fault = w_grant_active && !r_access_busy &&
 if (EnforcePmp) begin : gen_pmp_check
     friscv_pmp_check #(
         .PmpEntries ( PmpEntries )
-    ) pmp_chk_inst (
-        .i_pa        ( w_inst_pa        ),
-        .i_access_r  ( 1'b0             ),
-        .i_access_w  ( 1'b0             ),
-        .i_access_x  ( i_inst_en        ),
-        .i_mode      ( i_inst_mode      ),
-        .i_pmp_table ( i_pmp_table      ),
-        .o_fault     ( w_inst_pmp_fault )
+    ) i_pmp_chk_inst (
+        .pa_i        ( w_inst_pa        ),
+        .access_r_i  ( 1'b0             ),
+        .access_w_i  ( 1'b0             ),
+        .access_x_i  ( i_inst_en        ),
+        .mode_i      ( i_inst_mode      ),
+        .pmp_table_i ( i_pmp_table      ),
+        .fault_o     ( w_inst_pmp_fault )
     );
 
     friscv_pmp_check #(
         .PmpEntries ( PmpEntries )
-    ) pmp_chk_data (
-        .i_pa        ( w_data_pa        ),
-        .i_access_r  ( w_data_read      ),
-        .i_access_w  ( w_data_write     ),
-        .i_access_x  ( 1'b0             ),
-        .i_mode      ( i_data_mode      ),
-        .i_pmp_table ( i_pmp_table      ),
-        .o_fault     ( w_data_pmp_fault )
+    ) i_pmp_chk_data (
+        .pa_i        ( w_data_pa        ),
+        .access_r_i  ( w_data_read      ),
+        .access_w_i  ( w_data_write     ),
+        .access_x_i  ( 1'b0             ),
+        .mode_i      ( i_data_mode      ),
+        .pmp_table_i ( i_pmp_table      ),
+        .fault_o     ( w_data_pmp_fault )
     );
 end else begin : gen_no_pmp_check
     assign w_inst_pmp_fault = 1'b0;

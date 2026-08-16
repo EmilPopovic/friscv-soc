@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Bumped `friscv-mem-utils` to `v4.0.0`, now using packed struct pairs instead of `friscv_mem_if` interface. There are no more `interface`s in the design.
+
 ## [0.3.0] - 2026-08-15
 
 ### Changed

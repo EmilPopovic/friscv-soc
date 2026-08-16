@@ -10,8 +10,7 @@ dependencies:
   apb_uart:              { git: "https://github.com/pulp-platform/apb_uart.git",              version: 0.2.3  }
   axi:                   { git: "https://github.com/pulp-platform/axi.git",                   version: 0.39.1 }
   common_cells:          { git: "https://github.com/pulp-platform/common_cells.git",          version: 1.40.0 }
-  friscv-mem-utils:      { git: "https://github.com/EmilPopovic/friscv-mem-utils.git",        version: 3.0.0  }
-  friscv-mem-if:         { git: "https://github.com/EmilPopovic/friscv-mem-if.git",           version: 0.1.0  }
+  friscv-mem-utils:      { git: "https://github.com/EmilPopovic/friscv-mem-utils.git",        version: 4.0.0  }
   opentitan_peripherals: { git: "https://github.com/pulp-platform/opentitan_peripherals.git", version: 0.4.0  }
   reg-rom:               { git: "https://github.com/cappig/reg-rom.git",                      version: 0.1.1  }
   register_interface:    { git: "https://github.com/pulp-platform/register_interface.git",    version: 0.3.9  }
@@ -77,22 +76,21 @@ sources:
   # Keep in compile order
   - rtl/core/friscv_pkg.sv
   - rtl/core/friscv_amo_unit.sv
-  - rtl/core/friscv_core.sv
   - rtl/core/friscv_datapath.sv
   - rtl/core/friscv.sv
   - rtl/core/friscv_muldiv.sv
-  - rtl/core/friscv_ex_stage_branch_unit.sv
+  - rtl/core/friscv_branch_unit.sv
   - rtl/core/friscv_ex_stage.sv
   - rtl/core/friscv_csr_file.sv
   - rtl/core/friscv_trap_controller.sv
-  - rtl/core/friscv_id_regfile.sv
-  - rtl/core/friscv_id_decoder.sv
+  - rtl/core/friscv_regfile.sv
+  - rtl/core/friscv_decoder.sv
   - rtl/core/friscv_id_stage.sv
   - rtl/core/friscv_if_stage.sv
-  - rtl/core/friscv_l1_arbiter.sv
+  - rtl/core/friscv_arbiter.sv
   - rtl/core/friscv_mem_stage.sv
   - rtl/core/friscv_mmu.sv
-  - rtl/core/friscv_pipeline_control.sv
+  - rtl/core/friscv_control_unit.sv
   - rtl/core/friscv_pmp_check.sv
   - rtl/core/friscv_ptw.sv
   - rtl/core/friscv_tlb.sv

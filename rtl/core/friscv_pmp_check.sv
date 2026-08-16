@@ -13,63 +13,63 @@
  * If no i_access_* is set, o_fault will never assert.
  */
 
-module friscv_pmp_check import friscv_pkg::*, friscv_mem_pkg::*; #(
+module friscv_pmp_check import friscv_pkg::*; #(
     parameter int unsigned PmpEntries = 8
 ) (
-    input  addr_t                        i_pa,
-    input  logic                         i_access_r,
-    input  logic                         i_access_w,
-    input  logic                         i_access_x,
-    input  mode_e                        i_mode,
-    input  pmp_entry_t [PmpEntries-1:0] i_pmp_table,
-    output logic                         o_fault
+    input  addr_t                        pa_i,
+    input  logic                         access_r_i,
+    input  logic                         access_w_i,
+    input  logic                         access_x_i,
+    input  mode_e                        mode_i,
+    input  pmp_entry_t [PmpEntries-1:0]  pmp_table_i,
+    output logic                         fault_o
 );
 
 // The two lowest bits are not used for PMP matching
-addr_t w_aligned_pa;
-assign w_aligned_pa = i_pa >> 2;
+addr_t aligned_pa;
+assign aligned_pa = pa_i >> 2;
 
 function automatic logic fault_for_cfg(pmp_cfg_t cfg);
-    if (cfg.l || (i_mode != M_MODE))
+    if (cfg.l || (mode_i != M_MODE))
         // If L set (even in M-mode), or not in M-mode, enforce access type
-        fault_for_cfg = (i_access_r && !cfg.r) ||
-                        (i_access_w && !cfg.w) ||
-                        (i_access_x && !cfg.x);
+        fault_for_cfg = (access_r_i && !cfg.r) ||
+                        (access_w_i && !cfg.w) ||
+                        (access_x_i && !cfg.x);
     else
         // L is not set and in M-mode, allow (no fault)
         fault_for_cfg = 1'b0;
 endfunction
 
 // Stage 1: compute every entry's address match in parallel
-logic [PmpEntries-1:0] w_match;
+logic [PmpEntries-1:0] match;
 
 always_comb begin
-    w_match = '0;
+    match = '0;
     for (int unsigned i = 0; i < PmpEntries; i++) begin
-        automatic pmp_entry_t entry     = i_pmp_table[i];
-        automatic addr_t      prev_addr = (i > 0) ? i_pmp_table[i-1].addr : '0;
+        automatic pmp_entry_t entry     = pmp_table_i[i];
+        automatic addr_t      prev_addr = (i > 0) ? pmp_table_i[i-1].addr : '0;
         automatic addr_t      cmp_mask  = ~(entry.addr ^ (~entry.addr + 1'b1));
         case (entry.cfg.a)
             // Top of range: pmpaddr[i-1] <= pa < pmpaddr[i]
-            PMP_TOR:   w_match[i] = (prev_addr <= w_aligned_pa) && (w_aligned_pa < entry.addr);
+            PMP_TOR:   match[i] = (prev_addr <= aligned_pa) && (aligned_pa < entry.addr);
             // Naturally aligned four-byte region
-            PMP_NA4:   w_match[i] = (w_aligned_pa == entry.addr);
+            PMP_NA4:   match[i] = (aligned_pa == entry.addr);
             // Naturally aligned power-of-two region (>= 8 bytes)
-            PMP_NAPOT: w_match[i] = ((w_aligned_pa & cmp_mask) == (entry.addr & cmp_mask));
+            PMP_NAPOT: match[i] = ((aligned_pa & cmp_mask) == (entry.addr & cmp_mask));
             // Null region (disabled)
-            PMP_OFF:   w_match[i] = 1'b0;
-            default:   w_match[i] = 1'b0;
+            PMP_OFF:   match[i] = 1'b0;
+            default:   match[i] = 1'b0;
         endcase
     end
 end
 
 // Stage 2: priority-encode
 always_comb begin
-    o_fault = 1'b0;
-    if (i_access_r || i_access_w || i_access_x) begin
-        o_fault = (i_mode != M_MODE);
+    fault_o = 1'b0;
+    if (access_r_i || access_w_i || access_x_i) begin
+        fault_o = (mode_i != M_MODE);
         for (int i = PmpEntries-1; i >= 0; i--)
-            if (w_match[i]) o_fault = fault_for_cfg(i_pmp_table[i].cfg);
+            if (match[i]) fault_o = fault_for_cfg(pmp_table_i[i].cfg);
     end
 end
 

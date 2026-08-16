@@ -15,7 +15,7 @@
  * It supports both SV32 and SV39+ page table formats, and can handle variable page sizes and superpages.
  */
 
-module friscv_ptw import friscv_pkg::*, friscv_mem_pkg::*; (
+module friscv_ptw import friscv_pkg::*; (
     input  logic       i_clk,
     input  logic       i_rstn,
 

@@ -19,7 +19,7 @@
  * for one cycle to avoid repeat flushes that cause a livelock.
  */
 
-module friscv_ex_stage import friscv_pkg::*, friscv_mem_pkg::*; #(
+module friscv_ex_stage import friscv_pkg::*; #(
     parameter bit EnableIsaM    = 1,
     // Use a single-cycle combinational multiplier instead of the iterative multiplier
     parameter bit EnableFastMul = 0
@@ -115,7 +115,7 @@ assign trap_va_out = r_trap_va;
 
 data_t branch_target;
 
-friscv_ex_stage_branch_unit branch_unit (
+friscv_branch_unit i_branch_unit (
     .branch_jal_sel_in ( instr_buff.branch_jal_sel ),
     .branch_cond_in    ( instr_buff.branch_cond    ),
     .src1_in           ( rs1_buff                  ),
@@ -184,7 +184,7 @@ generate if (EnableIsaM && !EnableFastMul) begin : gen_muldiv
         end
     end
 
-    friscv_muldiv muldiv_unit (
+    friscv_muldiv i_muldiv (
         .i_clk      ( clk_in      ),
         .i_rstn     ( rst_n_in    ),
         .i_flush    ( flush       ),
@@ -269,10 +269,7 @@ always_ff @(posedge clk_in or negedge rst_n_in) begin
 
         end else if (!stage_stall_in) begin
 
-            if (instr_buff.instr_valid &&
-                branch_ok_raw &&
-                misaligned_branch_raw
-            ) begin
+            if (instr_buff.instr_valid && branch_ok_raw && misaligned_branch_raw ) begin
                 // Stop the pipeline on a taken misaligned branch
                 instr_buff <= NOP_CTRL;
                 rd_sel_buff <= 5'b0;

@@ -17,10 +17,11 @@
 // Emil Popović <mail@emilpopovic.me>
 // Matej Jurasić <matej.jurasic@cappig.dev>
 
-`include "axi/assign.svh"
 `include "apb/typedef.svh"
 
-module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t, friscv_mem_pkg::RW_IDLE, friscv_mem_pkg::WIDTH_I32; #(
+module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t,
+                        friscv_mem_pkg::friscv_mem_req_t, friscv_mem_pkg::friscv_mem_rsp_t,
+                        friscv_mem_pkg::MEM_REQ_IDLE; #(
     parameter int unsigned OcmBase          = 32'h0000_0000,
     parameter int unsigned OcmSize          = 32'h0000_2000,
     parameter int unsigned ExtBase          = 32'h8000_0000,
@@ -143,7 +144,8 @@ rstgen i_rstgen_soc (
 // CPU subsystem
 // ============================================================
 
-friscv_mem_if cpu_if ();
+friscv_mem_req_t cpu_req;
+friscv_mem_rsp_t cpu_rsp;
 
 logic [63:0] mtime;
 logic        msip, mtip, meip, seip;
@@ -178,16 +180,17 @@ friscv #(
     .EnforcePmp         ( EnforcePmp       ),
     .EnableFineTlbFlush ( FineTlbFlush     )
 ) cpu_subsystem (
-    .i_clk     ( clk_i     ),
-    .i_rstn    ( soc_rstn  ),
-    .o_end     ( end_o     ),
-    .i_msip    ( msip      ),
-    .i_mtip    ( mtip      ),
-    .i_meip    ( meip      ),
-    .i_seip    ( seip      ),
-    .i_mtime   ( mtime     ),
-    .mem_if    ( cpu_if    ),
-    .i_dbg_req ( debug_req )
+    .clk_i,
+    .rst_ni    ( soc_rstn  ),
+    .end_o     ( end_o     ),
+    .msip_i    ( msip      ),
+    .mtip_i    ( mtip      ),
+    .meip_i    ( meip      ),
+    .seip_i    ( seip      ),
+    .mtime_i   ( mtime     ),
+    .mem_req_o ( cpu_req   ),
+    .mem_rsp_i ( cpu_rsp   ),
+    .dbg_req_i ( debug_req )
 );
 
 // ============================================================
@@ -221,7 +224,8 @@ vernii_axi_resp_t s_axi_gp_rsp;
 vernii_axi_req_t  [SAxiGpPorts-1:0] s_axi_gp_dev_req;
 vernii_axi_resp_t [SAxiGpPorts-1:0] s_axi_gp_dev_rsp;
 
-friscv_mem_if s_gp_mem_if ();
+friscv_mem_req_t s_gp_mem_req;
+friscv_mem_rsp_t s_gp_mem_rsp;
 
 // Check that each SAxiGpRule has end_addr >= start_addr
 for (genvar g = 0; g < NumSAxiGpRules; g++) begin : gen_chk_gp_rule
@@ -368,7 +372,8 @@ generate if (EnableSAxiGp) begin : gen_axi_gp
         .err_o       ( s_mem_err    ),
         .other_err_o ( /* unused */ ),
         .rdata_o     ( s_mem_rdata  ),
-        .m_mem       ( s_gp_mem_if  )
+        .m_req_o     ( s_gp_mem_req ),
+        .m_rsp_i     ( s_gp_mem_rsp )
     );
     `pragma diagnostic pop
 
@@ -378,11 +383,7 @@ end else begin : gen_no_axi_gp
     assign s_axi_gp_dev_rsp[SAxiGpBusPort] = '0;
 
     // And the hub never sees a transfer from this port
-    assign s_gp_mem_if.rw       = RW_IDLE;
-    assign s_gp_mem_if.size     = WIDTH_I32;
-    assign s_gp_mem_if.addr     = '0;
-    assign s_gp_mem_if.wdata    = '0;
-    assign s_gp_mem_if.burst_en = 1'b0;
+    assign s_gp_mem_req = MEM_REQ_IDLE;
 
 end endgenerate
 
@@ -410,9 +411,8 @@ logic            llcinv;
 // LLC statistics, single-cycle pulses counted by the SCB
 logic llc_rd_acc, llc_rd_miss, llc_wr_acc;
 
-friscv_mem_if dm_if ();
-friscv_mem_if ext_if ();
-friscv_mem_if soc_if ();
+friscv_mem_req_t dm_req, ext_req, sys_req;
+friscv_mem_rsp_t dm_rsp, ext_rsp, sys_rsp;
 
 // S port A: CPU
 // S port B: External GP AXI
@@ -431,18 +431,23 @@ friscv_mem_hub #(
     .SramTags   ( SramTags   )
 ) friscv_mem_hub (
     .clk_i,
-    .rst_ni    ( soc_rstn    ),
-    .s_a_if    ( cpu_if      ),
-    .s_b_if    ( s_gp_mem_if ),
-    .s_dm_if   ( dm_if       ),
-    .m_ext_if  ( ext_if      ),
-    .m_sys_if  ( soc_if      ),
-    .rd_acc_o  ( llc_rd_acc  ),
-    .rd_miss_o ( llc_rd_miss ),
-    .wr_acc_o  ( llc_wr_acc  ),
-    .llcsel_i  ( llcsel      ),
-    .crpsel_i  ( crpsel      ),
-    .llcinv_i  ( llcinv      )
+    .rst_ni      ( soc_rstn     ),
+    .s_a_req_i   ( cpu_req      ),
+    .s_a_rsp_o   ( cpu_rsp      ),
+    .s_b_req_i   ( s_gp_mem_req ),
+    .s_b_rsp_o   ( s_gp_mem_rsp ),
+    .s_dm_req_i  ( dm_req       ),
+    .s_dm_rsp_o  ( dm_rsp       ),
+    .m_ext_req_o ( ext_req      ),
+    .m_ext_rsp_i ( ext_rsp      ),
+    .m_sys_req_o ( sys_req      ),
+    .m_sys_rsp_i ( sys_rsp      ),
+    .rd_acc_o    ( llc_rd_acc   ),
+    .rd_miss_o   ( llc_rd_miss  ),
+    .wr_acc_o    ( llc_wr_acc   ),
+    .llcsel_i    ( llcsel       ),
+    .crpsel_i    ( crpsel       ),
+    .llcinv_i    ( llcinv       )
 );
 
 // ============================================================
@@ -472,7 +477,8 @@ friscv_to_mem #(
     .err_i       ( soc_err    ),
     .other_err_i ( 1'b0       ),
     .rdata_i     ( soc_rdata  ),
-    .s_mem       ( soc_if     )
+    .s_req_i     ( sys_req    ),
+    .s_rsp_o     ( sys_rsp    )
 );
 
 // mem -> reg_bus
@@ -685,26 +691,18 @@ vernii_scb #(
 // External memory interface
 // ============================================================
 
-AXI_BUS #(
-    .AXI_ADDR_WIDTH ( AddrWidth    ),
-    .AXI_DATA_WIDTH ( DataWidth    ),
-    .AXI_ID_WIDTH   ( AxiIdWidth   ),
-    .AXI_USER_WIDTH ( AxiUserWidth )
-) mem_axi ();
-
-friscv_to_axi4_full_intf #(
-    .BurstLen     ( LineBytes / StrbWidth ),
-    .AxiIdWidth   ( AxiIdWidth            ),
-    .AxiUserWidth ( AxiUserWidth          )
+friscv_to_axi4_full #(
+    .BurstLen  ( LineBytes / StrbWidth ),
+    .axi_req_t ( axi_req_t             ),
+    .axi_rsp_t ( axi_rsp_t             )
 ) m_mem (
     .clk_i,
-    .rst_ni ( soc_rstn ),
-    .s_mem  ( ext_if   ),
-    .m_axi  ( mem_axi  )
+    .rst_ni      ( soc_rstn       ),
+    .s_req_i     ( ext_req        ),
+    .s_rsp_o     ( ext_rsp        ),
+    .m_axi_req_o ( m_axi_hp_req_o ),
+    .m_axi_rsp_i ( m_axi_hp_rsp_i )
 );
-
-`AXI_ASSIGN_TO_REQ(m_axi_hp_req_o, mem_axi)
-`AXI_ASSIGN_FROM_RESP(mem_axi, m_axi_hp_rsp_i)
 
 // ============================================================
 // Debugger
@@ -867,7 +865,8 @@ mem_to_friscv dm_sba_mem (
     .err_o       ( sba_err       ),
     .other_err_o ( sba_other_err ),
     .rdata_o     ( sba_rdata     ),
-    .m_mem       ( dm_if         )
+    .m_req_o     ( dm_req        ),
+    .m_rsp_i     ( dm_rsp        )
 );
 
 // ============================================================

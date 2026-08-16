@@ -3,6 +3,7 @@ result
 result-*
 .slang/local/
 .bender/
+Bender.local
 sources.f
 *.log
 verif/directed/*.elf

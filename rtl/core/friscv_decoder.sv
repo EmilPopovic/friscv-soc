@@ -6,7 +6,7 @@
 // at your option, the Apache License version 2.0.
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
 
-module friscv_id_decoder import friscv_pkg::*, friscv_mem_pkg::*; #(
+module friscv_decoder import friscv_pkg::*; #(
     parameter bit EnableIsaE = 0,
     parameter bit EnableIsaA = 1,
     parameter bit EnableIsaM = 1

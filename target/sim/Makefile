@@ -7,7 +7,7 @@ SOC_ONLY_CPP = cpp/axi_mem.cpp cpp/jtag.cpp cpp/remote_bitbang.cpp \
 	cpp/uart_tx_monitor.cpp
 CORE_CPP = $(filter-out $(SOC_ONLY_CPP),$(wildcard cpp/*.cpp))
 
-MEM_IF_SRCS = $(shell bender -d ../.. script flist -t rtl | grep '/friscv-mem-if-')
+MEM_IF_SRCS = $(shell bender -d ../.. script flist -t rtl | grep '/friscv_mem_pkg\.sv$$')
 
 SOC_SRAM_BASE ?= 0
 SOC_SRAM_SIZE_BYTES ?= 8192
