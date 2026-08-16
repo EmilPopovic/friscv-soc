@@ -688,7 +688,7 @@ if (ZsblRomEnable) begin : gen_zsbl_rom
         .BaseAddr  ( ZsblBaseAddr ),
         .reg_req_t ( reg_req_t    ),
         .reg_rsp_t ( reg_rsp_t    )
-    ) zsbl_rom (
+    ) i_zsbl_rom (
         .clk_i,
         .rst_ni    ( soc_rst_n             ),
         .reg_req_i ( reg_dev_req[ZsblPort] ),
@@ -1035,7 +1035,7 @@ if (NumExtIrq > 0) begin : gen_ext_irq
         tc_sync #(
             .Stages     ( 2    ),
             .ResetValue ( 1'b0 )
-        ) sync_ext_irq (
+        ) i_sync_ext_irq (
             .clk_i,
             .rst_ni   ( soc_rst_n        ),
             .serial_i ( ext_irq_i[i]    ),
@@ -1104,3 +1104,5 @@ aclint #(
 `pragma diagnostic pop
 
 endmodule
+
+`undef REG_TIE_OFF

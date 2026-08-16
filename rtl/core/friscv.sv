@@ -6,7 +6,8 @@
 // at your option, the Apache License version 2.0.
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
 
-module friscv import friscv_pkg::*, friscv_mem_pkg::*; #(
+module friscv import friscv_pkg::*,
+                     friscv_mem_pkg::friscv_mem_req_t, friscv_mem_pkg::friscv_mem_rsp_t; #(
     parameter int unsigned HartId           = 0,
     parameter int unsigned ResetVec         = 32'h8000_0000,
     parameter int unsigned DmBase           = 32'h0000_0000,
@@ -52,6 +53,10 @@ module friscv import friscv_pkg::*, friscv_mem_pkg::*; #(
 
     input  logic            dbg_req_i
 );
+
+import friscv_mem_pkg::SIZE_BYTE;
+import friscv_mem_pkg::SIZE_HALF;
+import friscv_mem_pkg::SIZE_WORD;
 
 mem_width_e mem_size;
 addr_t      mem_addr;

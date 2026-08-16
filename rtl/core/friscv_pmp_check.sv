@@ -8,9 +8,9 @@
 
 /*
  * This module implements a combinatorial PMP checker.
- * If either of i_access_r/w/x is set, o_fault will be asserted if that access
+ * If either of access_r/w/x is set, fault will be asserted if that access
  * is not allowed as per i_pmp_table.
- * If no i_access_* is set, o_fault will never assert.
+ * If no access_* is set, fault will never assert.
  */
 
 module friscv_pmp_check import friscv_pkg::*; #(

@@ -29,7 +29,7 @@ lint: lint-slang lint-synth lint-verilator lint-zsbl
 lint-slang: sources.f
 	slang -f sources.f $(SLANG_LINT_FLAGS)
 
-SYNTH_LINT_ALLOW := friscv_tlb\.sv
+SYNTH_LINT_ALLOW := 
 
 .PHONY: lint-synth
 lint-synth: sources.f

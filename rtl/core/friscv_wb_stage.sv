@@ -8,8 +8,9 @@
 
 /*
  * This module implements the writeback stage of the FRISC-V pipeline.
- * It takes inputs from the MEM stage, including the results of ALU operations, memory loads, and CSR reads,
- * and produces the data to be written back to the register file, as well as control signals for writing to CSRs and updating instret.
+ * It takes inputs from the MEM stage, including the results of ALU operations,
+ * memory loads, and CSR reads, and produces the data to be written back to the
+ * register file, as well as control signals for writing to CSRs and updating instret.
  */
 
 module friscv_wb_stage import friscv_pkg::*; (

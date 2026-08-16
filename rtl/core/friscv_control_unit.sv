@@ -7,10 +7,13 @@
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
 
 /*
- * This module implements the control logic for stalling and flushing the pipeline, and for redirecting the IF stage to jump/branch targets and exception handlers.
- * It takes as input the decoded instruction information and hazard signals from each stage, and generates the appropriate control signals.
+ * This module implements the control logic for stalling and flushing the pipeline,
+ * and for redirecting the IF stage to jump/branch targets and exception handlers.
+ * It takes as input the decoded instruction information and hazard signals from each stage,
+ * and generates the appropriate control signals.
  *
- * This module mainly controls interactions between multiple stages, where the context of the entire pipeline is needed.
+ * This module mainly controls interactions between multiple stages, where the context of the
+ * entire pipeline is needed.
  */
 
 module friscv_control_unit import friscv_pkg::*; (
@@ -82,9 +85,12 @@ assign mem_stall = imem_wait_i || dmem_wait_i;
     
 // No forwarding: stall while any in-flight stage holds a matching rd
 logic reg_hazard;
-assign reg_hazard = ((ex_rd_sel_i  != '0) && ((id_rs1_sel_i == ex_rd_sel_i)  || (id_rs2_sel_i == ex_rd_sel_i)))  ||
-                    ((mem_rd_sel_i != '0) && ((id_rs1_sel_i == mem_rd_sel_i) || (id_rs2_sel_i == mem_rd_sel_i))) ||
-                    ((wb_rd_sel_i  != '0) && ((id_rs1_sel_i == wb_rd_sel_i)  || (id_rs2_sel_i == wb_rd_sel_i)));
+assign reg_hazard = ((ex_rd_sel_i  != '0) &&
+                     ((id_rs1_sel_i == ex_rd_sel_i)  || (id_rs2_sel_i == ex_rd_sel_i)))  ||
+                    ((mem_rd_sel_i != '0) &&
+                     ((id_rs1_sel_i == mem_rd_sel_i) || (id_rs2_sel_i == mem_rd_sel_i))) ||
+                    ((wb_rd_sel_i  != '0) &&
+                     ((id_rs1_sel_i == wb_rd_sel_i)  || (id_rs2_sel_i == wb_rd_sel_i)));
 
 // mret/sret implicitly consume architected CSR state; wait for older CSR writes
 logic ret_csr_hazard;
@@ -138,7 +144,8 @@ assign stall_mem_o = mem_stall;
 // Flush only when trap committed
 assign flush_if_o = branch_ok_i || effective_jal || trap_i || effective_ret;
 assign flush_id_o = branch_ok_i || effective_jal || trap_i || effective_ret;
-assign flush_ex_o = ((hazard_stall || trap_pending_stall) && !mem_stall && !ex_muldiv_active_i) || trap_i;
+assign flush_ex_o = trap_i ||
+                    ((hazard_stall || trap_pending_stall)&& !mem_stall && !ex_muldiv_active_i);
 
 assign jump_ok_o     = branch_ok_i || effective_jal;
 assign jump_target_o = (branch_ok_i) ? branch_target_i : jal_target_i;

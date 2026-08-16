@@ -115,11 +115,8 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
             if (EnableFineTlbFlush && flush_vpn_en_i && flush_asid_en_i) begin
 
                 for (int unsigned g = 0; g < EntryCount; g++) begin
-                    vpn_t mask;
-                    logic vpn_match;
-
-                    mask = vpn_mask(tlb[g].level, mode_i);
-                    vpn_match = (flush_vpn_i & mask) == tlb[g].vpn;
+                    automatic vpn_t mask      = vpn_mask(tlb[g].level, mode_i);
+                    automatic logic vpn_match = (flush_vpn_i & mask) == tlb[g].vpn;
 
                     if (vpn_match && tlb[g].asid == flush_asid_i && !tlb[g].perm.g)
                         tlb[g] <= '0;
@@ -129,11 +126,8 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
             end else if (EnableFineTlbFlush && flush_vpn_en_i) begin
 
                 for (int unsigned g = 0; g < EntryCount; g++) begin
-                    vpn_t mask;
-                    logic vpn_match;
-
-                    mask = vpn_mask(tlb[g].level, mode_i);
-                    vpn_match = (flush_vpn_i & mask) == tlb[g].vpn;
+                    automatic vpn_t mask      = vpn_mask(tlb[g].level, mode_i);
+                    automatic logic vpn_match = (flush_vpn_i & mask) == tlb[g].vpn;
 
                     if (vpn_match)
                         tlb[g] <= '0;
@@ -159,11 +153,9 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
 
         end else if (fill_en_i) begin  // Insert or replace with new entry
 
-            logic [$clog2(EntryCount)-1:0] victim;
-            vpn_t mask;
-
-            victim = any_invalid ? invalid_slot : clock_victim;
-            mask   = vpn_mask(fill_level_i, mode_i);
+            automatic logic [$clog2(EntryCount)-1:0] victim = any_invalid
+                                                            ? invalid_slot : clock_victim;
+            automatic vpn_t mask= vpn_mask(fill_level_i, mode_i);
 
             tlb[victim].vpn   <= fill_vpn_i & mask;
             tlb[victim].ppn   <= fill_ppn_i;
@@ -174,13 +166,14 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
 
             if (!any_invalid) begin
                 // Clear ref bits of all entries the clock hand swept past on its way to the victim
-                // Entries at distance 0 to dist_victim-1 from r_clock_ptr are cleared (not recently used)
-                for (int unsigned g = 0; g < EntryCount; g++) begin : tlb_sweep_ref
+                // Entries at distance 0 to dist_victim-1 from r_clock_ptr are cleared
+                for (int unsigned g = 0; g < EntryCount; g++) begin
                     // 5-bit unsigned circular distances from clock_ptr to g and to victim
                     if (($clog2(EntryCount))'(g) - clock_ptr_q < clock_victim - clock_ptr_q)
                         ref_q[g] <= 1'b0;
                 end
-                clock_ptr_q <= (clock_victim == ($clog2(EntryCount))'(EntryCount-1)) ? '0 : clock_victim + 1;
+                clock_ptr_q <= (clock_victim == ($clog2(EntryCount))'(EntryCount-1))
+                             ? '0 : clock_victim + 1;
             end
 
         end

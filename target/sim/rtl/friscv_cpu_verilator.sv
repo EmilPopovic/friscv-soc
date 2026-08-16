@@ -9,7 +9,8 @@
 // Emil Popović <mail@emilpopovic.me>
 // Matej Jurasić <matej.jurasic@cappig.dev>
 
-module friscv_cpu_verilator import friscv_mem_pkg::*; (
+module friscv_cpu_verilator import friscv_mem_pkg::friscv_mem_req_t,
+                                   friscv_mem_pkg::friscv_mem_rsp_t; (
     input  logic        clk_i,
     input  logic        rst_ni,
     output logic        halt_o,
@@ -50,7 +51,7 @@ assign mem_rsp.err   = err_i;
 friscv #(
     .ResetVec         ( 32'h8000_0000 ),
     .HaltOnEndAddress ( 1             )
-) core (
+) i_core (
     .clk_i,
     .rst_ni,
     .end_o     ( halt_o  ),

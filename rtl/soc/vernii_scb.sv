@@ -90,7 +90,7 @@ for (genvar i = 0; i < NumPads; i++) begin : gen_strap_sync
     tc_sync #(
         .Stages     ( 2    ),
         .ResetValue ( 1'b0 )
-    ) sync_strap (
+    ) i_sync_strap (
         .clk_i,
         .rst_ni,
         .serial_i ( strap_i[i]   ),
