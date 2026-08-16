@@ -14,33 +14,33 @@ using Dut = Vvernii_soc_sim;
 namespace dut {
 
 inline void clear_inputs(Dut& top) {
-    top.i_strap = 0;
-    top.i_gpio = 0;
-    top.i_qspi_sd = 0;
+    top.strap_i = 0;
+    top.gpio_a_i = 0;
+    top.qspi0_sd_i = 0;
 }
 
 inline void set_strap(Dut& top, unsigned bit) {
-    top.i_strap |= uint32_t(1) << bit;
+    top.strap_i |= uint32_t(1) << bit;
 }
 
 inline bool jtag_tdo(const Dut& top) {
-    return top.o_jtag_tdo_oe != 0 && top.o_jtag_tdo != 0;
+    return top.jtag_tdo_oe_o != 0 && top.jtag_tdo_o != 0;
 }
 
 inline bool qspi_sck(const Dut& top) {
-    return top.o_qspi_sck != 0;
+    return top.qspi0_sck_o != 0;
 }
 
 inline bool qspi_selected(const Dut& top) {
-    return (top.o_qspi_cs & 1) == 0;
+    return (top.qspi0_cs_o & 1) == 0;
 }
 
 inline bool qspi_mosi(const Dut& top) {
-    return (top.o_qspi_sd & 1) != 0;
+    return (top.qspi0_sd_o & 1) != 0;
 }
 
 inline void qspi_miso(Dut& top, bool value) {
-    top.i_qspi_sd = uint8_t((top.i_qspi_sd & ~0x2u) | (value ? 0x2u : 0x0u));
+    top.qspi0_sd_i = uint8_t((top.qspi0_sd_i & ~0x2u) | (value ? 0x2u : 0x0u));
 }
 
 }  // namespace dut

@@ -90,9 +90,9 @@ function automatic logic [VPN_W-1:0] vpn_mask(
 endfunction
 `pragma diagnostic pop
 
-// ============================================================
-// Fill and flush
-// ============================================================
+////////////////////
+// Fill and Flush //
+////////////////////
 
 logic hit_d;
 
@@ -188,9 +188,9 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
     end
 end
 
-// ============================================================
-// Victim decision
-// ============================================================
+/////////////////////
+// Victim Decision //
+/////////////////////
 
 always_comb begin : tlb_detect_invalid_slot
     any_invalid = 1'b0;
@@ -213,9 +213,9 @@ always_comb begin : tlb_detect_clock_victim
     end
 end
 
-// ============================================================
-// Lookup
-// ============================================================
+////////////
+// Lookup //
+////////////
 
 `pragma diagnostic push
 `pragma diagnostic ignore="-Warith-op-mismatch"

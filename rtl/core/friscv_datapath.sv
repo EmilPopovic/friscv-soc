@@ -177,6 +177,10 @@ logic  data_addr_virtual;
 
 assign data_addr_virtual = EnableMmu && (data_mode_o != M_MODE) && (|satp_o.mode);
 
+//////////////////
+// Control unit //
+//////////////////
+
 friscv_control_unit i_control_unit (
     // Control signals
     .flush_if_o         ( flush_if           ),
@@ -241,6 +245,10 @@ friscv_control_unit i_control_unit (
     .halt_i
 );
 
+/////////////////////////////
+// Instruction Fetch Stage //
+/////////////////////////////
+
 friscv_if_stage #(
     .ResetVec ( ResetVec )
 ) i_if_stage (
@@ -270,6 +278,10 @@ friscv_if_stage #(
     .tvec_i        ( id_tvec          ),
     .epc_i         ( id_epc           )
 );
+
+//////////////////////////////
+// Instruction Decode Stage //
+//////////////////////////////
 
 friscv_id_stage #(
     .HartId              ( HartId              ),
@@ -345,7 +357,7 @@ friscv_id_stage #(
     .rs2_o              ( id_rs2           ),
     .imm_o              ( id_imm32         ),
     .csr_o              ( id_csr           ),
-    .instr_ex_o         ( id_uinstr        ),
+    .instr_o            ( id_uinstr        ),
 
     // Inputs from older stages
     .ex_rd_sel_i        ( ex_rd_sel        ),
@@ -383,6 +395,10 @@ friscv_id_stage #(
     .data_mode_o        ( data_mode_o      ),
     .pmp_table_o        ( pmp_table_o      )
 );
+
+///////////////////
+// Execute Stage //
+///////////////////
 
 friscv_ex_stage #(
     .EnableIsaM    ( EnableIsaM    ),
@@ -443,6 +459,10 @@ friscv_ex_stage #(
     .trap_pc_o          ( ex_trap_pc          ),
     .trap_va_o          ( ex_trap_va          )
 );
+
+//////////////////
+// Memory Stage //
+//////////////////
 
 friscv_mem_stage i_mem_stage (
     .clk_i,
@@ -513,6 +533,10 @@ friscv_mem_stage i_mem_stage (
     .dmem_pmp_fault_i,
     .dmem_amo_op_o
 );
+
+/////////////////////
+// Writeback Stage //
+/////////////////////
 
 friscv_wb_stage i_wb_stage (
     .clk_i,

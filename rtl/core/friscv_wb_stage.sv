@@ -95,9 +95,9 @@ assign csr_is_ser_o = csr_is_ser_q;
 assign instr_valid_o = instr_valid_q;
 assign inst_ret_o = instr_valid_q && !stall_i;
 
-// ============================================================
-// Result mux
-// ============================================================
+////////////////
+// Result Mux //
+////////////////
 
 always_comb begin
     unique case (wb_data_sel_q)

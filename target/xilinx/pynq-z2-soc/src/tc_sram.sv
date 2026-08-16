@@ -9,7 +9,6 @@
 // Emil Popović <mail@emilpopovic.me>
 //
 // Single-port block RAM, replacing the tech_cells_generic cell in the flist.
-// FRISCV_SRAM_INIT names a $readmemh file to preload.
 
 module tc_sram #(
   parameter int unsigned NumWords    = 32'd1024,
@@ -79,6 +78,7 @@ module tc_sram #(
     (* ram_style = "block" *) data_t mem [NumWords];
     data_t r_rdata;
 
+    // SRAM output, not reset
     always_ff @(posedge clk_i) begin
       if (req_i[0]) begin
         if (we_i[0]) begin

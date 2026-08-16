@@ -82,9 +82,9 @@ assign mem_stall = imem_wait_i || dmem_wait_i;
     
 // No forwarding: stall while any in-flight stage holds a matching rd
 logic reg_hazard;
-assign reg_hazard = ((ex_rd_sel_i  != 0) && ((id_rs1_sel_i == ex_rd_sel_i)  || (id_rs2_sel_i == ex_rd_sel_i)))  ||
-                    ((mem_rd_sel_i != 0) && ((id_rs1_sel_i == mem_rd_sel_i) || (id_rs2_sel_i == mem_rd_sel_i))) ||
-                    ((wb_rd_sel_i  != 0) && ((id_rs1_sel_i == wb_rd_sel_i)  || (id_rs2_sel_i == wb_rd_sel_i)));
+assign reg_hazard = ((ex_rd_sel_i  != '0) && ((id_rs1_sel_i == ex_rd_sel_i)  || (id_rs2_sel_i == ex_rd_sel_i)))  ||
+                    ((mem_rd_sel_i != '0) && ((id_rs1_sel_i == mem_rd_sel_i) || (id_rs2_sel_i == mem_rd_sel_i))) ||
+                    ((wb_rd_sel_i  != '0) && ((id_rs1_sel_i == wb_rd_sel_i)  || (id_rs2_sel_i == wb_rd_sel_i)));
 
 // mret/sret implicitly consume architected CSR state; wait for older CSR writes
 logic ret_csr_hazard;

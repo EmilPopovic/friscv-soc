@@ -202,9 +202,9 @@ assign seip_eff_o = seip_eff;
 logic wb_csr_ro;
 assign wb_csr_ro = csr_sel_i[11:10] == 2'b11;
 
-// ============================================================
-// Physical Memory Protection
-// ============================================================
+////////////////////////////////
+// Physical Memory Protection //
+////////////////////////////////
 
 pmp_entry_t [PmpEntries-1:0] pmp_table;
 assign pmp_table_o = pmp_table;
@@ -221,7 +221,7 @@ function automatic pmp_cfg_t cfg_from_byte(logic [7:0] b);
 endfunction
 
 // Pack the four cfg bytes of pmpcfg<regn>
-function automatic data_t pmpcfg_word(int regn);
+function automatic data_t pmpcfg_word(logic [11:0] regn);
    return {pmpcfg_of(pmp_table[regn*4+3].cfg), pmpcfg_of(pmp_table[regn*4+2].cfg),
            pmpcfg_of(pmp_table[regn*4+1].cfg), pmpcfg_of(pmp_table[regn*4+0].cfg)};
 endfunction
@@ -229,9 +229,9 @@ endfunction
 // Ignore a write to pmpaddr if
 //  1) This entry is locked or
 //  2) The following entry is TOR and locked
-function automatic logic pmpaddr_write_ignored(int unsigned i);
+function automatic logic pmpaddr_write_ignored(logic [11:0] i);
     return pmp_table[i].cfg.l ||
-           (i < PmpEntries-1 &&
+           (i < 12'(PmpEntries-1) &&
             pmp_table[i+1].cfg.a == PMP_TOR &&
             pmp_table[i+1].cfg.l);
 endfunction
@@ -252,7 +252,8 @@ if (EnforcePmp) begin : gen_pmp_table
                 automatic int base = (int'(csr_sel_i) - int'(CSR_PMPCFG0)) * 4;
                 for (int j = 0; j < 4; j++) begin
                     automatic int i = base + j;
-                    // Only the first PMP_USABLE entries are functional, the rest are read-only-zero
+                    // Only the first PMP_USABLE entries are functional,
+                    // the rest are read-only-zero
                     if (i < PmpUsable && !pmp_table[i].cfg.l)
                         pmp_table[i].cfg <= cfg_from_byte(csr_data_i[j*8 +: 8]);
                 end
@@ -260,7 +261,8 @@ if (EnforcePmp) begin : gen_pmp_table
                          int'(csr_sel_i) <  int'(CSR_PMPADDR0) + PmpEntries) begin
                 // Writing to pmpaddr
                 automatic int i = int'(csr_sel_i) - int'(CSR_PMPADDR0);
-                // Ignore write if unusable (read-only-zero entry), or this/following TOR entry is locked
+                // Ignore write if unusable (read-only-zero entry)
+                // or this/following TOR entry is locked
                 if (i < PmpUsable && !pmpaddr_write_ignored(i)) begin
                     pmp_table[i].addr <= csr_data_i;
                 end
@@ -271,9 +273,9 @@ end else begin : gen_no_pmp_table
     assign pmp_table = '0;
 end
 
-// ============================================================
-// CSR write
-// ============================================================
+///////////////
+// CSR write //
+///////////////
 
 function automatic mode_e legalize_mode(logic[1:0] mode);
     mode_e m = mode_e'(mode);
@@ -283,7 +285,7 @@ endfunction
 always_ff @(posedge clk_i or negedge rst_ni) begin
     if(!rst_ni) begin
         csr <= '0;
-        csr.dcsr.debugver <= 4;  // Debug specification version 1.0 implemented
+        csr.dcsr.debugver <= 4'd4;  // Debug specification version 1.0 implemented
         csr.dcsr.prv      <= M_MODE;
     end else begin
         if (trap_csr_en_i) begin
@@ -377,7 +379,8 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
                     csr.mstatus.tvm  <= csr_data_i[20];
                 end
                 CSR_MEDELEG:    csr.medeleg    <= csr_data_i;
-                CSR_MIDELEG:    csr.mideleg    <= csr_data_i & 32'h0000_0222;  // Bits 1,5,9 only
+                // Bits 1,5,9 only
+                CSR_MIDELEG:    csr.mideleg    <= csr_data_i & 32'h0000_0222;
                 CSR_MIE:        csr.mie        <= csr_data_i;
                 CSR_MTVEC:      csr.mtvec      <= csr_data_i;
                 CSR_MCOUNTEREN: csr.mcounteren <= csr_data_i & 32'h0000_0007;
@@ -428,9 +431,9 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
     end
 end
 
-// ============================================================
-// CSR read
-// ============================================================
+//////////////
+// CSR read //
+//////////////
 
 always_comb begin : csr_read
     csr_not_impl_o = 1'b0;
@@ -450,8 +453,8 @@ always_comb begin : csr_read
 
         // Machine Trap Setup
         CSR_MSTATUS:       csr_o = csr.mstatus;
-        // M and A bits are generated dynamically based on parameters.
-        // When adding new extensions, set the corresponding MISA bits from config, unless always present.
+        // TODO this line is very long
+        // When adding new extensions, set MISA bits from config, unless always present.
         //                              mx----zyxwvutsrqpon m               lkj i                hgf e               dcb a
         CSR_MISA:          csr_o = {19'b0100000000010100000,{EnableIsaM},3'b000,{!EnableIsaE},3'b000,{EnableIsaE},3'b000,{EnableIsaA}};
         CSR_MEDELEG:       csr_o = csr.medeleg;
@@ -468,7 +471,8 @@ always_comb begin : csr_read
         CSR_MEPC:          csr_o = csr.mepc;
         CSR_MCAUSE:        csr_o = csr.mcause;
         CSR_MTVAL:         csr_o = csr.mtval;
-        CSR_MIP:           csr_o = {20'b0, meip_i, 1'b0, seip_eff, 1'b0, mtip_i, 1'b0, stip_eff, 1'b0, msip_i, 1'b0, csr.ssip, 1'b0};
+        CSR_MIP:           csr_o = {20'b0, meip_i, 1'b0, seip_eff, 1'b0, mtip_i, 1'b0,
+                                    stip_eff, 1'b0, msip_i, 1'b0, csr.ssip, 1'b0};
 
         // Machine Counter/Timers
         CSR_MCYCLE:        csr_o = csr.mcycle[31:0];
@@ -491,7 +495,8 @@ always_comb begin : csr_read
         // sstatus is mstatus with M-mode-only bits (MIE[3], MPIE[7], MPP[12:11], MPRV[17]) zeroed
         CSR_SSTATUS:       csr_o = data_t'(csr.mstatus) & ~32'h0002_1888;
         CSR_SCOUNTEREN:    csr_o = csr.scounteren;
-        CSR_SIE:           csr_o = csr.mie & 32'h0000_0222;  // S-mode bits: SEIE[9], STIE[5], SSIE[1]
+        // S-mode bits: SEIE[9], STIE[5], SSIE[1]
+        CSR_SIE:           csr_o = csr.mie & 32'h0000_0222;
         CSR_STVEC:         csr_o = csr.stvec;
         CSR_SENVCFG:       csr_o = csr.senvcfg;
         CSR_SSCRATCH:      csr_o = csr.sscratch;
@@ -524,18 +529,18 @@ always_comb begin : csr_read
     // Machine Memory Protection
     if (int'(selected_csr_i) >= int'(CSR_PMPCFG0) &&
         int'(selected_csr_i) <  int'(CSR_PMPCFG0) + int'(PmpEntries/4)) begin
-        csr_o = EnforcePmp ? pmpcfg_word(int'(selected_csr_i) - int'(CSR_PMPCFG0)) : 32'h0;
+        csr_o = EnforcePmp ? pmpcfg_word(selected_csr_i - csr_addr_e'(CSR_PMPCFG0)) : 32'h0;
         csr_not_impl_o = 1'b0;
     end else if (int'(selected_csr_i) >= int'(CSR_PMPADDR0) &&
                  int'(selected_csr_i) <  int'(CSR_PMPADDR0) + int'(PmpEntries)) begin
-        csr_o = EnforcePmp ? pmp_table[int'(selected_csr_i) - int'(CSR_PMPADDR0)].addr : 32'h0;
+        csr_o = EnforcePmp ? pmp_table[selected_csr_i - csr_addr_e'(CSR_PMPADDR0)].addr : 32'h0;
         csr_not_impl_o = 1'b0;
     end
 end
 
-// ============================================================
-// MMU outputs
-// ============================================================
+/////////////////
+// MMU outputs //
+/////////////////
 
 assign satp_o = csr.satp;
 assign sum_o  = csr.mstatus.sum;

@@ -469,7 +469,7 @@ assign mem_rw = amo_bootstrap ? RW_IDLE :
 // Signedness is resolved inside the core, dropped here.
 logic [1:0] bus_size;
 always_comb begin
-    case (mem_size)
+    unique case (mem_size)
         WIDTH_I8,  WIDTH_U8:  bus_size = SIZE_BYTE;
         WIDTH_I16, WIDTH_U16: bus_size = SIZE_HALF;
         WIDTH_I32:            bus_size = SIZE_WORD;

@@ -84,9 +84,9 @@ assign start_walk = satp_mode_e'(satp_i.mode) != SATP_BARE
                     && state_q == StIdle
                     && (itlb_miss_i || dtlb_miss_i);
 
-// ============================================================
-// Capture inputs
-// ============================================================
+////////////////////
+// Capture Inputs //
+////////////////////
 
 satp_t satp_q;
 logic  itlb_miss_q, dtlb_miss_q;
@@ -109,9 +109,9 @@ always_ff @(posedge clk_i or negedge rst_ni) begin : capture_inputs
     end
 end : capture_inputs
 
-// ============================================================
-// Determine mode geometry
-// ============================================================
+/////////////////////////////
+// Determine Mode Geometry //
+/////////////////////////////
 
 logic [2:0] max_level;
 logic       is_wide_vpn_q, is_wide_vpn_d;  // 1: 10-bit VPN fields (SV32), 0: 9-bit (SV39+)
@@ -145,9 +145,9 @@ always_comb begin
     endcase
 end
 
-// ============================================================
-// State machine
-// ============================================================
+///////////////////
+// State Machine //
+///////////////////
 
 always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) state_q <= StIdle;
@@ -179,9 +179,9 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
     end
 end
 
-// ============================================================
-// Effective walk inputs
-// ============================================================
+///////////////////////////
+// Effective Walk Inputs //
+///////////////////////////
 
 // o_walk_en is asserted one cycle before entering StRead so that the downstream
 // has time to assert i_walk_wait before we sample it
@@ -207,9 +207,9 @@ always_comb begin
         eff_level = r_level;
 end
 
-// ============================================================
-// VPN field extraction
-// ============================================================
+//////////////////////////
+// VPN Field Extraction //
+//////////////////////////
 
 logic [9:0] vpn_idx;
 
@@ -234,9 +234,9 @@ assign walk_addr_o = addr_t'({eff_ppn[PA_PPN_W-1:0], 12'b0}) |
 logic ppn_oob;
 assign ppn_oob = |eff_ppn[PPN_W-1:PA_PPN_W];
 
-// ============================================================
-// Transition logic
-// ============================================================
+//////////////////////
+// Transition Logic //
+//////////////////////
 
 always_comb begin
     state_d = state_q;
@@ -260,7 +260,7 @@ always_comb begin
     fault_addr_o  = '0;
     pmp_fault_o   = 1'b0;
 
-    case (state_q)
+    unique case (state_q)
 
         StIdle: begin
             stall_o    = 1'b0;

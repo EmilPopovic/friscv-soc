@@ -305,14 +305,14 @@ int qspiboot_command(SocTestbench& testbench, Jtag& jtag, const char* path) {
         limit = std::strtoull(env, nullptr, 0);
     }
 
-    for (uint64_t cycle = 0; cycle < limit && !top.o_end; ++cycle) {
+    for (uint64_t cycle = 0; cycle < limit && !top.end_o; ++cycle) {
         testbench.run_cycles(1);
     }
 
     uint32_t result = read_word(jtag, SCRATCH_ADDRESS);
     unsigned long long cycles = testbench.cycles();
 
-    if (top.o_end && result == PASS_VALUE) {
+    if (top.end_o && result == PASS_VALUE) {
         std::fprintf(stderr, "PASS (%llu cycles)\n", cycles);
         return 0;
     }
@@ -341,7 +341,7 @@ int test_command(SocTestbench& testbench, Jtag& jtag, const char* path) {
         limit = std::strtoull(env, nullptr, 0);
     }
 
-    for (uint64_t cycle = 0; cycle < limit && !top.o_end; ++cycle) {
+    for (uint64_t cycle = 0; cycle < limit && !top.end_o; ++cycle) {
         testbench.run_cycles(1);
     }
 
@@ -350,7 +350,7 @@ int test_command(SocTestbench& testbench, Jtag& jtag, const char* path) {
     // From reset, so the count does not shift with debug-module traffic
     unsigned long long cycles = testbench.cycles();
 
-    if (top.o_end && result == PASS_VALUE) {
+    if (top.end_o && result == PASS_VALUE) {
         std::fprintf(stderr, "PASS (%llu cycles)\n", cycles);
         return 0;
     }

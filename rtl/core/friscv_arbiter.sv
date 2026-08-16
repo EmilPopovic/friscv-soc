@@ -65,9 +65,10 @@ data_t      data_wdata_q;
 logic       data_wr_q;
 amo_op_e    data_amo_q;
 
-// ============================================================
-// Issue selection
-// ===========================================================
+/////////////////////
+// Issue selection //
+/////////////////////
+
 logic take_inst, take_data, take_any;
 
 always_comb begin
@@ -100,12 +101,13 @@ assign done = busy & !mem_wait_i;
 logic park;
 assign park = take_any & mem_wait_i;
 
-// ============================================================
-// Next state
-// ============================================================
+////////////////
+// Next state //
+////////////////
+
 always_comb begin
     state_d = state_q;
-    case (state_q)
+    unique case (state_q)
         StIdle:     if (park) state_d = take_inst ? StHoldInst : StHoldData;
         StHoldInst,
         StHoldData: if (!mem_wait_i) state_d = StIdle;
@@ -113,9 +115,9 @@ always_comb begin
     endcase
 end
 
-// ============================================================
-// Sequentials == St
-// ============================================================
+///////////////////////
+// Sequentials == St //
+///////////////////////
 
 always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) state_q <= StIdle;
@@ -150,9 +152,10 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
     end
 end
 
-// ============================================================
-// Output
-// ============================================================
+////////////
+// Output //
+////////////
+
 always_comb begin
     mem_addr_o  = '0;
     mem_size_o  = WIDTH_I32;

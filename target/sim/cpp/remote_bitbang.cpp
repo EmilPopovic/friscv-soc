@@ -121,9 +121,9 @@ RemoteBitbang::RemoteBitbang(SocTestbench& testbench)
 void RemoteBitbang::set_pins(char command) {
     unsigned pins = unsigned(command - '0');
 
-    top_.i_jtag_tck = (pins >> 2) & 1;
-    top_.i_jtag_tms = (pins >> 1) & 1;
-    top_.i_jtag_tdi = pins & 1;
+    top_.jtag_tck_i = (pins >> 2) & 1;
+    top_.jtag_tms_i = (pins >> 1) & 1;
+    top_.jtag_tdi_i = pins & 1;
     testbench_.run_cycles(JTAG_CYCLES);
 }
 
@@ -132,8 +132,8 @@ void RemoteBitbang::reset(char command) {
     bool tap_reset = (pins >> 1) & 1;
     bool system_reset = pins & 1;
 
-    top_.i_jtag_trstn = !tap_reset;
-    top_.i_rstn = !system_reset;
+    top_.jtag_trst_ni = !tap_reset;
+    top_.rst_ni = !system_reset;
     testbench_.run_cycles(JTAG_CYCLES);
 }
 

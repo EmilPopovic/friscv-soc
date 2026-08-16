@@ -22,68 +22,68 @@ module vernii_soc_sim import vernii_pkg::*; #(
     parameter logic [31:0] ZsblRomProg [ZsblRomWords] = vernii_zsbl_rom_pkg::ZSBL_PROG,
     parameter int unsigned NumStraps        = 8
 ) (
-    input  logic i_clk,
-    input  logic i_rstn,
+    input  logic clk_i,
+    input  logic rst_ni,
 
-    output logic o_end,
+    output logic end_o,
 
-    input  logic i_uart_rx,
-    output logic o_uart_tx,
+    input  logic uart0_rx_i,
+    output logic uart0_tx_o,
 
-    input  logic i_jtag_tck,
-    input  logic i_jtag_tms,
-    input  logic i_jtag_trstn,
-    input  logic i_jtag_tdi,
-    output logic o_jtag_tdo,
-    output logic o_jtag_tdo_oe,
+    input  logic jtag_tck_i,
+    input  logic jtag_tms_i,
+    input  logic jtag_trst_ni,
+    input  logic jtag_tdi_i,
+    output logic jtag_tdo_o,
+    output logic jtag_tdo_oe_o,
 
-    input  logic [NumStraps-1:0] i_strap,
+    input  logic [NumStraps-1:0] strap_i,
 
-    input  logic [31:0] i_gpio,
-    output logic [31:0] o_gpio,
-    output logic [31:0] o_gpio_oe,
+    input  logic [31:0] gpio_a_i,
+    output logic [31:0] gpio_a_o,
+    output logic [31:0] gpio_a_oe_o,
 
-    output logic       o_qspi_sck,
-    output logic       o_qspi_sck_oe,
-    output logic [2:0] o_qspi_cs,
-    output logic [2:0] o_qspi_cs_oe,
-    output logic [3:0] o_qspi_sd,
-    output logic [3:0] o_qspi_sd_oe,
-    input  logic [3:0] i_qspi_sd,
+    output logic       qspi0_sck_o,
+    output logic       qspi0_sck_oe_o,
+    output logic [2:0] qspi0_cs_o,
+    output logic [2:0] qspi0_cs_oe_o,
+    output logic [3:0] qspi0_sd_o,
+    output logic [3:0] qspi0_sd_oe_o,
+    input  logic [3:0] qspi0_sd_i,
 
-    output logic        o_axi_aw_valid,
-    input  logic        i_axi_aw_ready,
-    output logic [31:0] o_axi_aw_addr,
-    output logic [7:0]  o_axi_aw_len,
-    output logic [2:0]  o_axi_aw_size,
-    output logic [1:0]  o_axi_aw_burst,
-    output logic        o_axi_aw_id,
+    output logic        axi_aw_valid_o,
+    input  logic        axi_aw_ready_i,
+    output logic [31:0] axi_aw_addr_o,
+    output logic [7:0]  axi_aw_len_o,
+    output logic [2:0]  axi_aw_size_o,
+    output logic [1:0]  axi_aw_burst_o,
+    output logic        axi_aw_id_o,
 
-    output logic        o_axi_w_valid,
-    input  logic        i_axi_w_ready,
-    output logic [31:0] o_axi_w_data,
-    output logic [3:0]  o_axi_w_strb,
-    output logic        o_axi_w_last,
+    output logic        axi_w_valid_o,
+    input  logic        axi_w_ready_i,
+    output logic [31:0] axi_w_data_o,
+    output logic [3:0]  axi_w_strb_o,
+    output logic        axi_w_last_o,
 
-    input  logic        i_axi_b_valid,
-    output logic        o_axi_b_ready,
-    input  logic [1:0]  i_axi_b_resp,
-    input  logic        i_axi_b_id,
+    input  logic        axi_b_valid_i,
+    output logic        axi_b_ready_o,
+    input  logic [1:0]  axi_b_resp_i,
+    input  logic        axi_b_id_i,
 
-    output logic        o_axi_ar_valid,
-    input  logic        i_axi_ar_ready,
-    output logic [31:0] o_axi_ar_addr,
-    output logic [7:0]  o_axi_ar_len,
-    output logic [2:0]  o_axi_ar_size,
-    output logic [1:0]  o_axi_ar_burst,
-    output logic        o_axi_ar_id,
+    output logic        axi_ar_valid_o,
+    input  logic        axi_ar_ready_i,
+    output logic [31:0] axi_ar_addr_o,
+    output logic [7:0]  axi_ar_len_o,
+    output logic [2:0]  axi_ar_size_o,
+    output logic [1:0]  axi_ar_burst_o,
+    output logic        axi_ar_id_o,
 
-    input  logic        i_axi_r_valid,
-    output logic        o_axi_r_ready,
-    input  logic [31:0] i_axi_r_data,
-    input  logic [1:0]  i_axi_r_resp,
-    input  logic        i_axi_r_last,
-    input  logic        i_axi_r_id
+    input  logic        axi_r_valid_i,
+    output logic        axi_r_ready_o,
+    input  logic [31:0] axi_r_data_i,
+    input  logic [1:0]  axi_r_resp_i,
+    input  logic        axi_r_last_i,
+    input  logic        axi_r_id_i
 );
 
 localparam int unsigned PinmuxSlv    = 0;
@@ -128,77 +128,77 @@ vernii_soc #(
     .MRegRules        ( MRegRules        ),
     .HaltOnEnd        ( 1                )
 ) i_vernii_soc (
-    .clk_i          ( i_clk         ),
-    .rst_ni         ( i_rstn        ),
+    .clk_i,
+    .rst_ni,
+    .end_o,
     .test_mode_i    ( 1'b0          ),
     .por_rst_no     (               ),
     .soc_rst_no     (               ),
-    .end_o          ( o_end         ),
     .s_axi_gp_req_i ( '0            ),
     .s_axi_gp_rsp_o (               ),
     .m_axi_hp_req_o ( axi_req       ),
     .m_axi_hp_rsp_i ( axi_rsp       ),
     .m_reg_req_o    ( m_reg_req     ),
     .m_reg_rsp_i    ( m_reg_rsp     ),
-    .strap_i        ( i_strap       ),
-    .uart0_rx_i     ( i_uart_rx     ),
-    .uart0_tx_o     ( o_uart_tx     ),
-    .jtag_tck_i     ( i_jtag_tck    ),
-    .jtag_tms_i     ( i_jtag_tms    ),
-    .jtag_trst_ni   ( i_jtag_trstn  ),
-    .jtag_tdi_i     ( i_jtag_tdi    ),
-    .jtag_tdo_o     ( o_jtag_tdo    ),
-    .jtag_tdo_oe_o  ( o_jtag_tdo_oe ),
-    .qspi0_sck_o    ( o_qspi_sck    ),
-    .qspi0_sck_oe_o ( o_qspi_sck_oe ),
-    .qspi0_cs_o     ( o_qspi_cs     ),
-    .qspi0_cs_oe_o  ( o_qspi_cs_oe  ),
-    .qspi0_sd_o     ( o_qspi_sd     ),
-    .qspi0_sd_oe_o  ( o_qspi_sd_oe  ),
-    .qspi0_sd_i     ( i_qspi_sd     ),
     .ext_irq_i      ( '0            ),
-    .gpio_a_i       ( i_gpio        ),
-    .gpio_a_o       ( o_gpio        ),
-    .gpio_a_oe_o    ( o_gpio_oe     )
+    .strap_i,
+    .uart0_rx_i,
+    .uart0_tx_o,
+    .jtag_tck_i,
+    .jtag_tms_i,
+    .jtag_trst_ni,
+    .jtag_tdi_i,
+    .jtag_tdo_o,
+    .jtag_tdo_oe_o,
+    .qspi0_sck_o,
+    .qspi0_sck_oe_o,
+    .qspi0_cs_o,
+    .qspi0_cs_oe_o,
+    .qspi0_sd_o,
+    .qspi0_sd_oe_o,
+    .qspi0_sd_i,
+    .gpio_a_i,
+    .gpio_a_o,
+    .gpio_a_oe_o
 );
 `pragma diagnostic pop
 
-assign o_axi_aw_valid = axi_req.aw_valid;
-assign o_axi_aw_addr  = axi_req.aw.addr;
-assign o_axi_aw_len   = axi_req.aw.len;
-assign o_axi_aw_size  = axi_req.aw.size;
-assign o_axi_aw_burst = axi_req.aw.burst;
-assign o_axi_aw_id    = axi_req.aw.id;
+assign axi_aw_valid_o = axi_req.aw_valid;
+assign axi_aw_addr_o  = axi_req.aw.addr;
+assign axi_aw_len_o   = axi_req.aw.len;
+assign axi_aw_size_o  = axi_req.aw.size;
+assign axi_aw_burst_o = axi_req.aw.burst;
+assign axi_aw_id_o    = axi_req.aw.id;
 
-assign o_axi_w_valid = axi_req.w_valid;
-assign o_axi_w_data  = axi_req.w.data;
-assign o_axi_w_strb  = axi_req.w.strb;
-assign o_axi_w_last  = axi_req.w.last;
+assign axi_w_valid_o = axi_req.w_valid;
+assign axi_w_data_o  = axi_req.w.data;
+assign axi_w_strb_o  = axi_req.w.strb;
+assign axi_w_last_o  = axi_req.w.last;
 
-assign o_axi_b_ready = axi_req.b_ready;
+assign axi_b_ready_o = axi_req.b_ready;
 
-assign o_axi_ar_valid = axi_req.ar_valid;
-assign o_axi_ar_addr  = axi_req.ar.addr;
-assign o_axi_ar_len   = axi_req.ar.len;
-assign o_axi_ar_size  = axi_req.ar.size;
-assign o_axi_ar_burst = axi_req.ar.burst;
-assign o_axi_ar_id    = axi_req.ar.id;
+assign axi_ar_valid_o = axi_req.ar_valid;
+assign axi_ar_addr_o  = axi_req.ar.addr;
+assign axi_ar_len_o   = axi_req.ar.len;
+assign axi_ar_size_o  = axi_req.ar.size;
+assign axi_ar_burst_o = axi_req.ar.burst;
+assign axi_ar_id_o    = axi_req.ar.id;
 
-assign o_axi_r_ready = axi_req.r_ready;
+assign axi_r_ready_o = axi_req.r_ready;
 
 always_comb begin
     axi_rsp          = '0;
-    axi_rsp.aw_ready = i_axi_aw_ready;
-    axi_rsp.w_ready  = i_axi_w_ready;
-    axi_rsp.b_valid  = i_axi_b_valid;
-    axi_rsp.b.id     = i_axi_b_id;
-    axi_rsp.b.resp   = i_axi_b_resp;
-    axi_rsp.ar_ready = i_axi_ar_ready;
-    axi_rsp.r_valid  = i_axi_r_valid;
-    axi_rsp.r.id     = i_axi_r_id;
-    axi_rsp.r.data   = i_axi_r_data;
-    axi_rsp.r.resp   = i_axi_r_resp;
-    axi_rsp.r.last   = i_axi_r_last;
+    axi_rsp.aw_ready = axi_aw_ready_i;
+    axi_rsp.w_ready  = axi_w_ready_i;
+    axi_rsp.b_valid  = axi_b_valid_i;
+    axi_rsp.b.id     = axi_b_id_i;
+    axi_rsp.b.resp   = axi_b_resp_i;
+    axi_rsp.ar_ready = axi_ar_ready_i;
+    axi_rsp.r_valid  = axi_r_valid_i;
+    axi_rsp.r.id     = axi_r_id_i;
+    axi_rsp.r.data   = axi_r_data_i;
+    axi_rsp.r.resp   = axi_r_resp_i;
+    axi_rsp.r.last   = axi_r_last_i;
 end
 
 endmodule

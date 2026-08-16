@@ -37,3 +37,13 @@ This project adheres to the [lowRISC Verilog Coding Style Guide](https://github.
         // Not here!
         logic not_here;
     ```
+
+- Interface ports, especially on top-level modules for Xilinx targets, may use prefixes such as `m_` and `s_` without suffixes. Example for an AXI manager channel:
+
+    ```systemverilog
+    output logic [31:0] m_axi_wdata,
+    output logic [3:0]  m_axi_wstrb,
+    output logic        m_axi_wlast,
+    output logic        m_axi_wvalid,
+    input  logic        m_axi_wready,
+    ```

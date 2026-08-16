@@ -101,9 +101,9 @@ logic branch_ok_prev;
 logic sfence_vma_prev;
 logic misaligned_branch_raw;
 
-// ============================================================
-// Branch control
-// ============================================================
+////////////////////
+// Branch Control //
+////////////////////
 
 ex_trap_e trap;
 addr_t    trap_pc;
@@ -127,9 +127,9 @@ friscv_branch_unit i_branch_unit (
 
 assign branch_target_o = branch_target;
 
-// ============================================================
-// Multiply/divide units
-// ============================================================
+///////////////////////////
+// Multiply/Divide Units //
+///////////////////////////
 
 data_t alu_input_a;
 data_t alu_input_b;
@@ -224,9 +224,9 @@ end else begin : gen_iter_mul
     assign mul_res_hi = muldiv_res[63:32];
 end
 
-// ============================================================
-// Input capture
-// ============================================================
+///////////////////
+// Input Capture //
+///////////////////
 
 always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
@@ -307,9 +307,9 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
     end
 end
 
-// ============================================================
-// Assign outputs
-// ============================================================
+////////////////////
+// Assign Outputs //
+////////////////////
 
 assign pc_o               = pc_q;
 assign next_pc_o          = next_pc_q;
@@ -333,9 +333,9 @@ assign flush_asid_o       = asid_t'(rs2_q[8:0]);
 assign flush_asid_en_o    = (rs2_sel_q != 5'b0);
 assign csr_is_ser_o       = instr_q.csr_is_serializing;
 
-// ============================================================
-// ALU input select
-// ============================================================
+//////////////////////
+// ALU Input Select //
+//////////////////////
 
 data_t a_bus;
 data_t b_bus;
@@ -371,9 +371,9 @@ assign addr_result = alu_input_a + alu_input_b;
 // Also clear bit 0 for JALR targets, as required by the spec.
 assign branch_target = instr_q.jalr_target ? {addr_result[31:1], 1'b0} : addr_result;
 
-// ============================================================
-// Execute operation
-// ============================================================
+///////////////////////
+// Execute Operation //
+///////////////////////
 
 always_comb begin
     unique case (instr_q.alu_op)
@@ -401,9 +401,9 @@ end
 
 assign alu_data_o = alu_data_raw;
 
-// ============================================================
-// Position store data
-// ============================================================
+/////////////////////////
+// Position Store Data //
+/////////////////////////
 
 // Based on the store width and the least significant bits of the address,
 // here we position the store data correctly for the downstream memory unit.

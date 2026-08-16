@@ -33,7 +33,7 @@ assign v = (src1_i[DATA_WIDTH-1] ^ src2_i[DATA_WIDTH-1]) & (src1_i[DATA_WIDTH-1]
 
 always_comb begin
     branch_ok_o = 1'b0;
-    if (branch_jal_sel_i == BRANCH_INSTR) case (branch_cond_i)     
+    if (branch_jal_sel_i == BRANCH_INSTR) unique case (branch_cond_i)     
         COND_EQ:     branch_ok_o = z;
         COND_NE:     branch_ok_o = !z;
         COND_LT:     branch_ok_o = n ^ v;

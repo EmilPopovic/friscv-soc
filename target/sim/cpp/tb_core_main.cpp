@@ -35,19 +35,19 @@ static constexpr uint32_t PASS_VALUE = 0xAABBCCDDu;
 
 void posedge(Vfriscv_cpu_verilator* top) {
     cycle_count++;
-    top->clk = 1;
+    top->clk_i = 1;
     top->eval();
 }
 
 void negedge(Vfriscv_cpu_verilator* top) {
-    top->clk = 0;
+    top->clk_i = 0;
     top->eval();
 }
 
 void drive_clint(Vfriscv_cpu_verilator* top, const ClintModel& clint) {
-    top->mtime = clint.get_mtime();
-    top->msip  = clint.get_msip();
-    top->mtip  = clint.get_mtip();
+    top->mtime_i = clint.get_mtime();
+    top->msip_i  = clint.get_msip();
+    top->mtip_i  = clint.get_mtip();
 }
 
 void cycle(Vfriscv_cpu_verilator* top, BusRouter& bus) {
@@ -55,13 +55,13 @@ void cycle(Vfriscv_cpu_verilator* top, BusRouter& bus) {
     posedge(top);
 
     // Evaluate bus models
-    bus.cycle(top->size, top->addr, top->wdata,
-              top->w_en, top->r_en, top->burst_en);
+    bus.cycle(top->size_o, top->addr_o, top->wdata_o,
+              top->w_en_o, top->r_en_o, top->burst_en_o);
 
-    top->rdata      = bus.rdata;
-    top->stall      = bus.wait;
-    top->beat_valid = bus.beat_valid;
-    top->err        = bus.err;
+    top->rdata_i      = bus.rdata;
+    top->stall_i      = bus.wait;
+    top->beat_valid_i = bus.beat_valid;
+    top->err_i        = bus.err;
 
     negedge(top);
 }
@@ -142,10 +142,10 @@ int main(int argc, char **argv) {
     bus.map(CLINT_BASE_ADDR, 0x10000,  &clint);
 
     // Initialize into reset
-    top->rstn = 0;
-    top->clk = 0;
+    top->rst_ni = 0;
+    top->clk_i  = 0;
     drive_clint(top, clint);
-    top->meip  = 0;
+    top->meip_i = 0;
     top->eval();
 
     // Reset for 20 cycles
@@ -154,10 +154,10 @@ int main(int argc, char **argv) {
     }
 
     clint.reset();
-    top->rstn = 1;  // Release reset
+    top->rst_ni = 1;  // Release reset
 
     // Run until halt or timeout
-    while (!top->halt && cycle_count < max_cycles && !Verilated::gotFinish()) {
+    while (!top->halt_o && cycle_count < max_cycles && !Verilated::gotFinish()) {
         cycle(top, bus);
         drive_clint(top, clint);
     }

@@ -105,7 +105,7 @@ always_comb begin
         state_d = StIdle;
         done    = 1'b0;
     end else begin
-        case (state_q)
+        unique case (state_q)
             StIdle: begin
                 done = 1'b0;
 

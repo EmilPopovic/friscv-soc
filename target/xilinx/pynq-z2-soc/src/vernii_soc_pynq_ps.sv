@@ -86,30 +86,34 @@ module vernii_soc_pynq_ps import vernii_pkg::*, axi_pkg::xbar_rule_32_t; #(
 localparam int unsigned RstCntW = 10;
 
 logic [RstCntW-1:0] rst_cnt;
-logic               soc_rstn;
+logic               soc_rst_n;
 
 always_ff @(posedge clk_i or negedge rstn_i) begin
     if (!rstn_i) begin
-        rst_cnt  <= '0;
-        soc_rstn <= 1'b0;
+        rst_cnt   <= '0;
+        soc_rst_n <= 1'b0;
     end else if (rst_cnt != {RstCntW{1'b1}}) begin
-        rst_cnt  <= rst_cnt + 1'b1;
-        soc_rstn <= 1'b0;
+        rst_cnt   <= rst_cnt + 1'b1;
+        soc_rst_n <= 1'b0;
     end else begin
-        soc_rstn <= 1'b1;
+        soc_rst_n <= 1'b1;
     end
 end
 
 logic [23:0] heartbeat_cnt;
-always_ff @(posedge clk_i) begin
-    heartbeat_cnt <= heartbeat_cnt + 1'b1;
+always_ff @(posedge clk_i or negedge rstn_i) begin
+    if (!rstn_i) begin
+        heartbeat_cnt <= '0;
+    end else begin
+        heartbeat_cnt <= heartbeat_cnt + 1'b1;
+    end
 end
 
 logic soc_end;
 
 assign led_o[0] = soc_end;           // LD5 green: program signalled completion
 assign led_o[1] = 1'b1;              // LD4 blue:  bitstream configured
-assign led_o[2] = ~soc_rstn;         // LD4 red:   SoC held in reset
+assign led_o[2] = ~soc_rst_n;        // LD4 red:   SoC held in reset
 assign led_o[3] = heartbeat_cnt[23]; // LD4 green: free-running heartbeat
 
 vernii_axi_req_t  axi_req;
@@ -175,7 +179,7 @@ vernii_soc #(
     .HaltOnEnd        ( 1'b1           )
 ) i_vernii_soc (
     .clk_i          ( clk_i                  ),
-    .rst_ni         ( soc_rstn               ),
+    .rst_ni         ( soc_rst_n              ),
     .test_mode_i    ( 1'b0                   ),
     .por_rst_no     (                        ),
     .soc_rst_no     (                        ),

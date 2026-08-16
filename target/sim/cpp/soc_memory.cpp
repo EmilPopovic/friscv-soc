@@ -33,10 +33,10 @@ uint32_t& sram_word(Dut& top, uint32_t index) {
     DutRoot& root = *top.rootp;
 
     uint32_t* const way_words[WAYS] = {
-        &root.vernii_soc_sim__DOT__i_vernii_soc__DOT__friscv_mem_hub__DOT__ocm_llc__DOT__gen_ways__BRA__0__KET____DOT__way_sram__DOT__sram[0],
-        &root.vernii_soc_sim__DOT__i_vernii_soc__DOT__friscv_mem_hub__DOT__ocm_llc__DOT__gen_ways__BRA__1__KET____DOT__way_sram__DOT__sram[0],
-        &root.vernii_soc_sim__DOT__i_vernii_soc__DOT__friscv_mem_hub__DOT__ocm_llc__DOT__gen_ways__BRA__2__KET____DOT__way_sram__DOT__sram[0],
-        &root.vernii_soc_sim__DOT__i_vernii_soc__DOT__friscv_mem_hub__DOT__ocm_llc__DOT__gen_ways__BRA__3__KET____DOT__way_sram__DOT__sram[0],
+        &root.vernii_soc_sim__DOT__i_vernii_soc__DOT__i_mem_hub__DOT__ocm_llc__DOT__gen_ways__BRA__0__KET____DOT__way_sram__DOT__sram[0],
+        &root.vernii_soc_sim__DOT__i_vernii_soc__DOT__i_mem_hub__DOT__ocm_llc__DOT__gen_ways__BRA__1__KET____DOT__way_sram__DOT__sram[0],
+        &root.vernii_soc_sim__DOT__i_vernii_soc__DOT__i_mem_hub__DOT__ocm_llc__DOT__gen_ways__BRA__2__KET____DOT__way_sram__DOT__sram[0],
+        &root.vernii_soc_sim__DOT__i_vernii_soc__DOT__i_mem_hub__DOT__ocm_llc__DOT__gen_ways__BRA__3__KET____DOT__way_sram__DOT__sram[0],
     };
 
     if (index >= WAYS * WAY_WORDS) {

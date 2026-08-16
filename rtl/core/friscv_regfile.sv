@@ -33,6 +33,7 @@ data_t regfile [RegisterNum-1:1]; // Register file, x0 is hardwired to 0
 assign rs1_o = rs1_sel_i == 0 ? '0 : regfile[rs1_sel_i];
 assign rs2_o = rs2_sel_i == 0 ? '0 : regfile[rs2_sel_i];
 
+// Not resetting the register file, not required by spec and improves reset tree
 always_ff @(posedge clk_i) begin
     // Never write to x0
     if (rd_sel_i != 0 && wen_i) regfile[rd_sel_i] <= rd_i;

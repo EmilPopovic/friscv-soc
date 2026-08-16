@@ -105,7 +105,7 @@ module friscv_id_stage import friscv_pkg::*; #(
     output data_t     rs2_o,
     output data_t     imm_o,
     output data_t     csr_o,
-    output instr_ex_t instr_ex_o,
+    output instr_ex_t instr_o,
 
     // Inputs from older stages for state visibility
     input  reg_addr_t ex_rd_sel_i,
@@ -170,7 +170,7 @@ addr_t jump_base;
 assign jump_base = rs1_o;
 
 logic regfile_wr_en;
-assign regfile_wr_en = (rd_sel_i != 0) && instr_ret_i;
+assign regfile_wr_en = (rd_sel_i != '0) && instr_ret_i;
 
 localparam int unsigned RegisterNum = EnableIsaE ? 16 : 32;
 
@@ -187,9 +187,9 @@ friscv_regfile #(
     .rs2_o
 );
 
-// ============================================================
-// Input capture
-// ============================================================
+///////////////////
+// Input Capture //
+///////////////////
 
 always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
@@ -227,9 +227,9 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
     end
 end
 
-// ============================================================
-// Control and Status Registers
-// ============================================================
+//////////////////////////////////
+// Control and Status Registers //
+//////////////////////////////////
 
 csr_addr_e selected_csr;
 assign selected_csr = csr_addr_e'(ir_q.b[31:20]);
@@ -314,9 +314,9 @@ friscv_csr_file #(
     .data_mode_o
 );
 
-// ============================================================
-// Trap controller
-// ============================================================
+/////////////////////
+// Trap controller //
+/////////////////////
 
 logic  ecall_active, ebreak_active, illegal_inst;
 logic  target_misaligned;
@@ -355,8 +355,8 @@ friscv_trap_controller #(
     .ebreak_active_i     ( ebreak_active      ),
     .target_misaligned_i ( target_misaligned  ),
     .misaligned_target_i ( misaligned_target  ),
-    .mret_en_i           ( instr_ex_o.mret_en ),
-    .sret_en_i           ( instr_ex_o.sret_en ),
+    .mret_en_i           ( instr_o.mret_en    ),
+    .sret_en_i           ( instr_o.sret_en    ),
     .ex_trap_i,
     .ex_trap_pc_i,
     .ex_trap_va_i,
@@ -410,9 +410,9 @@ friscv_trap_controller #(
     .dret_commit_o       ( dret_commit        )
 );
 
-// ============================================================
-// Immediate generation
-// ============================================================
+//////////////////////////
+// Immediate generation //
+//////////////////////////
 
 always_comb begin
     unique case (imm_sel)
@@ -428,9 +428,9 @@ always_comb begin
     endcase
 end
 
-// ============================================================
-// Early JAL/JALR
-// ============================================================
+////////////////////
+// Early JAL/JALR //
+////////////////////
 
 addr_t jal_target;
 assign jal_target_o = jal_ok_o ? jal_target : '0;
@@ -481,11 +481,11 @@ always_comb begin
     end
 end
 
-// ============================================================
-// Instruction decoding
-// ============================================================
+//////////////////////////
+// Instruction Decoding //
+//////////////////////////
 
-assign csr_is_counter_o = instr_ex_o.csr_is_counter;
+assign csr_is_counter_o = instr_o.csr_is_counter;
 
 friscv_decoder #(
     .EnableIsaE ( EnableIsaE ),
@@ -499,8 +499,8 @@ friscv_decoder #(
     .csr_not_implemented_i ( csr_not_impl      ),
     .mcounteren_i          ( mcounteren        ),
     .scounteren_i          ( scounteren        ),
-    .instr_valid_o         ( instr_valid_q     ),
-    .instr_ex_o,
+    .instr_valid_i         ( instr_valid_q     ),
+    .instr_o,
     .rs1_sel_o,
     .rs2_sel_o,
     .rd_sel_o,

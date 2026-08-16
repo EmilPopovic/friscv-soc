@@ -214,9 +214,9 @@ logic prev_sc_success;
 assign prev_sc_success = pipe_buff.instr_valid && pipe_buff.conditional && cond_valid_r;
 assign cond_valid = (conditional_i) ? reserve_valid && !prev_sc_success && (reserve_addr == alu_data_i) : 1'b1;
 
-// ============================================================
-// Input capture
-// ============================================================
+///////////////////
+// Input Capture //
+///////////////////
 
 // MEM stage always accepts data from EX stage
 // Bubbles are inserted by EX sending instructions with rd_sel=0
@@ -395,9 +395,9 @@ assign dmem_wr_o   = r_mem_active && (pipe_buff.mem_instr_sel == MEM_INSTR_STORE
 assign dmem_storelike_o = r_mem_active && r_mem_store_like;
 assign dmem_amo_op_o    = r_mem_active ? pipe_buff.amo_op : AMO_NONE;
 
-// ============================================================
-// Address and width enum conversion alignment
-// ============================================================
+/////////////////////////////////////////////////
+// Address and Width Enum Conversion Alignment //
+/////////////////////////////////////////////////
 
 always_comb begin
     if (dmem_en_o) begin
@@ -422,9 +422,9 @@ always_comb begin
     end
 end
 
-// ============================================================
-// Load data expansion to 32b
-// ============================================================
+/////////////////////////
+// Load Data Expansion //
+/////////////////////////
 
 // Data will be byte-aligned by how it is stored in memory, so we must shift it to the
 // right position based on the original address and the access width.
@@ -457,9 +457,9 @@ always_comb begin
     endcase
 end
 
-// ============================================================
-// Forward to WB
-// ============================================================
+///////////////////
+// Forward to WB //
+///////////////////
 
 assign load_data_o = r_load_data_valid ? load_data_buff : load_data;
 assign sc_res_o    = {31'h0, r_sc_res_valid ? r_sc_res : !cond_valid_r};

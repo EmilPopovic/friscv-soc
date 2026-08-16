@@ -7,15 +7,20 @@
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
 
 /*
- * This module implements trap detection, prioritization and commit for the FRISC-V core. It is responsible for:
- * - Owning the hart state: current privilege mode, debug mode, and the single-step state machine
- * - Detecting and prioritizing interrupts and exceptions from all pipeline stages, with delegation to S-mode
- * - Deciding when a trap can commit (no CSR/GPR/memory hazards in flight) and signaling the trapping stage
+ * This module implements trap detection, prioritization and commit for the FRISC-V core.
+ * It is responsible for:
+ * - Owning the hart state: current privilege mode, debug mode,
+ *   and the single-step state machine
+ * - Detecting and prioritizing interrupts and exceptions from all pipeline stages,
+ *   with delegation to S-mode
+ * - Deciding when a trap can commit (no CSR/GPR/memory hazards in flight) and
+ *   signaling the trapping stage
  * - Resolving the trap vector, return address, cause code, EPC and TVAL
  * - Committing MRET/SRET/DRET and debug mode entry/exit
  *
- * The controller does not hold any architectural CSR state. It reads CSR values from friscv_csr_file and,
- * when a trap or return commits, issues a command bundle (trap_csr_en_out, trap_to_*_out, trap_epc/cause/tval,
+ * The controller does not hold any architectural CSR state.
+ * It reads CSR values from friscv_csr_file and, when a trap or return commits, issues a
+ * command bundle (trap_csr_en_out, trap_to_*_out, trap_epc/cause/tval,
  * xret_commit_out) that the CSR file executes without any trap knowledge of its own.
  */
 
@@ -26,7 +31,7 @@ module friscv_trap_controller import friscv_pkg::*; #(
 
     // If enabled, entering an EBREAK instruction will halt the core until reset
     parameter bit HaltOnEnterEbreak = 0,
-    // If enabled, the first MRET or SRET after entering an EBREAK handler will halt the core until reset
+    // If enabled, the first MRET or SRET after entering an EBREAK handler will halt until reset
     parameter bit HaltOnRetFromEbreak = 0
 ) (
     input  logic      clk_i,
@@ -124,7 +129,7 @@ module friscv_trap_controller import friscv_pkg::*; #(
     // Trap commit commands to the CSR file
     output logic       trap_csr_en_o,   // Capture trap state into CSRs this cycle
     output logic       trap_to_debug_o, // Debug entry, write dpc/dcsr instead of xepc/xcause
-    output logic       trap_to_s_o,     // Delegated, write sepc/scause/stval instead of M equivalents
+    output logic       trap_to_s_o,     // Delegated, write sepc/... instead of mepc/...
     output addr_t      trap_epc_o,
     output data_t      trap_cause_o,
     output data_t      trap_tval_o,
@@ -142,14 +147,14 @@ logic  debug_mode_active;
 assign mode_o       = current_mode;
 assign debug_mode_o = debug_mode_active;
 
-// ============================================================
-// Single step debug logic
-// ============================================================
+/////////////////////////////
+// Single Step Debug Logic //
+/////////////////////////////
 
 typedef enum logic [1:0] {
-    STEP_OFF,
-    STEP_ARMED,
-    STEP_FIRE
+    StepOff,
+    StepArmed,
+    StepFire
 } step_e;
 
 step_e step;
@@ -158,9 +163,9 @@ step_e step;
 logic id_dispatch;
 assign id_dispatch = instr_valid_i && !stall_i && !flush_i && !trap_o && !trap_pending_o;
 
-// ============================================================
-// Trap detection
-// ============================================================
+////////////////////
+// Trap Detection //
+////////////////////
 
 logic dcsr_ebreak_eff;
 always_comb unique case (current_mode)
@@ -186,46 +191,47 @@ assign interrupt_safe = !mret_inhibit &&
                         !branch_ok_i && instr_valid_i && !debug_mode_active;
 
 // A synchronous exception is safe only if the buffer holds a valid instruciton,
-// and a redirect is not being processed that would kill the trapping instruction anyway (branch_ok_in).
+// and a redirect is not being processed that would kill the trapping instruction anyway.
 logic exception_safe;
 assign exception_safe = !branch_ok_i && instr_valid_i;
 
-// ============================================================
-// Interrupt detection
-// ============================================================
+/////////////////////////
+// Interrupt Detection //
+/////////////////////////
 
 // m_interrupt_active if an interrupt to M-mode is pending and not masked or delegated.
 // This interrupt will be taken as soon as it is safe to do so.
 logic m_interrupt_active;
 assign m_interrupt_active = interrupt_safe &&
-                            step == STEP_OFF &&
+                            step == StepOff &&
                             (mstatus_i.mie || current_mode != M_MODE) &&
                             ((msip_i && mie_i[3]) ||
                              (mtip_i && mie_i[7]) ||
                              (meip_i && mie_i[11]));
 
-// s_interrupt_active if an interrupt to S-mode is pending and not masked, delegated, or overridden by an M-mode interrupt.
-// This interrupt will be taken as soon as it is safe to do so and there are no M-mode interrupts.
+// s_interrupt_active if an interrupt to S-mode is pending and not masked, delegated,
+// or overridden by an M-mode interrupt. This interrupt will be taken as soon as
+// it is safe to do so and there are no M-mode interrupts.
 logic s_interrupt_active;
 assign s_interrupt_active = interrupt_safe &&
-                            step == STEP_OFF &&
+                            step == StepOff &&
                             (current_mode != M_MODE) &&
                             (mstatus_i.sie || current_mode == U_MODE) &&
                             ((ssip_i     && mie_i[1] && mideleg_i[1]) ||
                              (stip_eff_i && mie_i[5] && mideleg_i[5]) ||
                              (seip_eff_i && mie_i[9] && mideleg_i[9]));
 
-// An interrupt is active (pending or being taken) if either an M-mode or S-mode interrupt is active.
+// An interrupt is active (pending or taken) if either an M-mode or S-mode interrupt is active.
 // All required gating is done by m_interrupt_active and s_interrupt_active.
 logic interrupt_active;
 assign interrupt_active = m_interrupt_active || s_interrupt_active;
 
-// ============================================================
-// Exception detection
-// ============================================================
+/////////////////////////
+// Exception Detection //
+/////////////////////////
 
 // IF stage traps can be page faults or access faults.
-// These are propagated to ID with a cycle of latency and come with the relevant faulting instruction.
+// These are propagated to ID with a cycle of latency and come with the faulting instruction.
 typedef enum logic [1:0] {
     IF_TRAP_NONE,
     IF_TRAP_FAULT,
@@ -237,7 +243,8 @@ assign if_trap = inst_fault_q_i                     ? IF_TRAP_FAULT  :
                  inst_err_q_i || inst_pmp_fault_q_i ? IF_TRAP_ACCESS :
                                                       IF_TRAP_NONE;
 
-// An IF exception is not taken if there is a branch redirect in-flight that would kill the trapping instruction anyway, or if the trap is currently inhibited.
+// An IF exception is not taken if there is a branch redirect in-flight that
+// would kill the trapping instruction anyway, or if the trap is currently inhibited.
 logic if_trap_inhibit;
 logic is_if_trap;
 assign is_if_trap = (if_trap != IF_TRAP_NONE) && !if_trap_inhibit && !branch_ok_i;
@@ -254,9 +261,14 @@ assign exception_other = is_if_trap || is_ex_trap || is_mem_trap;
 // Enter debug on ebreak if it is safe to redirect, the current mode allows it (dcsr.ebreakm/s/u),
 // not currently in debug mode, and no exception from an older instruction is being taken.
 logic ebreak_to_debug;
-assign ebreak_to_debug = exception_safe && ebreak_active_i && dcsr_ebreak_eff && !debug_mode_active && !exception_other;
+assign ebreak_to_debug = exception_safe &&
+                         ebreak_active_i &&
+                         dcsr_ebreak_eff &&
+                         !debug_mode_active &&
+                         !exception_other;
 
-// The exception is originating from ID if it is ecall, ebreak, illegal instruction, or jump target misaligned.
+// The exception is originating from ID if it is ecall, ebreak,
+// illegal instruction, or jump target misaligned.
 logic is_id_trap;
 assign is_id_trap = exception_safe &&
                     (ecall_active_i  ||
@@ -292,14 +304,16 @@ logic exception_active;
 assign exception_active = is_if_trap || is_id_trap || is_ex_trap || is_mem_trap;
 
 logic debug_halt_entry;
-assign debug_halt_entry = !debug_mode_active && interrupt_safe && (dbg_req_i || (step == STEP_FIRE));
+assign debug_halt_entry = !debug_mode_active &&
+                          interrupt_safe &&
+                          (dbg_req_i || (step == StepFire));
 
 logic debug_entry;
 assign debug_entry = ebreak_to_debug || (debug_halt_entry && !exception_active);
 
-// ============================================================
-// Taking a trap
-// ============================================================
+///////////////////
+// Taking a Trap //
+///////////////////
 
 // Trap RAW hazard - a CSR write in EX or MEM might update mtvec/mstatus/mepc before the
 // trap fires. Suppress the effective trap (flush + CSR state write) until the pipeline
@@ -333,10 +347,16 @@ assign trap_pending_o   = trap_raw && !trap_seen && (trap_csr_hazard || trap_pip
 assign ex_trap_commit_o  = trap_o && (trap_src == TRAP_SRC_EX || trap_src == TRAP_SRC_MEM);
 assign mem_trap_commit_o = trap_o && (trap_src == TRAP_SRC_MEM);
 
-// MRET and SRET are detected outside the main decoder to avoid a combinatorial loop and improve timing.
-assign mret_active = (ir_i.r.opcode == SYSTEM) && (ir_i.r.funct3 == 3'b000) && (ir_i.b[31:20] == 12'b001100000010);
-assign sret_active = (ir_i.r.opcode == SYSTEM) && (ir_i.r.funct3 == 3'b000) && (ir_i.b[31:20] == 12'b000100000010);
-assign dret_active = (ir_i.r.opcode == SYSTEM) && (ir_i.r.funct3 == 3'b000) && (ir_i.b[31:20] == 12'b011110110010);
+// MRET and SRET are detected outside the main decoder to avoid a loop and improve timing.
+assign mret_active = (ir_i.r.opcode == SYSTEM) &&
+                     (ir_i.r.funct3 == 3'b000) &&
+                     (ir_i.b[31:20] == 12'b001100000010);
+assign sret_active = (ir_i.r.opcode == SYSTEM) &&
+                     (ir_i.r.funct3 == 3'b000) &&
+                     (ir_i.b[31:20] == 12'b000100000010);
+assign dret_active = (ir_i.r.opcode == SYSTEM) &&
+                     (ir_i.r.funct3 == 3'b000) &&
+                     (ir_i.b[31:20] == 12'b011110110010);
 
 // Signal to the control logic that a return instruction is being taken.
 assign ret_o = (mret_active || sret_active || dret_active) && !illegal_inst_i;
@@ -345,54 +365,67 @@ assign mret_commit_o = ret_commit_i && mret_active;
 assign sret_commit_o = ret_commit_i && sret_active;
 assign dret_commit_o = ret_commit_i && dret_active;
 
-// ============================================================
-// Generate cause code
-// ============================================================
+/////////////////////////
+// Generate Cause Code //
+/////////////////////////
 
 // Take the exception source decoded above and generate the corresponding exception cause code.
 logic [4:0] exception_cause_code;
 always_comb begin
-    exception_cause_code = 5'd0;                   // No exception by default
     unique case (trap_src)
         TRAP_SRC_IF: unique case (if_trap)
-            IF_TRAP_FAULT:  exception_cause_code = 5'd12;      // Instruction page fault
-            IF_TRAP_ACCESS: exception_cause_code = 5'd1;       // Instruction access fault
-            IF_TRAP_NONE:   exception_cause_code = 5'd0;       // No exception
-            default:        exception_cause_code = 5'd0;       // No exception
+            // Instruction page fault
+            IF_TRAP_FAULT:  exception_cause_code = 5'd12;
+            // Instruction access fault
+            IF_TRAP_ACCESS: exception_cause_code = 5'd1;
+            IF_TRAP_NONE:   exception_cause_code = 5'd0;
+            default:        exception_cause_code = 5'd0;
         endcase
         TRAP_SRC_ID:
-            if (ecall_active_i)
-                if (current_mode == U_MODE)
-                    exception_cause_code = 5'd8;   // Environment call from U-mode
-                else if (current_mode == S_MODE)
-                    exception_cause_code = 5'd9;   // Environment call from S-mode
-                else
-                    exception_cause_code = 5'd11;  // Environment call from M-mode
-            else if (ebreak_active_i)
-                exception_cause_code = 5'd3;       // Breakpoint
-            else if (illegal_inst_i)
-                exception_cause_code = 5'd2;       // Illegal instruction
-            else if (target_misaligned_i)
-                exception_cause_code = 5'd0;       // Instruction address misaligned
-        TRAP_SRC_EX:
-            exception_cause_code = 5'd0;           // No exception or Instruction address misaligned
+            if (ecall_active_i) unique case (current_mode)
+                // Environment call from U-mode
+                U_MODE: exception_cause_code = 5'd8;
+                // Environment call from S-mode
+                S_MODE: exception_cause_code = 5'd9;
+                // Environment call from M-mode
+                M_MODE: exception_cause_code = 5'd11;
+                H_MODE: exception_cause_code = 5'd11;
+                default: exception_cause_code = 5'd11;
+            endcase
+            // Breakpoint
+            else if (ebreak_active_i)     exception_cause_code = 5'd3;
+            // Illegal instruction
+            else if (illegal_inst_i)      exception_cause_code = 5'd2;
+            // Instruction address misaligned
+            else if (target_misaligned_i) exception_cause_code = 5'd0;
+            else                          exception_cause_code = 5'd0;
+        // Instruction address misaligned
+        TRAP_SRC_EX: exception_cause_code = 5'd0;
         TRAP_SRC_MEM: unique case (mem_trap_i)
-            MEM_TRAP_LOAD_MISALIGNED:  exception_cause_code = 5'd4;   // Load address misaligned
-            MEM_TRAP_LOAD_ACCESS:      exception_cause_code = 5'd5;   // Load access fault
-            MEM_TRAP_STORE_MISALIGNED: exception_cause_code = 5'd6;   // Store/AMO address misaligned
-            MEM_TRAP_STORE_ACCESS:     exception_cause_code = 5'd7;   // Store/AMO access fault
-            MEM_TRAP_LOAD:             exception_cause_code = 5'd13;  // Load page fault
-            MEM_TRAP_STORE:            exception_cause_code = 5'd15;  // Store/AMO page fault
-            MEM_TRAP_NONE:             exception_cause_code = 5'd0;   // No exception
-            default:                   exception_cause_code = 5'd0;   // No exception
+            // Load address misaligned
+            MEM_TRAP_LOAD_MISALIGNED:  exception_cause_code = 5'd4;
+            // Load access fault
+            MEM_TRAP_LOAD_ACCESS:      exception_cause_code = 5'd5;
+            // Store/AMO address misaligned
+            MEM_TRAP_STORE_MISALIGNED: exception_cause_code = 5'd6;
+            // Store/AMO access fault
+            MEM_TRAP_STORE_ACCESS:     exception_cause_code = 5'd7;
+            // Load page fault
+            MEM_TRAP_LOAD:             exception_cause_code = 5'd13;
+            // Store/AMO page fault
+            MEM_TRAP_STORE:            exception_cause_code = 5'd15;
+            MEM_TRAP_NONE:             exception_cause_code = 5'd0;
+            default:                   exception_cause_code = 5'd0;
         endcase
         TRAP_SRC_NONE: exception_cause_code = 5'd0;
-        default:       exception_cause_code = 5'd0;
+        // No exception by default
+        default: exception_cause_code = 5'd0;
     endcase
 end
 
 logic in_ebreak_handler;
-assign halt_o = (HaltOnEnterEbreak && ebreak_active_i) || (HaltOnRetFromEbreak && in_ebreak_handler && (mret_en_i || sret_en_i));
+assign halt_o = (HaltOnEnterEbreak && ebreak_active_i) ||
+                (HaltOnRetFromEbreak && in_ebreak_handler && (mret_en_i || sret_en_i));
 
 // A trap is delegated to S-mode when:
 //   - Not already in M-mode (traps never transition to less-privileged mode)
@@ -415,7 +448,8 @@ end
 
 assign is_delegated = (trap_mode != M_MODE) &&
                       !m_interrupt_active &&
-                      (s_interrupt_active || (exception_active && medeleg_i[exception_cause_code]));
+                      (s_interrupt_active ||
+                       (exception_active && medeleg_i[exception_cause_code]));
 
 logic trap_to_s_mode;
 assign trap_to_s_mode = trap_o && is_delegated;
@@ -439,9 +473,9 @@ always_comb begin
         current_cause = 32'd0;
 end
 
-// ============================================================
-// Trap EPC and TVAL resolution
-// ============================================================
+//////////////////////////////////
+// Trap EPC and TVAL Resolution //
+//////////////////////////////////
 
 // Return address used by mret/sret
 assign epc_o = dret_active ? dpc_i  :
@@ -492,25 +526,26 @@ always_comb begin
     endcase
 end
 
-// ============================================================
-// Trap commit commands to the CSR file
-// ============================================================
+//////////////////////////////////////////
+// Trap Commit Commands to the CSR File //
+//////////////////////////////////////////
 
 // Interrupt causes take priority over exception causes, matching the tvec resolution above.
 assign trap_csr_en_o   = trap_o && !debug_mode_active;
 assign trap_to_debug_o = debug_entry;
 assign trap_to_s_o     = is_delegated;
 assign trap_epc_o      = trap_epc;
-assign trap_cause_o    = interrupt_active ? {1'b1, current_cause[30:0]} : data_t'(exception_cause_code);
+assign trap_cause_o    = interrupt_active
+                       ? {1'b1, current_cause[30:0]} : data_t'(exception_cause_code);
 assign trap_tval_o     = trap_tval;
 assign trap_mode_o     = trap_mode;
 assign dcsr_cause_o    = dbg_req_i       ? 3'd3 : // haltreq
                          ebreak_to_debug ? 3'd1 : // ebreak
                                            3'd4;  // step
 
-// ============================================================
-// Hart state update
-// ============================================================
+///////////////////////
+// Hart State Update //
+///////////////////////
 
 always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) trap_seen <= 1'b0;
@@ -543,12 +578,12 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
         current_mode      <= M_MODE;
         debug_mode_active <= 1'b0;
         mret_inhibit      <= 1'b0;
-        step              <= STEP_OFF;
+        step              <= StepOff;
     end else begin
 
         if (mret_inhibit && !stall_i) mret_inhibit <= 1'b0;
 
-        if (step == STEP_ARMED && (id_dispatch || trap_o)) step <= STEP_FIRE;
+        if (step == StepArmed && (id_dispatch || trap_o)) step <= StepFire;
 
         if (trap_o) begin
             mret_inhibit <= 1'b0;
@@ -557,7 +592,7 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
                 if (debug_entry) begin
                     debug_mode_active <= 1'b1;
                     current_mode      <= M_MODE;
-                    step              <= STEP_OFF;
+                    step              <= StepOff;
                 end else if (trap_to_s_mode) begin
                     current_mode <= S_MODE;
                 end else begin
@@ -569,7 +604,7 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
             mret_inhibit      <= 1'b1;
             debug_mode_active <= 1'b0;
             current_mode      <= dcsr_i.prv;
-            step              <= dcsr_i.step ? STEP_ARMED : STEP_OFF;
+            step              <= dcsr_i.step ? StepArmed : StepOff;
         end else if (ret_commit_i && sret_active) begin
             mret_inhibit <= 1'b1;
             current_mode <= mstatus_i.spp ? S_MODE : U_MODE;

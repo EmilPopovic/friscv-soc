@@ -13,13 +13,13 @@ constexpr unsigned RESET_CYCLES = 20;
 }  // namespace
 
 SocTestbench::SocTestbench() : ext_mem_(top_), flash_(top_) {
-    top_.i_clk = 0;
-    top_.i_rstn = 0;
-    top_.i_uart_rx = 1;
-    top_.i_jtag_tck = 0;
-    top_.i_jtag_tms = 1;
-    top_.i_jtag_tdi = 0;
-    top_.i_jtag_trstn = 1;
+    top_.clk_i = 0;
+    top_.rst_ni = 0;
+    top_.uart0_rx_i = 1;
+    top_.jtag_tck_i = 0;
+    top_.jtag_tms_i = 1;
+    top_.jtag_tdi_i = 0;
+    top_.jtag_trst_ni = 1;
     dut::clear_inputs(top_);
 
     eval();
@@ -37,10 +37,10 @@ void SocTestbench::eval() {
 }
 
 void SocTestbench::reset() {
-    top_.i_rstn = 0;
+    top_.rst_ni = 0;
     run_cycles(RESET_CYCLES);
 
-    top_.i_rstn = 1;
+    top_.rst_ni = 1;
     run_cycles(RESET_CYCLES);
 }
 
@@ -48,13 +48,13 @@ void SocTestbench::run_cycles(uint64_t count) {
     cycles_ += count;
 
     for (uint64_t i = 0; i < count; ++i) {
-        uart_.sample(top_.o_uart_tx);
+        uart_.sample(top_.uart0_tx_o);
 
         // The loop ends with the clock low, a leading low phase would be a no-op
-        top_.i_clk = 1;
+        top_.clk_i = 1;
         eval();
 
-        top_.i_clk = 0;
+        top_.clk_i = 0;
         eval();
     }
 }

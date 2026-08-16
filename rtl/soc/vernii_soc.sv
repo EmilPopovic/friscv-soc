@@ -116,10 +116,10 @@ module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t,
     output logic [31:0] gpio_a_oe_o
 );
 
-// ============================================================
-// Address map
-// ============================================================
-//
+/////////////////
+// Address map //
+/////////////////
+
 //   0x0000_0000  OCM              OcmSize
 //   0x0200_0000  clint            128 KiB
 //   0x0300_0000  scb
@@ -151,8 +151,8 @@ localparam logic [31:0] DmSize        = PeriphSize;
 // Contents rounded up to a power of two, the rest of the slot decodes as error
 localparam int unsigned ZsblRomWindow = ZsblRomEnable ? (1 << $clog2(ZsblRomWords * 4)) : 0;
 
-logic por_rstn;  // power-on reset synchronizer
-logic soc_rstn, soc_rstn_async;
+logic por_rst_n;  // power-on reset synchronizer
+logic soc_rst_n, soc_rst_n_async;
 
 `pragma diagnostic push
 `pragma diagnostic ignore="-Wempty-output-connection"
@@ -160,8 +160,8 @@ rstgen i_rstgen_por (
     .clk_i,
     .rst_ni,
     .test_mode_i,
-    .rst_no  ( por_rstn ),
-    .init_no (          )
+    .rst_no  ( por_rst_n ),
+    .init_no (           )
 );
 `pragma diagnostic pop
 
@@ -169,16 +169,16 @@ rstgen i_rstgen_por (
 `pragma diagnostic ignore="-Wempty-output-connection"
 rstgen i_rstgen_soc (
     .clk_i,
-    .rst_ni  ( soc_rstn_async ),
+    .rst_ni  ( soc_rst_n_async ),
     .test_mode_i,
-    .rst_no  ( soc_rstn       ),
-    .init_no (                )
+    .rst_no  ( soc_rst_n       ),
+    .init_no (                 )
 );
 `pragma diagnostic pop
 
-// ============================================================
-// CPU subsystem
-// ============================================================
+//////////////////
+// FRISC-V Core //
+//////////////////
 
 friscv_mem_req_t cpu_req;
 friscv_mem_rsp_t cpu_rsp;
@@ -191,10 +191,10 @@ logic debug_req;  // async debug request to the hart
 
 // In test mode the reset synchronizer above is bypassed, which would put dmcontrol.ndmreset
 // (a scan-chain flop) on a combinational path to the async reset of the whole SoC.
-assign soc_rstn_async = por_rstn & (test_mode_i | ~ndmreset);
+assign soc_rst_n_async = por_rst_n & (test_mode_i | ~ndmreset);
 
-assign por_rst_no = por_rstn;
-assign soc_rst_no = soc_rstn;
+assign por_rst_no = por_rst_n;
+assign soc_rst_no = soc_rst_n;
 
 // The zsbl rom is a reg-bus peripheral, the core just boots at its base
 localparam int unsigned ResetVec = ZsblRomEnable ? ZsblBaseAddr : ExtBase;
@@ -211,9 +211,9 @@ friscv #(
     .EnableIsaA         ( EnableIsaA       ),
     .EnforcePmp         ( EnforcePmp       ),
     .EnableFineTlbFlush ( FineTlbFlush     )
-) cpu_subsystem (
+) i_cpu (
     .clk_i,
-    .rst_ni    ( soc_rstn  ),
+    .rst_ni    ( soc_rst_n ),
     .end_o     ( end_o     ),
     .msip_i    ( msip      ),
     .mtip_i    ( mtip      ),
@@ -225,21 +225,21 @@ friscv #(
     .dbg_req_i ( debug_req )
 );
 
-// ============================================================
-// Address rule helpers
-// ============================================================
+//////////////////////////
+// Address Rule Helpers //
+//////////////////////////
 
-function automatic bit rule_populated(input xbar_rule_32_t rule);
-    rule_populated = rule.start_addr != rule.end_addr;
+function automatic logic rule_populated(input xbar_rule_32_t rule);
+    return rule.start_addr != rule.end_addr;
 endfunction
 
 function automatic logic [31:0] rule_end(input xbar_rule_32_t rule);
-    rule_end = (rule.end_addr == '0) ? '1 : rule.end_addr;
+    return (rule.end_addr == '0) ? '1 : rule.end_addr;
 endfunction
 
-// ============================================================
-// External GP subordinate port -> FRISC-V memory interface
-// ============================================================
+//////////////////////////////////////////////////////////////
+// External GP subordinate port -> FRISC-V memory interface //
+//////////////////////////////////////////////////////////////
 
 // axi_lite -> axi -> mem -> friscv_mem_if
 // Done this way to avoid having to implement any new protocol converter.
@@ -269,14 +269,15 @@ for (genvar g = 0; g < NumSAxiGpRules; g++) begin : gen_chk_gp_rule
 end
 
 // An access is allowed on AXI GP if it matches any populated SAxiGpRule
-function automatic bit s_axi_gp_allowed(input addr_t addr);
-    s_axi_gp_allowed = 1'b0;
+function automatic logic s_axi_gp_allowed(input addr_t addr);
+    logic result = 1'b0;
     for (int unsigned i = 0; i < NumSAxiGpRules; i++) begin
         if (rule_populated(SAxiGpRules[i]) &&
             addr >= SAxiGpRules[i].start_addr && addr < rule_end(SAxiGpRules[i])) begin
-            s_axi_gp_allowed = 1'b1;
+            result = 1'b1;
         end
     end
+    return result;
 endfunction
 
 // axi_lite -> axi
@@ -313,7 +314,7 @@ axi_demux_simple #(
     .AxiLookBits ( SAxiIdWidth       )
 ) i_s_axi_gp_demux (
     .clk_i,
-    .rst_ni          ( soc_rstn           ),
+    .rst_ni          ( soc_rst_n          ),
     .test_i          ( test_mode_i        ),
     .slv_req_i       ( s_axi_gp_req       ),
     .slv_aw_select_i ( s_axi_gp_aw_select ),
@@ -336,7 +337,7 @@ axi_err_slv #(
     .ATOPs      ( 1'b0                 )
 ) i_s_axi_gp_err_slv (
     .clk_i,
-    .rst_ni     ( soc_rstn                        ),
+    .rst_ni     ( soc_rst_n                       ),
     .test_i     ( test_mode_i                     ),
     .slv_req_i  ( s_axi_gp_dev_req[SAxiGpErrPort] ),
     .slv_resp_o ( s_axi_gp_dev_rsp[SAxiGpErrPort] )
@@ -363,7 +364,7 @@ if (EnableSAxiGp) begin : gen_axi_gp
         .IdWidth    ( SAxiIdWidth       )
     ) i_s_axi_to_mem (
         .clk_i,
-        .rst_ni       ( soc_rstn                        ),
+        .rst_ni       ( soc_rst_n                       ),
         .busy_o       ( /* unused */                    ),
         .axi_req_i    ( s_axi_gp_dev_req[SAxiGpBusPort] ),
         .axi_resp_o   ( s_axi_gp_dev_rsp[SAxiGpBusPort] ),
@@ -391,9 +392,9 @@ if (EnableSAxiGp) begin : gen_axi_gp
     // mem -> friscv_mem_if
     `pragma diagnostic push
     `pragma diagnostic ignore="-Wempty-output-connection"
-    mem_to_friscv mem_to_friscv (
+    mem_to_friscv i_s_mem_to_friscv (
         .clk_i,
-        .rst_ni      ( soc_rstn     ),
+        .rst_ni      ( soc_rst_n    ),
         .req_i       ( s_mem_req    ),
         .addr_i      ( s_mem_addr   ),
         .we_i        ( s_mem_we     ),
@@ -419,9 +420,9 @@ end else begin : gen_no_axi_gp
 
 end
 
-// ============================================================
-// Memory hub {cpu, s_axi_gp, dm} -> {soc, m_axi_hp}
-// ============================================================
+///////////////////////////////////////////////////////
+// Memory Hub {cpu, s_axi_gp, dm} -> {soc, m_axi_hp} //
+///////////////////////////////////////////////////////
 
 logic [Ways-1:0] llcsel;
 logic            crpsel;
@@ -448,9 +449,9 @@ friscv_mem_hub #(
     .LineBytes  ( LineBytes  ),
     .Ways       ( Ways       ),
     .SramTags   ( SramTags   )
-) friscv_mem_hub (
+) i_mem_hub (
     .clk_i,
-    .rst_ni      ( soc_rstn     ),
+    .rst_ni      ( soc_rst_n    ),
     .s_a_req_i   ( cpu_req      ),
     .s_a_rsp_o   ( cpu_rsp      ),
     .s_b_req_i   ( s_gp_mem_req ),
@@ -469,9 +470,9 @@ friscv_mem_hub #(
     .llcinv_i    ( llcinv       )
 );
 
-// ============================================================
-// Interconnect: mem_if -> mem -> reg_bus -> reg demux -> peripherals
-// ============================================================
+////////////////////////////////////////////////////////////////////////
+// Interconnect: mem_if -> mem -> reg_bus -> reg demux -> peripherals //
+////////////////////////////////////////////////////////////////////////
 
 `APB_TYPEDEF_ALL(apb, addr_t, data_t, strb_t)
 
@@ -483,9 +484,9 @@ logic [3:0]  soc_be;
 
 friscv_to_mem #(
     .RegisterReq ( 1 )
-) soc_to_mem (
+) i_soc_to_mem (
     .clk_i,
-    .rst_ni      ( soc_rstn   ),
+    .rst_ni      ( soc_rst_n  ),
     .req_o       ( soc_req    ),
     .addr_o      ( soc_addr   ),
     .we_o        ( soc_we     ),
@@ -509,9 +510,9 @@ mem_to_reg #(
     .DW        ( DataWidth ),
     .reg_req_t ( reg_req_t ),
     .reg_rsp_t ( reg_rsp_t )
-) soc_mem_to_reg (
+) i_soc_mem_to_reg (
     .clk_i     ( clk_i        ),
-    .rst_ni    ( soc_rstn     ),
+    .rst_ni    ( soc_rst_n    ),
     .req_i     ( soc_req      ),
     .gnt_o     ( soc_gnt      ),
     .we_i      ( soc_we       ),
@@ -525,9 +526,9 @@ mem_to_reg #(
     .reg_rsp_i ( regs_reg_rsp )
 );
 
-// ============================================================
-// Reg demux
-// ============================================================
+///////////////
+// Reg Demux //
+///////////////
 
 localparam int unsigned DmPort    = 0;
 localparam int unsigned Uart0Port = 1;
@@ -575,35 +576,38 @@ for (genvar r = 0; r < NoIntRegRules; r++) begin : gen_chk_ocm_int_overlap
 end
 
 function automatic int unsigned count_m_reg_rules();
-    count_m_reg_rules = 0;
+    int unsigned result = 0;
     for (int unsigned i = 0; i < NumMRegRules; i++) begin
-        if (rule_populated(MRegRules[i])) count_m_reg_rules++;
+        if (rule_populated(MRegRules[i])) result++;
     end
+    return result;
 endfunction
 
 localparam int unsigned NoMRegRules = count_m_reg_rules();
 localparam int unsigned NoRegRules    = NoIntRegRules + NoMRegRules;
 
 function automatic xbar_rule_32_t [NoRegRules-1:0] gen_reg_rules();
+    xbar_rule_32_t [NoRegRules-1:0] result;
     xbar_rule_32_t rule;
     int unsigned   n;
 
-    gen_reg_rules = '0;
-    n             = 0;
+    result = '0;
+    n      = 0;
 
     // External rules go in first, internal take priority in case of overlap
     for (int unsigned i = 0; i < NumMRegRules; i++) begin
         if (rule_populated(MRegRules[i])) begin
-            rule     = MRegRules[i];
-            rule.idx = rule.idx + NumIntRegPorts;
-            gen_reg_rules[n] = rule;
+            rule      = MRegRules[i];
+            rule.idx  = rule.idx + NumIntRegPorts;
+            result[n] = rule;
             n++;
         end
     end
 
     for (int unsigned i = 0; i < NoIntRegRules; i++) begin
-        gen_reg_rules[NoMRegRules + i] = IntRegRules[i];
+        result[NoMRegRules + i] = IntRegRules[i];
     end
+    return result;
 endfunction
 
 localparam xbar_rule_32_t [NoRegRules-1:0] RegAddrMap = gen_reg_rules();
@@ -641,7 +645,7 @@ addr_decode #(
     .NoRules   ( NoRegRules              ),
     .addr_t    ( addr_t                  ),
     .rule_t    ( axi_pkg::xbar_rule_32_t )
-) reg_decode (
+) i_reg_decode (
     .addr_i           ( regs_reg_req.addr        ),
     .addr_map_i       ( RegAddrMap               ),
     .idx_o            ( reg_select               ),
@@ -658,9 +662,9 @@ reg_demux #(
     .NoPorts ( NoRegPorts ),
     .req_t   ( reg_req_t  ),
     .rsp_t   ( reg_rsp_t  )
-) reg_demux (
+) i_reg_demux (
     .clk_i       ( clk_i        ),
-    .rst_ni      ( soc_rstn     ),
+    .rst_ni      ( soc_rst_n    ),
     .in_select_i ( reg_select   ),
     .in_req_i    ( regs_reg_req ),
     .in_rsp_o    ( regs_reg_rsp ),
@@ -673,9 +677,9 @@ for (genvar i = 0; i < NumMRegRules; i++) begin : gen_m_reg
     assign reg_dev_rsp[NumIntRegPorts + i]     = m_reg_rsp_i[i];
 end
 
-// ============================================================
-// System Control Block
-// ============================================================
+//////////////////////////
+// System Control Block //
+//////////////////////////
 
 if (ZsblRomEnable) begin : gen_zsbl_rom
     reg_rom #(
@@ -686,7 +690,7 @@ if (ZsblRomEnable) begin : gen_zsbl_rom
         .reg_rsp_t ( reg_rsp_t    )
     ) zsbl_rom (
         .clk_i,
-        .rst_ni    ( soc_rstn              ),
+        .rst_ni    ( soc_rst_n             ),
         .reg_req_i ( reg_dev_req[ZsblPort] ),
         .reg_rsp_o ( reg_dev_rsp[ZsblPort] )
     );
@@ -699,9 +703,9 @@ vernii_scb #(
     .reg_req_t  ( reg_req_t ),
     .reg_rsp_t  ( reg_rsp_t ),
     .OcmLlcWays ( Ways      )
-) scb (
+) i_scb (
     .clk_i,
-    .rst_ni          ( soc_rstn             ),
+    .rst_ni          ( soc_rst_n            ),
     .reg_req_i       ( reg_dev_req[ScbPort] ),
     .reg_rsp_o       ( reg_dev_rsp[ScbPort] ),
     .strap_i,
@@ -713,26 +717,26 @@ vernii_scb #(
     .inc_llcwracc_i  ( llc_wr_acc           )
 );
 
-// ============================================================
-// External memory interface
-// ============================================================
+///////////////////////////////
+// External Memory Interface //
+///////////////////////////////
 
 friscv_to_axi4_full #(
     .BurstLen  ( LineBytes / StrbWidth ),
     .axi_req_t ( axi_req_t             ),
     .axi_rsp_t ( axi_rsp_t             )
-) m_mem (
+) i_m_axi_bridge (
     .clk_i,
-    .rst_ni      ( soc_rstn       ),
+    .rst_ni      ( soc_rst_n      ),
     .s_req_i     ( ext_req        ),
     .s_rsp_o     ( ext_rsp        ),
     .m_axi_req_o ( m_axi_hp_req_o ),
     .m_axi_rsp_i ( m_axi_hp_rsp_i )
 );
 
-// ============================================================
-// Debugger
-// ============================================================
+//////////////
+// Debugger //
+//////////////
 
 // DMI (DTM <-> DM) channel
 logic dmi_rst, dmi_req_valid, dmi_req_ready;
@@ -767,10 +771,10 @@ dm_top #(
     .NrHarts       ( 1          ),
     .BusWidth      ( 32         ),
     .DmBaseAddress ( DmBaseAddr )
-) dm (
+) i_dm (
     // Keep the DM and DTM on the power-on reset so debug survives an ndmreset
     .clk_i,
-    .rst_ni               ( por_rstn       ),
+    .rst_ni               ( por_rst_n      ),
 
     .next_dm_addr_i       ( '0             ),  // No next DM in the chain
     .testmode_i           ( test_mode_i    ),
@@ -811,26 +815,26 @@ dm_top #(
 );
 `pragma diagnostic pop
 
-logic jtag_trstn, jtag_trstn_async;
+logic jtag_trst_n, jtag_trst_n_async;
 
-assign jtag_trstn_async = rst_ni & jtag_trst_ni;
+assign jtag_trst_n_async = rst_ni & jtag_trst_ni;
 
 `pragma diagnostic push
 `pragma diagnostic ignore="-Wempty-output-connection"
 rstgen i_rstgen_tck (
-    .clk_i       ( jtag_tck_i       ),
-    .rst_ni      ( jtag_trstn_async ),
-    .test_mode_i ( test_mode_i      ),
-    .rst_no      ( jtag_trstn       ),
-    .init_no     (                  )
+    .clk_i       ( jtag_tck_i        ),
+    .rst_ni      ( jtag_trst_n_async ),
+    .test_mode_i ( test_mode_i       ),
+    .rst_no      ( jtag_trst_n       ),
+    .init_no     (                   )
 );
 `pragma diagnostic pop
 
 dmi_jtag #(
     .IdcodeValue ( 32'h00000DB3 )
-) dmi (
+) i_dmi (
     .clk_i,
-    .rst_ni           ( por_rstn       ),
+    .rst_ni           ( por_rst_n      ),
     .testmode_i       ( test_mode_i    ),
 
     .dmi_rst_no       ( dmi_rst        ),
@@ -844,7 +848,7 @@ dmi_jtag #(
 
     .tck_i            ( jtag_tck_i     ),
     .tms_i            ( jtag_tms_i     ),
-    .trst_ni          ( jtag_trstn     ),
+    .trst_ni          ( jtag_trst_n    ),
     .td_i             ( jtag_tdi_i     ),
     .td_o             ( jtag_tdo_o     ),
     .tdo_oe_o         ( jtag_tdo_oe_o  )
@@ -855,9 +859,9 @@ reg_to_mem #(
     .DW    ( 32        ),
     .req_t ( reg_req_t ),
     .rsp_t ( reg_rsp_t )
-) dm_reg_to_mem (
+) i_dm_reg_to_mem (
     .clk_i,
-    .rst_ni    ( soc_rstn            ),
+    .rst_ni    ( soc_rst_n           ),
     .reg_req_i ( reg_dev_req[DmPort] ),
     .reg_rsp_o ( reg_dev_rsp[DmPort] ),
     .req_o     ( dbg_slv_req         ),
@@ -872,15 +876,15 @@ reg_to_mem #(
 );
 
 assign dbg_slv_gnt = 1'b1;
-always_ff @(posedge clk_i or negedge soc_rstn) begin
-    if (!soc_rstn) dbg_slv_rvalid <= 1'b0;
-    else           dbg_slv_rvalid <= dbg_slv_req & ~dbg_slv_we;
+always_ff @(posedge clk_i or negedge soc_rst_n) begin
+    if (!soc_rst_n) dbg_slv_rvalid <= 1'b0;
+    else            dbg_slv_rvalid <= dbg_slv_req & ~dbg_slv_we;
 end
 
 // DM SBA master port: dm master -> bridge -> mem hub DM port
-mem_to_friscv dm_sba_mem (
+mem_to_friscv i_sba_mem (
     .clk_i,
-    .rst_ni      ( soc_rstn      ),
+    .rst_ni      ( soc_rst_n     ),
     .req_i       ( sba_req       ),
     .addr_i      ( sba_addr      ),
     .we_i        ( sba_we        ),
@@ -895,9 +899,9 @@ mem_to_friscv dm_sba_mem (
     .m_rsp_i     ( dm_rsp        )
 );
 
-// ============================================================
-// UART0: reg demux -> reg_bus -> APB -> UART0
-// ============================================================
+/////////////////////////////////////////////////
+// UART0: reg demux -> reg_bus -> APB -> UART0 //
+/////////////////////////////////////////////////
 
 // reg_bus -> APB
 apb_req_t  uart0_apb_req;
@@ -907,9 +911,9 @@ reg_to_apb #(
     .reg_rsp_t ( reg_rsp_t  ),
     .apb_req_t ( apb_req_t  ),
     .apb_rsp_t ( apb_resp_t )
-) reg_to_apb (
+) i_reg_to_apb (
     .clk_i,
-    .rst_ni    ( soc_rstn               ),
+    .rst_ni    ( soc_rst_n              ),
     .reg_req_i ( reg_dev_req[Uart0Port] ),
     .reg_rsp_o ( reg_dev_rsp[Uart0Port] ),
     .apb_req_o ( uart0_apb_req          ),
@@ -924,9 +928,9 @@ logic uart0_irq;
 apb_uart_wrap #(
     .apb_req_t ( apb_req_t  ),
     .apb_rsp_t ( apb_resp_t )
-) uart0 (
+) i_uart0 (
     .clk_i,
-    .rst_ni    ( soc_rstn      ),
+    .rst_ni    ( soc_rst_n     ),
     .apb_req_i ( uart0_apb_req ),
     .apb_rsp_o ( uart0_apb_rsp ),
     .intr_o    ( uart0_irq     ),
@@ -943,9 +947,9 @@ apb_uart_wrap #(
 );
 `pragma diagnostic pop
 
-// ============================================================
-// GPIO Port A
-// ============================================================
+/////////////////
+// GPIO Port A //
+/////////////////
 
 logic [31:0] gpio_a_irq;
 
@@ -953,9 +957,9 @@ gpio #(
     .reg_req_t   ( reg_req_t ),
     .reg_rsp_t   ( reg_rsp_t ),
     .GpioAsyncOn ( 1         )
-) gpio_a (
+) i_gpio_a (
     .clk_i,
-    .rst_ni        ( soc_rstn               ),
+    .rst_ni        ( soc_rst_n              ),
     .reg_req_i     ( reg_dev_req[GpioAPort] ),
     .reg_rsp_o     ( reg_dev_rsp[GpioAPort] ),
     .intr_gpio_o   ( gpio_a_irq             ),
@@ -964,18 +968,18 @@ gpio #(
     .cio_gpio_en_o ( gpio_a_oe_o            )
 );
 
-// ============================================================
-// QSPI0
-// ============================================================
+///////////
+// QSPI0 //
+///////////
 
 logic qspi0_irq_error, qspi0_irq_spi_event;
 
 spi_host #(
     .reg_req_t ( reg_req_t ),
     .reg_rsp_t ( reg_rsp_t )
-) qspi0 (
+) i_qspi0 (
     .clk_i,
-    .rst_ni           ( soc_rstn               ),
+    .rst_ni           ( soc_rst_n              ),
     .reg_req_i        ( reg_dev_req[Qspi0Port] ),
     .reg_rsp_o        ( reg_dev_rsp[Qspi0Port] ),
     .cio_sck_o        ( qspi0_sck_o            ),
@@ -989,9 +993,9 @@ spi_host #(
     .intr_spi_event_o ( qspi0_irq_spi_event    )
 );
 
-// ============================================================
-// PLIC
-// ============================================================
+//////////
+// PLIC //
+//////////
 
 localparam int unsigned NumUart0Irq = 1;
 localparam int unsigned NumQspi0Irq = 2;
@@ -1008,10 +1012,10 @@ localparam int unsigned NIrqUsed = ExtIrqBase + NumExtIrq;
 localparam int unsigned NIrqSources = 31;
 
 if (NumGpioAIrq > 32) begin : gen_chk_gpio_a_irq
-    $error("NumGpioAIrq (%0d) more than the 32 GPIO port A pins", NumGpioAIrq);
+    $fatal(1, "NumGpioAIrq (%0d) more than the 32 GPIO port A pins", NumGpioAIrq);
 end
 if (NIrqUsed > NIrqSources) begin : gen_chk_irq_budget
-    $error("the interrupt allocation needs %0d sources but the PLIC has %0d, reduce NumGpioAIrq (%0d) or NumExtIrq (%0d)",
+    $fatal(1, "the interrupt allocation needs %0d sources but the PLIC has %0d, reduce NumGpioAIrq (%0d) or NumExtIrq (%0d)",
            NIrqUsed, NIrqSources, NumGpioAIrq, NumExtIrq);
 end
 
@@ -1033,7 +1037,7 @@ if (NumExtIrq > 0) begin : gen_ext_irq
             .ResetValue ( 1'b0 )
         ) sync_ext_irq (
             .clk_i,
-            .rst_ni   ( soc_rstn        ),
+            .rst_ni   ( soc_rst_n        ),
             .serial_i ( ext_irq_i[i]    ),
             .serial_o ( ext_irq_sync[i] )
         );
@@ -1058,9 +1062,9 @@ plic_top #(
     .MAX_PRIO  ( 1           ),
     .reg_req_t ( reg_req_t   ),
     .reg_rsp_t ( reg_rsp_t   )
-) plic (
+) i_plic (
     .clk_i,
-    .rst_ni        ( soc_rstn              ),
+    .rst_ni        ( soc_rst_n              ),
     .req_i         ( reg_dev_req[PlicPort] ),
     .resp_o        ( reg_dev_rsp[PlicPort] ),
     .le_i          ( '0                    ),  // All level-held
@@ -1068,9 +1072,9 @@ plic_top #(
     .eip_targets_o ( plic_irq_targets      )
 );
 
-// ============================================================
-// CLINT: reg demux -> reg_bus -> ACLINT
-// ============================================================
+///////////////////////////////////////////
+// CLINT: reg demux -> reg_bus -> ACLINT //
+///////////////////////////////////////////
 
 reg_req_t clint_reg_req;
 always_comb begin
@@ -1087,9 +1091,9 @@ aclint #(
     .DefaultSource ( 1         ),
     .reg_req_t     ( reg_req_t ),
     .reg_rsp_t     ( reg_rsp_t )
-) clint (
+) i_aclint (
     .clk_i,
-    .rst_ni     ( soc_rstn               ),
+    .rst_ni     ( soc_rst_n              ),
     .reg_req_i  ( clint_reg_req          ),
     .reg_rsp_o  ( reg_dev_rsp[ClintPort] ),
     .mtip_o     ( mtip                   ),

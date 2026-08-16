@@ -8,7 +8,8 @@
 
 /*
  * This module implements the Memory Management Unit (MMU) of the FRISC-V CPU subsystem.
- * It handles virtual to physical address translation, TLB management, page fault generation, and memory interface arbitration.
+ * It handles virtual to physical address translation, TLB management, page fault generation,
+ * and memory interface arbitration.
  */
 
 module friscv_mmu import friscv_pkg::*; #(
@@ -94,13 +95,15 @@ asid_t        eff_asid;
 
 logic paging_en;
 
-// ============================================================
-// TLB layer
-// ============================================================
+///////////////
+// TLB Layer //
+///////////////
 
 vpn_t inst_vpn, data_vpn;
-assign inst_vpn = (grant_active && eff_req_ctx.is_inst)  ? vpn_t'(eff_req_ctx.addr[31:12]) : vpn_t'(inst_addr_i[31:12]);
-assign data_vpn = (grant_active && !eff_req_ctx.is_inst) ? vpn_t'(eff_req_ctx.addr[31:12]) : vpn_t'(data_addr_i[31:12]);
+assign inst_vpn = (grant_active && eff_req_ctx.is_inst)
+                ? vpn_t'(eff_req_ctx.addr[31:12]) : vpn_t'(inst_addr_i[31:12]);
+assign data_vpn = (grant_active && !eff_req_ctx.is_inst)
+                ? vpn_t'(eff_req_ctx.addr[31:12]) : vpn_t'(data_addr_i[31:12]);
 
 // Lookup lines
 ppn_t  itlb_ppn,  dtlb_ppn;
@@ -185,9 +188,9 @@ friscv_tlb #(
     .flush_asid_en_i ( flush_asid_en_i )
 );
 
-// ============================================================
-// Arbitration layer
-// ============================================================
+///////////////////////
+// Arbitration Layer //
+///////////////////////
 
 `pragma diagnostic push
 `pragma diagnostic ignore="-Wempty-output-connection"
@@ -225,9 +228,9 @@ friscv_arbiter i_arbiter (
 );
 `pragma diagnostic pop
 
-// ============================================================
-// Paging layer
-// ============================================================
+//////////////////
+// Paging Layer //
+//////////////////
 
 // Paging active when satp.MODE != 0 and not in M-mode
 assign paging_en = (|eff_req_ctx.satp.mode) && (eff_req_ctx.mode != M_MODE);
@@ -242,7 +245,8 @@ always_comb begin
     start_req_ctx.sum      = sum_i;
     start_req_ctx.mxr      = mxr_i;
     start_req_ctx.is_inst  = grant_start_inst;
-    start_req_ctx.is_write = !grant_start_inst && (data_wr_i || data_store_like_i || (amo_op_i != AMO_NONE));
+    start_req_ctx.is_write = !grant_start_inst &&
+                             (data_wr_i || data_store_like_i || (amo_op_i != AMO_NONE));
 end
 
 always_comb begin
@@ -304,8 +308,18 @@ assign tlate_pending = paging_en && grant_active && !tlate_valid && !r_access_bu
 
 // TLB miss - arbiter has granted the request, paging is on, and the TLB did not hit
 logic itlb_miss, dtlb_miss, tlb_miss;
-assign itlb_miss = grant_active &&  eff_req_ctx.is_inst && !itlb_hit && paging_en && !tlate_pending && !r_access_busy;
-assign dtlb_miss = grant_active && !eff_req_ctx.is_inst && !dtlb_hit && paging_en && !tlate_pending && !r_access_busy;
+assign itlb_miss = grant_active &&
+                   eff_req_ctx.is_inst &&
+                   !itlb_hit &&
+                   paging_en &&
+                   !tlate_pending &&
+                   !r_access_busy;
+assign dtlb_miss = grant_active &&
+                   !eff_req_ctx.is_inst &&
+                   !dtlb_hit &&
+                   paging_en &&
+                   !tlate_pending &&
+                   !r_access_busy;
 assign tlb_miss  = itlb_miss || dtlb_miss;
 
 // PTW memory interface
@@ -383,9 +397,9 @@ end else begin : gen_no_ptw_pmp_check
     assign ptw_pmp_fault = 1'b0;
 end
 
-// ============================================================
-// Permission check (TLB hit path)
-// ============================================================
+/////////////////////////////////////
+// Permission Check (TLB hit path) //
+/////////////////////////////////////
 
 logic perm_inst_ok, perm_load_ok, perm_store_ok;
 logic perm_inst_fault, perm_load_fault, perm_store_fault;
@@ -453,9 +467,31 @@ assign perm_store_ok = dtlb_perm.w &&
                         (eff_req_ctx.mode == S_MODE && (!dtlb_perm.u || eff_req_ctx.sum)));
 
 // Perm fault: paging on, arbiter granted, TLB hit, but permission denied
-assign perm_inst_fault  = paging_en && grant_active &&  eff_req_ctx.is_inst                          && itlb_hit && !perm_inst_ok  && !tlate_pending && !r_access_busy;
-assign perm_load_fault  = paging_en && grant_active && !eff_req_ctx.is_inst && !eff_req_ctx.is_write && dtlb_hit && !perm_load_ok  && !tlate_pending && !r_access_busy;
-assign perm_store_fault = paging_en && grant_active && !eff_req_ctx.is_inst &&  eff_req_ctx.is_write && dtlb_hit && !perm_store_ok && !tlate_pending && !r_access_busy;
+assign perm_inst_fault  = paging_en &&
+                          grant_active &&
+                          eff_req_ctx.is_inst &&
+                          itlb_hit &&
+                          !perm_inst_ok &&
+                          !tlate_pending &&
+                          !r_access_busy;
+
+assign perm_load_fault  = paging_en &&
+                          grant_active &&
+                          !eff_req_ctx.is_inst &&
+                          !eff_req_ctx.is_write &&
+                          dtlb_hit && !perm_load_ok &&
+                          !tlate_pending &&
+                          !r_access_busy;
+
+assign perm_store_fault = paging_en &&
+                          grant_active &&
+                          !eff_req_ctx.is_inst &&
+                          eff_req_ctx.is_write &&
+                          dtlb_hit &&
+                          !perm_store_ok &&
+                          !tlate_pending &&
+                          !r_access_busy;
+
 assign perm_fault       = perm_inst_fault | perm_load_fault | perm_store_fault;
 
 // Final fault outputs: PTW structural faults OR perm faults
@@ -463,18 +499,20 @@ assign perm_fault       = perm_inst_fault | perm_load_fault | perm_store_fault;
 assign inst_fault_o  = ptw_inst_fault  || perm_inst_fault;
 assign load_fault_o  = ptw_load_fault  || perm_load_fault;
 assign store_fault_o = ptw_store_fault || perm_store_fault;
-assign fault_addr_o  = (ptw_inst_fault || ptw_load_fault || ptw_store_fault) ? ptw_fault_addr : eff_req_ctx.addr;
+assign fault_addr_o  = (ptw_inst_fault || ptw_load_fault || ptw_store_fault)
+                     ? ptw_fault_addr : eff_req_ctx.addr;
 
-// ============================================================
-// PTW / arbiter bus mux
-// ============================================================
+///////////////////////////
+// PTW / Arbiter Bus Mux //
+///////////////////////////
 
 // Physical address for the granted request
 ppn_t granted_ppn;
 assign granted_ppn = eff_req_ctx.is_inst ? itlb_ppn : dtlb_ppn;
 
 addr_t granted_pa;
-assign tlate_pa   = paging_en ? {granted_ppn[PA_PPN_W-1:0], eff_req_ctx.addr[11:0]} : eff_req_ctx.addr;
+assign tlate_pa   = paging_en ? {granted_ppn[PA_PPN_W-1:0], eff_req_ctx.addr[11:0]}
+                              : eff_req_ctx.addr;
 assign granted_pa = r_access_busy ? r_access_pa : tlate_pa;
 
 assign inst_err_o = l1_inst_err;

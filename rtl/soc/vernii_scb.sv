@@ -54,9 +54,9 @@ assign off = reg_req_i.addr[11:0];
 logic do_write;
 assign do_write = reg_req_i.valid && reg_req_i.write;
 
-// ============================================================
-// Registers
-// ============================================================
+///////////////
+// Registers //
+///////////////
 
 logic [31:0]           scratch0;  // SCRATCH0
 logic                  strapped;  // STRAPA sampled flag
@@ -97,6 +97,10 @@ for (genvar i = 0; i < NumPads; i++) begin : gen_strap_sync
         .serial_o ( strap_sync[i])
     );
 end
+
+///////////
+// Write //
+///////////
 
 always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
@@ -164,9 +168,9 @@ assign llcsel_o = llcsel;
 assign crpsel_o = crpsel;
 assign llcinv_o = llcinv;
 
-// ============================================================
-// Read / response
-// ============================================================
+/////////////////////
+// Read / Response //
+/////////////////////
 
 logic [31:0] rdata;
 logic        map_err;
@@ -174,7 +178,7 @@ logic        map_err;
 always_comb begin
     rdata   = 32'h0;
     map_err = 1'b0;
-    case (off)
+    unique case (off)
         OFF_SCRATCH0:   rdata = scratch0;
         OFF_STRAPA:     rdata = 32'(strapa);
         OFF_LLCSEL:     rdata = {{32-OcmLlcWays{1'b0}}, {llcsel}};

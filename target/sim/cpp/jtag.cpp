@@ -85,13 +85,13 @@ Jtag::Jtag(SocTestbench& testbench)
     : testbench_(testbench), top_(testbench.top()) {}
 
 bool Jtag::pulse(bool tms, bool tdi) {
-    top_.i_jtag_tms = tms;
-    top_.i_jtag_tdi = tdi;
+    top_.jtag_tms_i = tms;
+    top_.jtag_tdi_i = tdi;
     bool tdo = dut::jtag_tdo(top_);
 
-    top_.i_jtag_tck = 1;
+    top_.jtag_tck_i = 1;
     testbench_.run_cycles(2);
-    top_.i_jtag_tck = 0;
+    top_.jtag_tck_i = 0;
     testbench_.run_cycles(2);
     return tdo;
 }

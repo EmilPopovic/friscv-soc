@@ -45,43 +45,43 @@ void AxiMem::write_word(uint32_t address, uint32_t data, unsigned strb) {
 }
 
 void AxiMem::capture() {
-    sample_.aw_valid = top_.o_axi_aw_valid != 0;
-    sample_.aw_addr  = top_.o_axi_aw_addr;
-    sample_.aw_len   = top_.o_axi_aw_len;
-    sample_.aw_size  = top_.o_axi_aw_size;
-    sample_.aw_id    = top_.o_axi_aw_id != 0;
+    sample_.aw_valid = top_.axi_aw_valid_o != 0;
+    sample_.aw_addr  = top_.axi_aw_addr_o;
+    sample_.aw_len   = top_.axi_aw_len_o;
+    sample_.aw_size  = top_.axi_aw_size_o;
+    sample_.aw_id    = top_.axi_aw_id_o != 0;
 
-    sample_.w_valid = top_.o_axi_w_valid != 0;
-    sample_.w_data  = top_.o_axi_w_data;
-    sample_.w_strb  = top_.o_axi_w_strb;
-    sample_.w_last  = top_.o_axi_w_last != 0;
+    sample_.w_valid = top_.axi_w_valid_o != 0;
+    sample_.w_data  = top_.axi_w_data_o;
+    sample_.w_strb  = top_.axi_w_strb_o;
+    sample_.w_last  = top_.axi_w_last_o != 0;
 
-    sample_.b_ready = top_.o_axi_b_ready != 0;
+    sample_.b_ready = top_.axi_b_ready_o != 0;
 
-    sample_.ar_valid = top_.o_axi_ar_valid != 0;
-    sample_.ar_addr  = top_.o_axi_ar_addr;
-    sample_.ar_len   = top_.o_axi_ar_len;
-    sample_.ar_size  = top_.o_axi_ar_size;
-    sample_.ar_id    = top_.o_axi_ar_id != 0;
+    sample_.ar_valid = top_.axi_ar_valid_o != 0;
+    sample_.ar_addr  = top_.axi_ar_addr_o;
+    sample_.ar_len   = top_.axi_ar_len_o;
+    sample_.ar_size  = top_.axi_ar_size_o;
+    sample_.ar_id    = top_.axi_ar_id_o != 0;
 
-    sample_.r_ready = top_.o_axi_r_ready != 0;
+    sample_.r_ready = top_.axi_r_ready_o != 0;
 }
 
 void AxiMem::drive() {
-    top_.i_axi_aw_ready = aw_ready_ ? 1 : 0;
-    top_.i_axi_w_ready  = w_ready_ ? 1 : 0;
+    top_.axi_aw_ready_i = aw_ready_ ? 1 : 0;
+    top_.axi_w_ready_i  = w_ready_ ? 1 : 0;
 
-    top_.i_axi_b_valid = b_valid_ ? 1 : 0;
-    top_.i_axi_b_resp  = 0;
-    top_.i_axi_b_id    = b_id_ ? 1 : 0;
+    top_.axi_b_valid_i = b_valid_ ? 1 : 0;
+    top_.axi_b_resp_i  = 0;
+    top_.axi_b_id_i    = b_id_ ? 1 : 0;
 
-    top_.i_axi_ar_ready = ar_ready_ ? 1 : 0;
+    top_.axi_ar_ready_i = ar_ready_ ? 1 : 0;
 
-    top_.i_axi_r_valid = r_valid_ ? 1 : 0;
-    top_.i_axi_r_data  = r_data_;
-    top_.i_axi_r_resp  = 0;
-    top_.i_axi_r_last  = r_last_ ? 1 : 0;
-    top_.i_axi_r_id    = r_id_ ? 1 : 0;
+    top_.axi_r_valid_i = r_valid_ ? 1 : 0;
+    top_.axi_r_data_i  = r_data_;
+    top_.axi_r_resp_i  = 0;
+    top_.axi_r_last_i  = r_last_ ? 1 : 0;
+    top_.axi_r_id_i    = r_id_ ? 1 : 0;
 }
 
 void AxiMem::process() {
@@ -141,7 +141,7 @@ void AxiMem::process() {
 }
 
 void AxiMem::update() {
-    bool clock = top_.i_clk != 0;
+    bool clock = top_.clk_i != 0;
 
     if (clock == clock_) {
         return;
