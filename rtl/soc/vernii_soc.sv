@@ -160,8 +160,8 @@ rstgen i_rstgen_por (
     .clk_i,
     .rst_ni,
     .test_mode_i,
-    .rst_no  ( por_rstn    ),
-    .init_no (             )
+    .rst_no  ( por_rstn ),
+    .init_no (          )
 );
 `pragma diagnostic pop
 
@@ -342,7 +342,7 @@ axi_err_slv #(
     .slv_resp_o ( s_axi_gp_dev_rsp[SAxiGpErrPort] )
 );
 
-generate if (EnableSAxiGp) begin : gen_axi_gp
+if (EnableSAxiGp) begin : gen_axi_gp
 
     // IF SAxiGp is enabled, generate the bus adapters between AXI and
     // the mem_hub's friscv_mem_if
@@ -417,7 +417,7 @@ end else begin : gen_no_axi_gp
     // And the hub never sees a transfer from this port
     assign s_gp_mem_req = MEM_REQ_IDLE;
 
-end endgenerate
+end
 
 // ============================================================
 // Memory hub {cpu, s_axi_gp, dm} -> {soc, m_axi_hp}

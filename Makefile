@@ -14,6 +14,7 @@ SLANG_SUPPRESS := .bender/...,rtl/vendored/...
 
 SLANG_LINT_FLAGS := --top vernii_soc --timescale 1ns/1ps \
                     -Wno-duplicate-definition \
+					-Wno-case-redundant-default \
                     --suppress-warnings $(SLANG_SUPPRESS) \
                     -Weverything -Werror
 

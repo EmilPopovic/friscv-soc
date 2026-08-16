@@ -79,7 +79,7 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
 end
 
 always_comb begin
-    case (amo_op_q)
+    unique case (amo_op_q)
         AMO_NONE: mem_store_data_o = load_data_q;
         AMO_SWAP: mem_store_data_o = rs2_val_q;
         AMO_ADD:  mem_store_data_o = load_data_q + rs2_val_q;
@@ -101,7 +101,7 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
 end
 
 always_comb begin
-    case (state_q)
+    unique case (state_q)
         StIdle:
             state_d = (amo_op_i != AMO_NONE) ? StLoad : StIdle;
         StLoad:
@@ -116,7 +116,7 @@ end
 
 // Output decode
 always_comb begin
-    case (state_q)
+    unique case (state_q)
         StIdle:  mem_rw_o = (amo_op_i != AMO_NONE) ? RW_READ : RW_IDLE;
         StLoad:  mem_rw_o = RW_READ;
         StStore: mem_rw_o = RW_WRITE;

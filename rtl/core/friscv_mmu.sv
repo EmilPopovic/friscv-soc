@@ -199,7 +199,7 @@ friscv_arbiter i_arbiter (
     .inst_data_o,
     .inst_en_i,
     .inst_wait_o,
-    .inst_err_o   ( l1_inst_err ),
+    .inst_err_o         ( l1_inst_err      ),
 
     .data_addr_i,
     .data_size_i,
@@ -209,19 +209,19 @@ friscv_arbiter i_arbiter (
     .data_wr_i,
     .data_wait_o,
     .amo_op_i,
-    .data_err_o   ( l1_data_err ),
+    .data_err_o         ( l1_data_err      ),
 
-    .mem_addr_o   (             ),
-    .mem_size_o   ( grant_size  ),
-    .mem_wdata_o  ( grant_wdata ),
+    .mem_addr_o         (                  ),
+    .mem_size_o         ( grant_size       ),
+    .mem_wdata_o        ( grant_wdata      ),
     .mem_rdata_i,
-    .mem_rw_o     ( grant_rw    ),
-    .mem_wait_i   ( stall       ),
+    .mem_rw_o           ( grant_rw         ),
+    .mem_wait_i         ( stall            ),
     .mem_err_i,
-    .amo_op_o     ( grant_amo   ),
-    .grant_start_o      ( grant_start ),
+    .amo_op_o           ( grant_amo        ),
+    .grant_start_o      ( grant_start      ),
     .grant_start_inst_o ( grant_start_inst ),
-    .grant_held_o       ( grant_held  )
+    .grant_held_o       ( grant_held       )
 );
 `pragma diagnostic pop
 
@@ -328,43 +328,43 @@ friscv_ptw i_ptw (
     .rst_ni,
 
     // Translation control
-    .satp_i          ( eff_req_ctx.satp ),
+    .satp_i          ( eff_req_ctx.satp     ),
 
     // Walk trigger
-    .itlb_miss_i     ( itlb_miss       ),
-    .dtlb_miss_i     ( dtlb_miss       ),
-    .req_va_i        ( eff_req_ctx.addr ),
+    .itlb_miss_i     ( itlb_miss            ),
+    .dtlb_miss_i     ( dtlb_miss            ),
+    .req_va_i        ( eff_req_ctx.addr     ),
     .req_is_write_i  ( eff_req_ctx.is_write ),
 
     // PMP control
-    .pmp_fault_i     ( ptw_pmp_fault   ),
-    .walk_req_o      ( walk_req        ),
-    .pmp_fault_o     ( ptw_access_fault),
+    .pmp_fault_i     ( ptw_pmp_fault        ),
+    .walk_req_o      ( walk_req             ),
+    .pmp_fault_o     ( ptw_access_fault     ),
 
     // External bus
-    .walk_addr_o     ( walk_addr       ),
-    .walk_en_o       ( walk_en         ),
-    .walk_rdata_i    ( walk_rdata      ),
-    .walk_wait_i     ( walk_wait       ),
-    .walk_err_i      ( walk_err        ),
+    .walk_addr_o     ( walk_addr            ),
+    .walk_en_o       ( walk_en              ),
+    .walk_rdata_i    ( walk_rdata           ),
+    .walk_wait_i     ( walk_wait            ),
+    .walk_err_i      ( walk_err             ),
 
     // Arbiter stall
-    .stall_o         ( ptw_stall       ),
+    .stall_o         ( ptw_stall            ),
 
     // TLB fill
-    .fill_vpn_o      ( fill_vpn        ),
-    .fill_ppn_o      ( fill_ppn        ),
-    .fill_asid_o     ( fill_asid       ),
-    .fill_perm_o     ( fill_perm       ),
-    .fill_level_o    ( fill_level      ),
-    .fill_itlb_en_o  ( fill_itlb       ),
-    .fill_dtlb_en_o  ( fill_dtlb       ),
+    .fill_vpn_o      ( fill_vpn             ),
+    .fill_ppn_o      ( fill_ppn             ),
+    .fill_asid_o     ( fill_asid            ),
+    .fill_perm_o     ( fill_perm            ),
+    .fill_level_o    ( fill_level           ),
+    .fill_itlb_en_o  ( fill_itlb            ),
+    .fill_dtlb_en_o  ( fill_dtlb            ),
 
     // Page fault outputs
-    .inst_fault_o    ( ptw_inst_fault  ),
-    .load_fault_o    ( ptw_load_fault  ),
-    .store_fault_o   ( ptw_store_fault ),
-    .fault_addr_o    ( ptw_fault_addr  )
+    .inst_fault_o    ( ptw_inst_fault       ),
+    .load_fault_o    ( ptw_load_fault       ),
+    .store_fault_o   ( ptw_store_fault      ),
+    .fault_addr_o    ( ptw_fault_addr       )
 );
 
 if (EnforcePmp && EnforcePtwPmp) begin : gen_ptw_pmp_check

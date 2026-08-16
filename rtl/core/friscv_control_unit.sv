@@ -35,7 +35,7 @@ module friscv_control_unit import friscv_pkg::*; (
     input  addr_t     jal_target_i,
     input  logic      id_csr_en_i,
     input  csr_addr_e id_csr_sel_i,
-    input  logic      id_csr_is_counter_i,
+    input  logic      id_csr_is_ctr_i,
 
     // EX stage
     input  reg_addr_t ex_rd_sel_i,
@@ -44,13 +44,13 @@ module friscv_control_unit import friscv_pkg::*; (
     input  logic      ex_csr_en_i,
     input  csr_addr_e ex_csr_sel_i,
     input  logic      ex_muldiv_active_i,
-    input  logic      ex_csr_is_serializing_i,
+    input  logic      ex_csr_is_ser_i,
 
     // MEM stage
     input  reg_addr_t mem_rd_sel_i,
     input  logic      mem_csr_en_i,
     input  csr_addr_e mem_csr_sel_i,
-    input  logic      mem_csr_is_serializing_i,
+    input  logic      mem_csr_is_ser_i,
 
     // WB stage
     input  reg_addr_t wb_rd_sel_i,
@@ -59,15 +59,15 @@ module friscv_control_unit import friscv_pkg::*; (
     input  logic      ex_instr_valid_i,
     input  logic      mem_instr_valid_i,
     input  logic      wb_instr_valid_i,
-    input  logic      wb_csr_is_serializing_i,
+    input  logic      wb_csr_is_ser_i,
 
     // Older memory ops ahead of a return must retire before redirecting to epc
     input  logic      ex_mem_inflight_i,
     input  logic      mem_mem_inflight_i,
 
     // Memory wait signals
-    input  logic      if_wait_i,
-    input  logic      mem_wait_i,
+    input  logic      imem_wait_i,
+    input  logic      dmem_wait_i,
     
     // Interrupts
     input logic       trap_i,
@@ -78,7 +78,7 @@ module friscv_control_unit import friscv_pkg::*; (
 );
 
 logic mem_stall;
-assign mem_stall = if_wait_i || mem_wait_i;
+assign mem_stall = imem_wait_i || dmem_wait_i;
     
 // No forwarding: stall while any in-flight stage holds a matching rd
 logic reg_hazard;
@@ -92,18 +92,18 @@ assign ret_csr_hazard = ret_i && (ex_csr_en_i || mem_csr_en_i || wb_csr_en_i);
 
 // Returns must not redirect to epc while older data ops are still draining.
 logic ret_pipe_hazard;
-assign ret_pipe_hazard = ret_i && (mem_wait_i || ex_mem_inflight_i || mem_mem_inflight_i);
+assign ret_pipe_hazard = ret_i && (dmem_wait_i || ex_mem_inflight_i || mem_mem_inflight_i);
 
 // Serialize only the narrow always-serializing CSR subset.
 // Trap-control CSRs are still ordered by the trap/return hazards.
 logic serializing_csr_hazard;
-assign serializing_csr_hazard = (ex_csr_en_i  && ex_csr_is_serializing_i)  ||
-                                (mem_csr_en_i && mem_csr_is_serializing_i) ||
-                                (wb_csr_en_i  && wb_csr_is_serializing_i);
+assign serializing_csr_hazard = (ex_csr_en_i  && ex_csr_is_ser_i)  ||
+                                (mem_csr_en_i && mem_csr_is_ser_i) ||
+                                (wb_csr_en_i  && wb_csr_is_ser_i);
 
 // Counter CSR operations must wait for valid instructions to commit
 logic counter_csr_hazard;
-assign counter_csr_hazard = id_csr_en_i && id_csr_is_counter_i &&
+assign counter_csr_hazard = id_csr_en_i && id_csr_is_ctr_i &&
                             (ex_instr_valid_i || mem_instr_valid_i || wb_instr_valid_i);
 
 // Stall while trap is pending

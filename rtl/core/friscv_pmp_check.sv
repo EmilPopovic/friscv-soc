@@ -32,12 +32,12 @@ assign aligned_pa = pa_i >> 2;
 function automatic logic fault_for_cfg(pmp_cfg_t cfg);
     if (cfg.l || (mode_i != M_MODE))
         // If L set (even in M-mode), or not in M-mode, enforce access type
-        fault_for_cfg = (access_r_i && !cfg.r) ||
-                        (access_w_i && !cfg.w) ||
-                        (access_x_i && !cfg.x);
+        return (access_r_i && !cfg.r) ||
+               (access_w_i && !cfg.w) ||
+               (access_x_i && !cfg.x);
     else
         // L is not set and in M-mode, allow (no fault)
-        fault_for_cfg = 1'b0;
+        return 1'b0;
 endfunction
 
 // Stage 1: compute every entry's address match in parallel
@@ -49,7 +49,7 @@ always_comb begin
         automatic pmp_entry_t entry     = pmp_table_i[i];
         automatic addr_t      prev_addr = (i > 0) ? pmp_table_i[i-1].addr : '0;
         automatic addr_t      cmp_mask  = ~(entry.addr ^ (~entry.addr + 1'b1));
-        case (entry.cfg.a)
+        unique case (entry.cfg.a)
             // Top of range: pmpaddr[i-1] <= pa < pmpaddr[i]
             PMP_TOR:   match[i] = (prev_addr <= aligned_pa) && (aligned_pa < entry.addr);
             // Naturally aligned four-byte region

@@ -22,14 +22,14 @@ module friscv_branch_unit import friscv_pkg::*; (
     output logic         misaligned_o
 );
 
-logic [DATA_WIDTH:0] w_sub;
-assign w_sub = {1'b0, src1_i} + {1'b0, ~src2_i} + 1'b1;
+logic [DATA_WIDTH:0] sub;
+assign sub = {1'b0, src1_i} + {1'b0, ~src2_i} + 1'b1;
 
 logic  n, z, c, v;
-assign n = w_sub[DATA_WIDTH-1];
+assign n = sub[DATA_WIDTH-1];
 assign z = (src1_i == src2_i);
-assign c = w_sub[DATA_WIDTH];
-assign v = (src1_i[DATA_WIDTH-1] ^ src2_i[DATA_WIDTH-1]) & (src1_i[DATA_WIDTH-1] ^ w_sub[DATA_WIDTH-1]);
+assign c = sub[DATA_WIDTH];
+assign v = (src1_i[DATA_WIDTH-1] ^ src2_i[DATA_WIDTH-1]) & (src1_i[DATA_WIDTH-1] ^ sub[DATA_WIDTH-1]);
 
 always_comb begin
     branch_ok_o = 1'b0;

@@ -51,7 +51,7 @@ module friscv_ex_stage import friscv_pkg::*; #(
     output reg_addr_t      rd_sel_o,
     output data_t          store_data_o,
     output mem_instr_sel_e mem_instr_sel_o,
-	output mem_width_e     load_store_width_o,
+    output mem_width_e     load_store_width_o,
     output wb_data_sel_e   wb_data_sel_o,
     output logic           reserve_o,
     output logic           conditional_o,
@@ -66,7 +66,7 @@ module friscv_ex_stage import friscv_pkg::*; #(
     output logic           branch_ok_o,
     output logic           muldiv_active_o,
     output addr_t          branch_target_o,
-    output logic           csr_is_serializing_o,
+    output logic           csr_is_ser_o,
 
     // Trap signals
     input  logic           trap_commit_i,
@@ -159,7 +159,7 @@ assign b_signed = (instr_q.alu_op == MULH_OP) ||
                   (instr_q.alu_op == DIV_OP)  ||
                   (instr_q.alu_op == REM_OP);
 
-generate if (EnableIsaM && !EnableFastMul) begin : gen_muldiv
+if (EnableIsaM && !EnableFastMul) begin : gen_muldiv
     logic done;
     logic started;
     logic done_hold;
@@ -177,10 +177,8 @@ generate if (EnableIsaM && !EnableFastMul) begin : gen_muldiv
             started   <= 1'b0;
             done_hold <= 1'b0;
         end else begin
-            if (start)
-                started <= 1'b1;
-            if (done)
-                done_hold <= 1'b1;
+            if (start) started <= 1'b1;
+            if (done)  done_hold <= 1'b1;
         end
     end
 
@@ -202,24 +200,20 @@ generate if (EnableIsaM && !EnableFastMul) begin : gen_muldiv
 end else begin : gen_no_muldiv
     assign muldiv_res = '0;
     assign muldiv_active_o = 1'b0;
-end endgenerate
+end
 
 data_t mul_res_lo, mul_res_hi;
 
-generate if (EnableIsaM && EnableFastMul) begin : gen_fast_mul
+if (EnableIsaM && EnableFastMul) begin : gen_fast_mul
     logic signed [32:0] op_a, op_b;
     logic signed [65:0] product;
 
     always_comb begin
-        case (instr_q.alu_op)
-            MULHU_OP: op_a = {1'b0, alu_input_a};
-            default:  op_a = {alu_input_a[31], alu_input_a};
-        endcase
+        if (instr_q.alu_op == MULHU_OP) op_a = {1'b0, alu_input_a};
+        else                            op_a = {alu_input_a[31], alu_input_a};
 
-        case (instr_q.alu_op)
-            MULH_OP: op_b = {alu_input_b[31], alu_input_b};
-            default: op_b = {1'b0, alu_input_b};
-        endcase
+        if (instr_q.alu_op == MULH_OP)  op_b = {alu_input_b[31], alu_input_b};
+        else                            op_b = {1'b0, alu_input_b};
     end
 
     assign product = op_a * op_b;
@@ -228,7 +222,7 @@ generate if (EnableIsaM && EnableFastMul) begin : gen_fast_mul
 end else begin : gen_iter_mul
     assign mul_res_lo = muldiv_res[31:0];
     assign mul_res_hi = muldiv_res[63:32];
-end endgenerate
+end
 
 // ============================================================
 // Input capture
@@ -317,27 +311,27 @@ end
 // Assign outputs
 // ============================================================
 
-assign pc_o                 = pc_q;
-assign next_pc_o            = next_pc_q;
-assign mem_instr_sel_o      = instr_q.mem_instr_sel;
-assign load_store_width_o   = instr_q.load_store_width;
-assign wb_data_sel_o        = instr_q.wb_data_sel;
-assign reserve_o            = instr_q.reserve;
-assign conditional_o        = instr_q.conditional;
-assign amo_op_o             = instr_q.amo_op;
-assign rd_sel_o             = muldiv_active_o ? '0 : rd_sel_q;
-assign csr_sel_o            = instr_q.csr_addr;
-assign csr_readback_o       = csr_q;
-assign csr_en_o             = instr_q.csr_op;
-assign instr_valid_o        = instr_q.instr_valid && !muldiv_active_o;
-assign mode_o               = mode_q;
-assign branch_ok_o          = branch_ok_raw && !branch_ok_prev && !misaligned_branch_raw;
-assign flush_tlb_o          = instr_q.sfence_vma && !sfence_vma_prev;
-assign flush_vpn_o          = vpn_t'(rs1_q[31:12]);
-assign flush_vpn_en_o       = (rs1_sel_q != 5'b0);
-assign flush_asid_o         = asid_t'(rs2_q[8:0]);
-assign flush_asid_en_o      = (rs2_sel_q != 5'b0);
-assign csr_is_serializing_o = instr_q.csr_is_serializing;
+assign pc_o               = pc_q;
+assign next_pc_o          = next_pc_q;
+assign mem_instr_sel_o    = instr_q.mem_instr_sel;
+assign load_store_width_o = instr_q.load_store_width;
+assign wb_data_sel_o      = instr_q.wb_data_sel;
+assign reserve_o          = instr_q.reserve;
+assign conditional_o      = instr_q.conditional;
+assign amo_op_o           = instr_q.amo_op;
+assign rd_sel_o           = muldiv_active_o ? '0 : rd_sel_q;
+assign csr_sel_o          = instr_q.csr_addr;
+assign csr_readback_o     = csr_q;
+assign csr_en_o           = instr_q.csr_op;
+assign instr_valid_o      = instr_q.instr_valid && !muldiv_active_o;
+assign mode_o             = mode_q;
+assign branch_ok_o        = branch_ok_raw && !branch_ok_prev && !misaligned_branch_raw;
+assign flush_tlb_o        = instr_q.sfence_vma && !sfence_vma_prev;
+assign flush_vpn_o        = vpn_t'(rs1_q[31:12]);
+assign flush_vpn_en_o     = (rs1_sel_q != 5'b0);
+assign flush_asid_o       = asid_t'(rs2_q[8:0]);
+assign flush_asid_en_o    = (rs2_sel_q != 5'b0);
+assign csr_is_ser_o       = instr_q.csr_is_serializing;
 
 // ============================================================
 // ALU input select
@@ -347,7 +341,7 @@ data_t a_bus;
 data_t b_bus;
 
 always_comb begin
-    case (instr_q.a_bus_sel)
+    unique case (instr_q.a_bus_sel)
         RS1:     a_bus = rs1_q;
         ZERO_A:  a_bus = 32'b0;
         PC:      a_bus = pc_q;
@@ -355,7 +349,7 @@ always_comb begin
         default: a_bus = 32'b0;
     endcase
 
-    case (instr_q.b_bus_sel)
+    unique case (instr_q.b_bus_sel)
         RS2:     b_bus = rs2_q;
         IMM:     b_bus = imm32_q;
         CSR:     b_bus = csr_q;
@@ -382,7 +376,7 @@ assign branch_target = instr_q.jalr_target ? {addr_result[31:1], 1'b0} : addr_re
 // ============================================================
 
 always_comb begin
-    case (instr_q.alu_op)
+    unique case (instr_q.alu_op)
         ADD_OP:    alu_data_raw = alu_input_a + alu_input_b;
         SUB_OP:    alu_data_raw = alu_input_a - alu_input_b;
         AND_OP:    alu_data_raw = alu_input_a & alu_input_b;
@@ -416,9 +410,9 @@ assign alu_data_o = alu_data_raw;
 // ie. for a byte store to 0x1003, the byte to be stored will be in bits [31:24] of store_data_o.
 
 always_comb begin
-    case (instr_q.load_store_width)
+    unique case (instr_q.load_store_width)
         WIDTH_U8,
-        WIDTH_I8: case (alu_data_o[1:0])      // Byte (8b)
+        WIDTH_I8: unique case (alu_data_o[1:0])  // Byte (8b)
             2'b00:   store_data_o = {24'h0, rs2_q[7:0]};
             2'b01:   store_data_o = {16'h0, rs2_q[7:0],  8'h0};
             2'b10:   store_data_o = { 8'h0, rs2_q[7:0], 16'h0};

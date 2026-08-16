@@ -18,7 +18,7 @@ module friscv_wb_stage import friscv_pkg::*; (
 
     // Stage control
     input  logic         stall_i,
-    output logic         csr_is_serializing_o,
+    output logic         csr_is_ser_o,
 
     // Inputs from MEM stage
     input  addr_t        next_pc_i,
@@ -31,7 +31,7 @@ module friscv_wb_stage import friscv_pkg::*; (
     input  data_t        csr_data_i,
     input  data_t        csr_readback_i,
     input  logic         csr_en_i,
-    input  logic         csr_is_serializing_i,
+    input  logic         csr_is_ser_i,
     input  logic         instr_valid_i,
 
     // Outputs to ID stage (regfile write, CSR write, instret)
@@ -54,7 +54,7 @@ csr_addr_e    csr_sel_q;
 data_t        csr_data_q;
 data_t        csr_readback_q;
 logic         csr_en_q;
-logic         csr_is_serializing_q;
+logic         csr_is_ser_q;
 logic         instr_valid_q;
 
 always_ff @(posedge clk_i or negedge rst_ni) begin
@@ -69,7 +69,7 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
         csr_data_q     <= '0;
         csr_readback_q <= '0;
         csr_en_q       <= 1'b0;
-        csr_is_serializing_q <= 1'b0;
+        csr_is_ser_q   <= 1'b0;
         instr_valid_q  <= 1'b0;
     end else if (!stall_i) begin
         next_pc_q      <= next_pc_i;
@@ -82,7 +82,7 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
         csr_data_q     <= csr_data_i;
         csr_readback_q <= csr_readback_i;
         csr_en_q       <= csr_en_i;
-        csr_is_serializing_q <= csr_is_serializing_i;
+        csr_is_ser_q   <= csr_is_ser_i;
         instr_valid_q  <= instr_valid_i;
     end
 end
@@ -91,7 +91,7 @@ assign rd_sel_o   = rd_sel_q;
 assign csr_sel_o  = csr_sel_q;
 assign csr_data_o = csr_data_q;
 assign csr_en_o   = csr_en_q;
-assign csr_is_serializing_o = csr_is_serializing_q;
+assign csr_is_ser_o = csr_is_ser_q;
 assign instr_valid_o = instr_valid_q;
 assign inst_ret_o = instr_valid_q && !stall_i;
 
@@ -100,7 +100,7 @@ assign inst_ret_o = instr_valid_q && !stall_i;
 // ============================================================
 
 always_comb begin
-    case (wb_data_sel_q)
+    unique case (wb_data_sel_q)
         WB_DATA_SEL_PC_PLUS_4: rd_data_o = next_pc_q;
         WB_DATA_SEL_ALU:       rd_data_o = alu_data_q;
         WB_DATA_SEL_MEM:       rd_data_o = load_data_q;

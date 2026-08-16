@@ -82,7 +82,7 @@ assign decode_csr_mode = mode_e'(selected_csr[9:8]);
 // This signal is used during CSR instruction to determine if a CSR write is legal (i.e. not to a read-only CSR).
 logic is_csr_write;
 always_comb begin
-    case (ir_i.r.funct3)
+    unique case (ir_i.r.funct3)
         3'b001, 3'b101: is_csr_write = (ir_i.r.opcode == SYSTEM);  // CSRRW/I always write
         default:        is_csr_write = (ir_i.r.opcode == SYSTEM) && (ir_i.r.rs1 != 5'b0);
     endcase
@@ -132,7 +132,7 @@ always_comb begin
     ecall_active_o = 1'b0;
     ebreak_active_o = 1'b0;
 
-    case (ir_i.r.opcode)
+    unique case (ir_i.r.opcode)
         LOAD: begin
             instr_ex_o.a_bus_sel = RS1;
             instr_ex_o.b_bus_sel = IMM;
@@ -152,7 +152,7 @@ always_comb begin
         end
 
         MISC_MEM: begin
-            case (ir_i.r.funct3)
+            unique case (ir_i.r.funct3)
                 3'b000: begin  // FENCE
                 end
                 3'b001: begin  // FENCE.I
@@ -187,7 +187,7 @@ always_comb begin
 
         AMO: begin
             if (EnableIsaA) begin
-                case (ir_i.r.funct3)
+                unique case (ir_i.r.funct3)
                     3'b010: begin  // RV32A Standard Extension instructions
                         instr_ex_o.wb_data_sel = WB_DATA_SEL_MEM;
                         // This should be treated as a MEM_INSTR_STORE by default, but I am too lazy to change it.
@@ -202,7 +202,7 @@ always_comb begin
                         rs2_sel_o = ir_i.r.rs2;
                         rs1_sel_o = ir_i.r.rs1;
 
-                        case (ir_i.r.funct7[6:2])
+                        unique case (ir_i.r.funct7[6:2])
                             5'b00011: begin                            // SC.W
                                 instr_ex_o.mem_instr_sel = MEM_INSTR_STORE;
                                 instr_ex_o.conditional = 1'b1;
@@ -246,7 +246,7 @@ always_comb begin
             rs2_sel_o = ir_i.r.rs2;
             rd_sel_o  = ir_i.r.rd;
 
-            case (ir_i.r.funct3)
+            unique case (ir_i.r.funct3)
                 3'b000:
                     if      (ir_i.r.funct7 == 7'b0000000) instr_ex_o.alu_op = ADD_OP;                  // ADD
                     else if (ir_i.r.funct7 == 7'b0100000) instr_ex_o.alu_op = SUB_OP;                  // SUB
@@ -309,7 +309,7 @@ always_comb begin
             rs1_sel_o = ir_i.r.rs1;
             rd_sel_o  = ir_i.r.rd;
         
-            case (ir_i.r.funct3)
+            unique case (ir_i.r.funct3)
                 3'b000: instr_ex_o.alu_op = ADD_OP;       // ADDI
                 3'b010: instr_ex_o.alu_op = SLT_OP;       // SLTI
                 3'b011: instr_ex_o.alu_op = SLTU_OP;      // SLTIU
@@ -324,7 +324,7 @@ always_comb begin
                 end
                 3'b101: begin
                     imm_sel_o = I2_TYPE;
-                    case (ir_i.r.funct7)
+                    unique case (ir_i.r.funct7)
                         7'b0000000: instr_ex_o.alu_op = SRL_OP;  // SRLI
                         7'b0100000: instr_ex_o.alu_op = SRA_OP;  // SRAI
                         default:    illegal_inst_o = 1'b1;
@@ -374,7 +374,7 @@ always_comb begin
             rs1_sel_o = ir_i.r.rs1;
             rs2_sel_o = ir_i.r.rs2;
 
-            case (ir_i.r.funct3)
+            unique case (ir_i.r.funct3)
                 3'b000:  instr_ex_o.branch_cond = COND_EQ;
                 3'b001:  instr_ex_o.branch_cond = COND_NE;
                 3'b100:  instr_ex_o.branch_cond = COND_LT;
@@ -424,7 +424,7 @@ always_comb begin
         
         SYSTEM: begin
             if (ir_i.r.funct3 == 3'b0) begin  // Non-CSR SYSTEM instructions
-                case (ir_i.r.funct7)
+                unique case (ir_i.r.funct7)
                     7'b0001001: begin  // SFENCE.VMA
                         if      (ir_i.r.rd != 5'b0) illegal_inst_o = 1'b1;            // SFENCE.VMA requires rd=x0.
                         else if (mode_i == U_MODE)  illegal_inst_o = 1'b1;            // U-mode cannot execute SFENCE.VMA.
@@ -445,7 +445,7 @@ always_comb begin
                         // These instructions require rs1=x0 and rd=x0.
                         if (ir_i.r.rs1 != 5'b0 || ir_i.r.rd != 5'b0) illegal_inst_o = 1'b1;
 
-                        case (ir_i.b[31:20])
+                        unique case (ir_i.b[31:20])
                             12'b000000000000: ecall_active_o  = 1'b1;  // ECALL
                             12'b000000000001: ebreak_active_o = 1'b1;  // EBREAK
                             12'b001100000010:        // MRET
@@ -483,7 +483,7 @@ always_comb begin
                                csr_not_implemented_i ||
                                ctr_access_illegal;
 
-                case (ir_i.r.funct3)
+                unique case (ir_i.r.funct3)
                     3'b001: begin  //  CSRRW
                         instr_ex_o.a_bus_sel = RS1;
                         instr_ex_o.b_bus_sel = IMM;

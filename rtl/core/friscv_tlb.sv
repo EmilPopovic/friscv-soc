@@ -86,7 +86,7 @@ function automatic logic [VPN_W-1:0] vpn_mask(
 );
     logic [5:0] shift;
     shift = (mode == SATP_SV32) ? 6'(level * 10) : 6'(level * 9);  // 10-bit VPNs in SV32, 9-bit in others
-    vpn_mask = (shift >= 6'(VPN_W)) ? '0 : ~((VPN_W'(1) << shift) - 1);
+    return (shift >= 6'(VPN_W)) ? '0 : ~((VPN_W'(1) << shift) - 1);
 endfunction
 `pragma diagnostic pop
 
@@ -99,11 +99,7 @@ logic hit_d;
 always_ff @(posedge clk_i or negedge rst_ni) begin
 
     if (!rst_ni) begin
-
-        for (int unsigned g = 0; g < EntryCount; g++) begin : tlb_reset
-            tlb[g] <= '0;
-        end
-
+        for (int unsigned g = 0; g < EntryCount; g++) tlb[g] <= '0;
         ref_q       <= '0;
         clock_ptr_q <= '0;
 

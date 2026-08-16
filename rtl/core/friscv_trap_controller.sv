@@ -163,7 +163,7 @@ assign id_dispatch = instr_valid_i && !stall_i && !flush_i && !trap_o && !trap_p
 // ============================================================
 
 logic dcsr_ebreak_eff;
-always_comb case (current_mode)
+always_comb unique case (current_mode)
     M_MODE:  dcsr_ebreak_eff = dcsr_i.ebreakm;
     H_MODE:  dcsr_ebreak_eff = dcsr_i.ebreakm;
     S_MODE:  dcsr_ebreak_eff = dcsr_i.ebreaks;
@@ -353,14 +353,13 @@ assign dret_commit_o = ret_commit_i && dret_active;
 logic [4:0] exception_cause_code;
 always_comb begin
     exception_cause_code = 5'd0;                   // No exception by default
-    case (trap_src)
-        TRAP_SRC_IF:
-            if (if_trap == IF_TRAP_FAULT)
-                exception_cause_code = 5'd12;      // Instruction page fault
-            else if (if_trap == IF_TRAP_ACCESS)
-                exception_cause_code = 5'd1;       // Instruction access fault
-            else
-                exception_cause_code = 5'd0;       // No exception
+    unique case (trap_src)
+        TRAP_SRC_IF: unique case (if_trap)
+            IF_TRAP_FAULT:  exception_cause_code = 5'd12;      // Instruction page fault
+            IF_TRAP_ACCESS: exception_cause_code = 5'd1;       // Instruction access fault
+            IF_TRAP_NONE:   exception_cause_code = 5'd0;       // No exception
+            default:        exception_cause_code = 5'd0;       // No exception
+        endcase
         TRAP_SRC_ID:
             if (ecall_active_i)
                 if (current_mode == U_MODE)
@@ -377,17 +376,16 @@ always_comb begin
                 exception_cause_code = 5'd0;       // Instruction address misaligned
         TRAP_SRC_EX:
             exception_cause_code = 5'd0;           // No exception or Instruction address misaligned
-        TRAP_SRC_MEM:
-            case (mem_trap_i)
-                MEM_TRAP_LOAD_MISALIGNED:  exception_cause_code = 5'd4;   // Load address misaligned
-                MEM_TRAP_LOAD_ACCESS:      exception_cause_code = 5'd5;   // Load access fault
-                MEM_TRAP_STORE_MISALIGNED: exception_cause_code = 5'd6;   // Store/AMO address misaligned
-                MEM_TRAP_STORE_ACCESS:     exception_cause_code = 5'd7;   // Store/AMO access fault
-                MEM_TRAP_LOAD:             exception_cause_code = 5'd13;  // Load page fault
-                MEM_TRAP_STORE:            exception_cause_code = 5'd15;  // Store/AMO page fault
-                MEM_TRAP_NONE:             exception_cause_code = 5'd0;   // No exception
-                default:                   exception_cause_code = 5'd0;   // No exception
-            endcase
+        TRAP_SRC_MEM: unique case (mem_trap_i)
+            MEM_TRAP_LOAD_MISALIGNED:  exception_cause_code = 5'd4;   // Load address misaligned
+            MEM_TRAP_LOAD_ACCESS:      exception_cause_code = 5'd5;   // Load access fault
+            MEM_TRAP_STORE_MISALIGNED: exception_cause_code = 5'd6;   // Store/AMO address misaligned
+            MEM_TRAP_STORE_ACCESS:     exception_cause_code = 5'd7;   // Store/AMO access fault
+            MEM_TRAP_LOAD:             exception_cause_code = 5'd13;  // Load page fault
+            MEM_TRAP_STORE:            exception_cause_code = 5'd15;  // Store/AMO page fault
+            MEM_TRAP_NONE:             exception_cause_code = 5'd0;   // No exception
+            default:                   exception_cause_code = 5'd0;   // No exception
+        endcase
         TRAP_SRC_NONE: exception_cause_code = 5'd0;
         default:       exception_cause_code = 5'd0;
     endcase
@@ -405,7 +403,7 @@ logic is_delegated;
 
 mode_e trap_mode;
 always_comb begin
-    case (trap_src)
+    unique case (trap_src)
         TRAP_SRC_IF:   trap_mode = pc_mode_i;
         TRAP_SRC_ID:   trap_mode = current_mode;
         TRAP_SRC_EX:   trap_mode = ex_trap_mode_i;
@@ -467,7 +465,7 @@ assign tvec_o = debug_mode_active && exception_active
 
 addr_t trap_epc;
 always_comb begin
-    case (trap_src)
+    unique case (trap_src)
         TRAP_SRC_IF:   trap_epc = pc_i;
         TRAP_SRC_ID:   trap_epc = pc_i;
         TRAP_SRC_EX:   trap_epc = ex_trap_pc_i;
@@ -479,7 +477,7 @@ end
 
 addr_t trap_tval;
 always_comb begin
-    case (trap_src)
+    unique case (trap_src)
         TRAP_SRC_IF:  trap_tval = (if_trap == IF_TRAP_ACCESS) ? '0 : fault_addr_q_i;
         TRAP_SRC_ID:  trap_tval = illegal_inst_i      ? ir_i.b              :
                                   target_misaligned_i ? misaligned_target_i : '0;

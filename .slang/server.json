@@ -1,5 +1,5 @@
 {
-  "flags": "--top vernii_soc --timescale 1ns/1ps -Wno-duplicate-definition --suppress-warnings .bender/...,rtl/vendored/... -Weverything",
+  "flags": "--top vernii_soc --timescale 1ns/1ps -Wno-duplicate-definition -Wno-case-redundant-default --suppress-warnings .bender/...,rtl/vendored/... -Weverything",
   "build": "sources.f",
   "index": [
     {

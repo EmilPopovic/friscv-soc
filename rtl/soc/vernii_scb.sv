@@ -58,29 +58,29 @@ assign do_write = reg_req_i.valid && reg_req_i.write;
 // Registers
 // ============================================================
 
-logic [31:0]           r_scratch0;  // SCRATCH0
-logic                  r_strapped;  // STRAPA sampled flag
-logic [2:0]            r_strap_dly;
-logic [NumPads-1:0]    r_strapa;    // STRAPA
-logic [OcmLlcWays-1:0] r_llcsel;    // LLCSEL
-logic                  r_crpsel;    // CRPSEL
-logic                  r_llcinv;    // LLCINV
-logic [63:0]           r_llcrdacc;  // LLCRDACC
-logic [63:0]           r_llcrdmiss; // LLCRDMISS
-logic [63:0]           r_llcwracc;  // LLCWRACC
+logic [31:0]           scratch0;  // SCRATCH0
+logic                  strapped;  // STRAPA sampled flag
+logic [2:0]            strap_dly;
+logic [NumPads-1:0]    strapa;    // STRAPA
+logic [OcmLlcWays-1:0] llcsel;    // LLCSEL
+logic                  crpsel;    // CRPSEL
+logic                  llcinv;    // LLCINV
+logic [63:0]           llcrdacc;  // LLCRDACC
+logic [63:0]           llcrdmiss; // LLCRDMISS
+logic [63:0]           llcwracc;  // LLCWRACC
 
-logic r_inc_llcrdacc, r_inc_llcrdmiss, r_inc_llcwracc;
+logic inc_llcrdacc, inc_llcrdmiss, inc_llcwracc;
 
 // Register increment of wide counters
 always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
-        r_inc_llcrdacc  <= 1'b0;
-        r_inc_llcrdmiss <= 1'b0;
-        r_inc_llcwracc  <= 1'b0;
+        inc_llcrdacc  <= 1'b0;
+        inc_llcrdmiss <= 1'b0;
+        inc_llcwracc  <= 1'b0;
     end else begin
-        r_inc_llcrdacc  <= inc_llcrdacc_i;
-        r_inc_llcrdmiss <= inc_llcrdmiss_i;
-        r_inc_llcwracc  <= inc_llcwracc_i;
+        inc_llcrdacc  <= inc_llcrdacc_i;
+        inc_llcrdmiss <= inc_llcrdmiss_i;
+        inc_llcwracc  <= inc_llcwracc_i;
     end
 end
 
@@ -100,69 +100,69 @@ end
 
 always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
-        r_scratch0  <= 32'h0;
-        r_strapped  <= 1'b0;
-        r_strap_dly <= 3'h0;
-        r_strapa    <= '0;
-        r_llcsel    <= '0;
-        r_crpsel    <= '0;
-        r_llcinv    <= 1'b0;
-        r_llcrdacc  <= '0;
-        r_llcrdmiss <= '0;
-        r_llcwracc  <= '0;
+        scratch0  <= 32'h0;
+        strapped  <= 1'b0;
+        strap_dly <= 3'h0;
+        strapa    <= '0;
+        llcsel    <= '0;
+        crpsel    <= '0;
+        llcinv    <= 1'b0;
+        llcrdacc  <= '0;
+        llcrdmiss <= '0;
+        llcwracc  <= '0;
     end else begin
         // Write one to request an invalidate, then self-clear
-        r_llcinv <= do_write && off == OFF_LLCINV && reg_req_i.wstrb[0] && reg_req_i.wdata[0];
+        llcinv <= do_write && off == OFF_LLCINV && reg_req_i.wstrb[0] && reg_req_i.wdata[0];
 
         // Capture the pad inputs once, on the first cycle out of reset
-        if (!r_strapped) begin
-            r_strap_dly <= r_strap_dly + 1'b1;
-            if (&r_strap_dly) begin
-                r_strapa   <= strap_sync;
-                r_strapped <= 1'b1;
+        if (!strapped) begin
+            strap_dly <= strap_dly + 1'b1;
+            if (&strap_dly) begin
+                strapa   <= strap_sync;
+                strapped <= 1'b1;
             end
         end
 
         if (do_write && off == OFF_SCRATCH0) begin
             for (int i = 0; i < 4; i++) begin
                 if (reg_req_i.wstrb[i])
-                    r_scratch0[8*i +: 8] <= reg_req_i.wdata[8*i +: 8];
+                    scratch0[8*i +: 8] <= reg_req_i.wdata[8*i +: 8];
             end
         end
 
         if (do_write && off == OFF_LLCSEL && reg_req_i.wstrb[0]) begin
-            r_llcsel <= reg_req_i.wdata[OcmLlcWays-1:0];
+            llcsel <= reg_req_i.wdata[OcmLlcWays-1:0];
         end
 
         if (do_write && off == OFF_CRPSEL && reg_req_i.wstrb[0]) begin
-            r_crpsel <= reg_req_i.wdata[0];
+            crpsel <= reg_req_i.wdata[0];
         end
 
         // Clear LLCRDACC on any write, increment on signal if no write
         if (do_write && (off == OFF_LLCRDACC || off == OFF_LLCRDACCH)) begin
-            r_llcrdacc <= '0;
-        end else if (r_inc_llcrdacc) begin
-            r_llcrdacc <= r_llcrdacc + 1'b1;
+            llcrdacc <= '0;
+        end else if (inc_llcrdacc) begin
+            llcrdacc <= llcrdacc + 1'b1;
         end
 
         // Same with LLCRDMISS and LLCWRACC
         if (do_write && (off == OFF_LLCRDMISS || off == OFF_LLCRDMISSH)) begin
-            r_llcrdmiss <= '0;
-        end else if (r_inc_llcrdmiss) begin
-            r_llcrdmiss <= r_llcrdmiss + 1'b1;
+            llcrdmiss <= '0;
+        end else if (inc_llcrdmiss) begin
+            llcrdmiss <= llcrdmiss + 1'b1;
         end
 
         if (do_write && (off == OFF_LLCWRACC || off == OFF_LLCWRACCH)) begin
-            r_llcwracc <= '0;
-        end else if (r_inc_llcwracc) begin
-            r_llcwracc <= r_llcwracc + 1'b1;
+            llcwracc <= '0;
+        end else if (inc_llcwracc) begin
+            llcwracc <= llcwracc + 1'b1;
         end
     end
 end
 
-assign llcsel_o = r_llcsel;
-assign crpsel_o = r_crpsel;
-assign llcinv_o = r_llcinv;
+assign llcsel_o = llcsel;
+assign crpsel_o = crpsel;
+assign llcinv_o = llcinv;
 
 // ============================================================
 // Read / response
@@ -175,17 +175,17 @@ always_comb begin
     rdata   = 32'h0;
     map_err = 1'b0;
     case (off)
-        OFF_SCRATCH0:   rdata = r_scratch0;
-        OFF_STRAPA:     rdata = 32'(r_strapa);
-        OFF_LLCSEL:     rdata = {{32-OcmLlcWays{1'b0}}, {r_llcsel}};
-        OFF_CRPSEL:     rdata = {31'h0, r_crpsel};
+        OFF_SCRATCH0:   rdata = scratch0;
+        OFF_STRAPA:     rdata = 32'(strapa);
+        OFF_LLCSEL:     rdata = {{32-OcmLlcWays{1'b0}}, {llcsel}};
+        OFF_CRPSEL:     rdata = {31'h0, crpsel};
         OFF_LLCINV:     rdata = 32'h0;   // write-only, the invalidate is done by the time the store retires
-        OFF_LLCRDACC:   rdata = r_llcrdacc [31:0];
-        OFF_LLCRDACCH:  rdata = r_llcrdacc [63:32];
-        OFF_LLCRDMISS:  rdata = r_llcrdmiss[31:0];
-        OFF_LLCRDMISSH: rdata = r_llcrdmiss[63:32];
-        OFF_LLCWRACC:   rdata = r_llcwracc [31:0];
-        OFF_LLCWRACCH:  rdata = r_llcwracc [63:32];
+        OFF_LLCRDACC:   rdata = llcrdacc [31:0];
+        OFF_LLCRDACCH:  rdata = llcrdacc [63:32];
+        OFF_LLCRDMISS:  rdata = llcrdmiss[31:0];
+        OFF_LLCRDMISSH: rdata = llcrdmiss[63:32];
+        OFF_LLCWRACC:   rdata = llcwracc [31:0];
+        OFF_LLCWRACCH:  rdata = llcwracc [63:32];
         default:        map_err = 1'b1;
     endcase
 end

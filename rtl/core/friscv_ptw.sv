@@ -117,7 +117,7 @@ logic [2:0] max_level;
 logic       is_wide_vpn_q, is_wide_vpn_d;  // 1: 10-bit VPN fields (SV32), 0: 9-bit (SV39+)
 logic       is_wide_pte_q, is_wide_pte_d;  // 1: 8-byte PTEs (SV39+), 0: 4-byte (SV32)
 
-always_ff @(posedge clk_i or negedge rst_ni) begin : geometry_capture
+always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
         is_wide_vpn_q <= 1'b0;
         is_wide_pte_q <= 1'b0;
@@ -125,13 +125,13 @@ always_ff @(posedge clk_i or negedge rst_ni) begin : geometry_capture
         is_wide_vpn_q <= is_wide_vpn_d;
         is_wide_pte_q <= is_wide_pte_d;
     end
-end : geometry_capture
+end
 
-always_comb begin : geometry_decode
+always_comb begin
     is_wide_vpn_d = 1'b0;
     is_wide_pte_d = 1'b1;
 
-    case (satp_mode_e'(satp_i.mode))
+    unique case (satp_mode_e'(satp_i.mode))
         SATP_SV32: begin
             max_level   = 3'd1;
             is_wide_vpn_d = 1'b1;
@@ -143,13 +143,13 @@ always_comb begin : geometry_decode
         SATP_BARE: max_level = 3'd0;
         default:   max_level = 3'd1;
     endcase
-end : geometry_decode
+end
 
 // ============================================================
 // State machine
 // ============================================================
 
-always_ff @(posedge clk_i or negedge rst_ni) begin : transition_state
+always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) state_q <= StIdle;
     else         state_q <= state_d;
 end
@@ -158,7 +158,7 @@ end
 logic [2:0] r_level;
 logic       descend;
 
-always_ff @(posedge clk_i or negedge rst_ni) begin : pte_capture
+always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
         pte_q   <= '0;
         r_level <= 3'b0;
@@ -177,7 +177,7 @@ always_ff @(posedge clk_i or negedge rst_ni) begin : pte_capture
     end else if (descend) begin
         r_level <= r_level - 1;
     end
-end : pte_capture
+end
 
 // ============================================================
 // Effective walk inputs
@@ -216,10 +216,10 @@ logic [9:0] vpn_idx;
 always_comb begin
     vpn_idx = '0;
     if (eff_wide_vpn) begin  // SV32: 10-bit VPN fields
-        case (eff_level)
-            3'd1:    vpn_idx = eff_va[31:22];  // VPN[1]
-            default: vpn_idx = eff_va[21:12];  // VPN[0]
-        endcase
+        if (eff_level == 3'd1)
+            vpn_idx = eff_va[31:22];  // VPN[1]
+        else
+            vpn_idx = eff_va[21:12];  // VPN[0]
     end else begin  // SV39/48/57: 9-bit VPN fields
         vpn_idx = {1'b0, eff_va[12 + 9*int'(eff_level[2:0]) +: 9]};
     end

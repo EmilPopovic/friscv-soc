@@ -41,7 +41,7 @@ module friscv_csr_file import friscv_pkg::*; #(
     // CSR read
     input  csr_addr_e   selected_csr_i,
     output data_t       csr_o,
-    output logic        csr_not_implemented_o,
+    output logic        csr_not_impl_o,
 
     // CSR write from WB
     input  csr_addr_e   csr_sel_i,
@@ -327,7 +327,7 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
         end else if (csr_en_i && instr_ret_i && !wb_csr_ro) begin
             `pragma diagnostic push
             `pragma diagnostic ignore="-Wcase-enum-explicit"
-            case (csr_sel_i)
+            unique case (csr_sel_i)
                 // Supervisor Trap Setup (aliased into mstatus/mie)
                 CSR_SSTATUS: begin
                     csr.mstatus.sie  <= csr_data_i[1];
@@ -433,10 +433,10 @@ end
 // ============================================================
 
 always_comb begin : csr_read
-    csr_not_implemented_o = 1'b0;
+    csr_not_impl_o = 1'b0;
     `pragma diagnostic push
     `pragma diagnostic ignore="-Wcase-enum-explicit"
-    case (selected_csr_i)
+    unique case (selected_csr_i)
         // Set in block below
         CSR_PMPCFG0:  csr_o = 32'h0;
         CSR_PMPADDR0: csr_o = 32'h0;
@@ -509,14 +509,14 @@ always_comb begin : csr_read
         CSR_SATP:          csr_o = csr.satp;
 
         // Core Debug Registers
-        CSR_DCSR:      begin csr_o = csr.dcsr;      csr_not_implemented_o = !debug_mode_i; end
-        CSR_DPC:       begin csr_o = csr.dpc;       csr_not_implemented_o = !debug_mode_i; end
-        CSR_DSCRATCH0: begin csr_o = csr.dscratch0; csr_not_implemented_o = !debug_mode_i; end
-        CSR_DSCRATCH1: begin csr_o = csr.dscratch1; csr_not_implemented_o = !debug_mode_i; end
+        CSR_DCSR:      begin csr_o = csr.dcsr;      csr_not_impl_o = !debug_mode_i; end
+        CSR_DPC:       begin csr_o = csr.dpc;       csr_not_impl_o = !debug_mode_i; end
+        CSR_DSCRATCH0: begin csr_o = csr.dscratch0; csr_not_impl_o = !debug_mode_i; end
+        CSR_DSCRATCH1: begin csr_o = csr.dscratch1; csr_not_impl_o = !debug_mode_i; end
 
         default: begin
             csr_o = 32'h0;
-            csr_not_implemented_o = 1'b1;
+            csr_not_impl_o = 1'b1;
         end
     endcase
     `pragma diagnostic pop
@@ -525,11 +525,11 @@ always_comb begin : csr_read
     if (int'(selected_csr_i) >= int'(CSR_PMPCFG0) &&
         int'(selected_csr_i) <  int'(CSR_PMPCFG0) + int'(PmpEntries/4)) begin
         csr_o = EnforcePmp ? pmpcfg_word(int'(selected_csr_i) - int'(CSR_PMPCFG0)) : 32'h0;
-        csr_not_implemented_o = 1'b0;
+        csr_not_impl_o = 1'b0;
     end else if (int'(selected_csr_i) >= int'(CSR_PMPADDR0) &&
                  int'(selected_csr_i) <  int'(CSR_PMPADDR0) + int'(PmpEntries)) begin
         csr_o = EnforcePmp ? pmp_table[int'(selected_csr_i) - int'(CSR_PMPADDR0)].addr : 32'h0;
-        csr_not_implemented_o = 1'b0;
+        csr_not_impl_o = 1'b0;
     end
 end
 
