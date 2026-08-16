@@ -42,7 +42,7 @@ module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t,
     parameter bit          ZsblRomEnable    = 1'b1,
     parameter int unsigned ZsblRomWords     = vernii_zsbl_rom_pkg::ZSBL_PROG_WORDS,
     parameter logic [31:0] ZsblRomProg [ZsblRomWords] = vernii_zsbl_rom_pkg::ZSBL_PROG,
-    parameter int unsigned NumStraps        = 8,
+    parameter int unsigned BootSelW         = 2,
     parameter int unsigned NumMRegRules     = 1,
     parameter bit          HaltOnEnd        = 0,
     parameter int unsigned NumExtIrq        = 2,
@@ -82,8 +82,8 @@ module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t,
     output reg_req_t [NumMRegRules-1:0] m_reg_req_o,
     input  reg_rsp_t [NumMRegRules-1:0] m_reg_rsp_i,
 
-    // Straps
-    input  logic [NumStraps-1:0] strap_i,
+    // Boot mode select
+    input  logic [BootSelW-1:0] boot_sel_i,
 
     // UART
     input  logic  uart0_rx_i,
@@ -298,7 +298,7 @@ axi_lite_to_axi #(
 
 logic s_axi_gp_aw_select, s_axi_gp_ar_select;
 
-// Forward the request to the bus (SAxiGpBusPort) if allowed, otherwise to the error port (SAxiGpErrPort)
+// Forward the request to the bus (SAxiGpBusPort) if allowed, otherwise to the error port
 assign s_axi_gp_aw_select = (EnableSAxiGp && s_axi_gp_allowed(s_axi_gp_req.aw.addr))
                           ? 1'(SAxiGpBusPort) : 1'(SAxiGpErrPort);
 assign s_axi_gp_ar_select = (EnableSAxiGp && s_axi_gp_allowed(s_axi_gp_req.ar.addr))
@@ -620,7 +620,8 @@ for (genvar e = 0; e < NumMRegRules; e++) begin : gen_chk_m_reg_rule
                e, MRegRules[e].idx, NumMRegRules - 1);
     end
     // Check that end_addr is not below start_addr
-    if (rule_populated(MRegRules[e]) && rule_end(MRegRules[e]) < MRegRules[e].start_addr) begin : gen_chk_range
+    if (rule_populated(MRegRules[e]) &&
+        rule_end(MRegRules[e]) < MRegRules[e].start_addr) begin : gen_chk_range
         $fatal(1, "MRegRules[%0d] ends (%08x) below where it starts (%08x)",
                e, MRegRules[e].end_addr, MRegRules[e].start_addr);
     end
@@ -699,7 +700,7 @@ end else begin : gen_no_zsbl_rom
 end
 
 vernii_scb #(
-    .NumPads    ( NumStraps ),
+    .BootSelW   ( BootSelW  ),
     .reg_req_t  ( reg_req_t ),
     .reg_rsp_t  ( reg_rsp_t ),
     .OcmLlcWays ( Ways      )
@@ -708,7 +709,7 @@ vernii_scb #(
     .rst_ni          ( soc_rst_n            ),
     .reg_req_i       ( reg_dev_req[ScbPort] ),
     .reg_rsp_o       ( reg_dev_rsp[ScbPort] ),
-    .strap_i,
+    .boot_sel_i,
     .llcsel_o        ( llcsel               ),
     .crpsel_o        ( crpsel               ),
     .llcinv_o        ( llcinv               ),
@@ -1015,7 +1016,7 @@ if (NumGpioAIrq > 32) begin : gen_chk_gpio_a_irq
     $fatal(1, "NumGpioAIrq (%0d) more than the 32 GPIO port A pins", NumGpioAIrq);
 end
 if (NIrqUsed > NIrqSources) begin : gen_chk_irq_budget
-    $fatal(1, "the interrupt allocation needs %0d sources but the PLIC has %0d, reduce NumGpioAIrq (%0d) or NumExtIrq (%0d)",
+    $fatal(1, "Irq params need %0d sources but PLIC has %0d, reduce NumGpioAIrq or NumExtIrq",
            NIrqUsed, NIrqSources, NumGpioAIrq, NumExtIrq);
 end
 

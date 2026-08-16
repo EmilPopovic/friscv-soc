@@ -19,7 +19,7 @@ module vernii_soc_pynq_ps import vernii_pkg::*, axi_pkg::xbar_rule_32_t; #(
     parameter int unsigned MemPsBase = 32'h0010_0000,
     parameter int unsigned ZsblRom   = 1,
     parameter int unsigned NumGpio   = 27,
-    parameter int unsigned NumStraps = 8
+    parameter int unsigned BootSelW  = 2
 ) (
     input  wire clk_i,
     input  wire rstn_i,
@@ -173,7 +173,7 @@ vernii_soc #(
     .ExtBase          ( ExtBase        ),
     .ExtSize          ( ExtSize        ),
     .ZsblRomEnable    ( ZsblRom != 0                     ),
-    .NumStraps        ( NumStraps      ),
+    .BootSelW         ( BootSelW       ),
     .NumMRegRules     ( 1              ),
     .MRegRules        ( MRegRules      ),
     .HaltOnEnd        ( 1'b1           )
@@ -190,7 +190,7 @@ vernii_soc #(
     .m_axi_hp_rsp_i ( axi_rsp                ),
     .m_reg_req_o    ( m_reg_req              ),
     .m_reg_rsp_i    ( m_reg_rsp              ),
-    .strap_i        ( gpio_in[NumStraps-1:0] ),
+    .boot_sel_i     ( gpio_in[BootSelW-1:0]  ),
     .uart0_rx_i     ( uart_rx_i              ),
     .uart0_tx_o     ( uart_tx_o              ),
     .jtag_tck_i     ( jtag_tck_i             ),

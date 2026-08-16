@@ -16,7 +16,7 @@ module vernii_soc_pynq_ps_wrap #(
     parameter MemPsBase = 32'h0010_0000,
     parameter ZsblRom   = 1,
     parameter NumGpio   = 27,
-    parameter NumStraps = 8
+    parameter BootSelW  = 2
 ) (
     // Without the association the block design cannot tell what clocks m_axi,
     // defaults it to 100 MHz and fails validation against the interconnect
@@ -94,7 +94,7 @@ vernii_soc_pynq_ps #(
     .MemPsBase ( MemPsBase ),
     .ZsblRom   ( ZsblRom   ),
     .NumGpio   ( NumGpio   ),
-    .NumStraps ( NumStraps )
+    .BootSelW  ( BootSelW  )
 ) i_vernii_soc_pynq_ps (
     .clk_i  ( clk_i  ),
     .rstn_i ( rstn_i ),

@@ -4,7 +4,7 @@
 // Matej Jurasić <matej.jurasic@cappig.dev>
 // Emil Popović <mail@emilpopovic.me>
 //
-// Zero stage boot loader. PA0 low parks for the debug module, high loads a
+// Zero stage boot loader. Boot select 0 parks for the debug module, 1 loads a
 // first stage from QSPI flash and runs it from zero.
 
 .section .text
@@ -14,7 +14,7 @@
 
 .equ SCB_BASE,     0x03000000
 .equ SCB_SCRATCH0, 0x00
-.equ SCB_STRAPA,   0x04
+.equ SCB_BOOTSEL,  0x04
 
 # gen_zsbl_rom.py checks these against vernii_soc.sv
 .equ QSPI_BASE,    0x03020000
@@ -28,7 +28,7 @@
 
 _start:
     lui t0, (SCB_BASE >> 12)
-    lw t1, SCB_STRAPA(t0)        # pads sampled at reset
+    lw t1, SCB_BOOTSEL(t0)       # boot select pads
     andi t1, t1, 1
     bnez t1, qspi
 

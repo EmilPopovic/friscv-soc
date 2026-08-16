@@ -282,7 +282,7 @@ void load_command(SocTestbench& testbench, Jtag& jtag, const char* path) {
     testbench.run_cycles(RUN_CYCLES);
 }
 
-// image in the flash, PA0 high, nothing preloaded
+// image in the flash, boot select 1, nothing preloaded
 int qspiboot_command(SocTestbench& testbench, Jtag& jtag, const char* path) {
     Dut& top = testbench.top();
 
@@ -295,7 +295,7 @@ int qspiboot_command(SocTestbench& testbench, Jtag& jtag, const char* path) {
         testbench.uart().set_divisor(uint32_t(std::strtoul(div, nullptr, 0)));
     }
 
-    dut::set_strap(top, 0);
+    dut::set_boot_sel(top, 1);
     testbench.reset();
     jtag.initialize();  // the reset above took the debug module with it
 

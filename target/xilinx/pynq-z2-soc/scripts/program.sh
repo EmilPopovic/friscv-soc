@@ -87,6 +87,6 @@ programmed.
   LD5 green                a program wrote to 0x50000000 and halted
 
 The console is 115200 8N1 on uart_tx (V6) and uart_rx (Y6).
-BTN0 is read once at reset as boot strap PA0: released parks the SoC for the debug module,
+BTN0 is boot select bit 0, read by the ZSBL: released parks the SoC for the debug module,
 held boots from QSPI flash instead.
 EOF

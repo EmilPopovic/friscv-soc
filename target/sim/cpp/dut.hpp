@@ -14,13 +14,13 @@ using Dut = Vvernii_soc_sim;
 namespace dut {
 
 inline void clear_inputs(Dut& top) {
-    top.strap_i = 0;
+    top.boot_sel_i = 0;
     top.gpio_a_i = 0;
     top.qspi0_sd_i = 0;
 }
 
-inline void set_strap(Dut& top, unsigned bit) {
-    top.strap_i |= uint32_t(1) << bit;
+inline void set_boot_sel(Dut& top, unsigned value) {
+    top.boot_sel_i = uint8_t(value);
 }
 
 inline bool jtag_tdo(const Dut& top) {

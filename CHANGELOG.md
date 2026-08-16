@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Renamed `ExtRegSlvRules` to `MRegRules`, `NumExtRegSlv` to
   `NumMRegRules` and `reg_ext_*` to `m_reg_*`, to match `SAxiGpRules` and `m_axi_hp_*`.
 - **Breaking:** Removed the `ZsblBaseAddr` parameter, the ROM has a fixed slot now.
-- Collected the address map into one block of localparams in `vernii_soc.sv`.
+- **Breaking:** Replaced the SCB strap register with boot select.
 - Refactored core to use [lowRISC style guide](https://github.com/lowRISC/style-guides/blob/master/VerilogCodingStyle.md).
 
 ## [0.3.0] - 2026-08-15

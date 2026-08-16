@@ -20,7 +20,7 @@ module vernii_soc_sim import vernii_pkg::*; #(
     parameter bit          ZsblRomEnable    = 1'b1,
     parameter int unsigned ZsblRomWords     = vernii_zsbl_rom_pkg::ZSBL_PROG_WORDS,
     parameter logic [31:0] ZsblRomProg [ZsblRomWords] = vernii_zsbl_rom_pkg::ZSBL_PROG,
-    parameter int unsigned NumStraps        = 8
+    parameter int unsigned BootSelW         = 2
 ) (
     input  logic clk_i,
     input  logic rst_ni,
@@ -37,7 +37,7 @@ module vernii_soc_sim import vernii_pkg::*; #(
     output logic jtag_tdo_o,
     output logic jtag_tdo_oe_o,
 
-    input  logic [NumStraps-1:0] strap_i,
+    input  logic [BootSelW-1:0] boot_sel_i,
 
     input  logic [31:0] gpio_a_i,
     output logic [31:0] gpio_a_o,
@@ -123,7 +123,7 @@ vernii_soc #(
     .ZsblRomEnable    ( ZsblRomEnable    ),
     .ZsblRomWords     ( ZsblRomWords     ),
     .ZsblRomProg      ( ZsblRomProg      ),
-    .NumStraps        ( NumStraps        ),
+    .BootSelW         ( BootSelW         ),
     .NumMRegRules     ( NumMRegRules     ),
     .MRegRules        ( MRegRules        ),
     .HaltOnEnd        ( 1                )
@@ -141,7 +141,7 @@ vernii_soc #(
     .m_reg_req_o    ( m_reg_req     ),
     .m_reg_rsp_i    ( m_reg_rsp     ),
     .ext_irq_i      ( '0            ),
-    .strap_i,
+    .boot_sel_i,
     .uart0_rx_i,
     .uart0_tx_o,
     .jtag_tck_i,

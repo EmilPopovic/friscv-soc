@@ -13,7 +13,7 @@
  */
 
 module vernii_scb import vernii_pkg::*; #(
-    parameter int unsigned NumPads    = 25,
+    parameter int unsigned BootSelW   = 2,
     parameter int unsigned OcmLlcWays = 4,
     parameter type         reg_req_t  = vernii_reg_req_t,
     parameter type         reg_rsp_t  = vernii_reg_rsp_t
@@ -24,7 +24,7 @@ module vernii_scb import vernii_pkg::*; #(
     input  reg_req_t reg_req_i,
     output reg_rsp_t reg_rsp_o,
 
-    input  logic [NumPads-1:0] strap_i,
+    input  logic [BootSelW-1:0]   boot_sel_i,
 
     output logic [OcmLlcWays-1:0] llcsel_o,
     output logic                  crpsel_o,
@@ -37,7 +37,7 @@ module vernii_scb import vernii_pkg::*; #(
 
 // Byte offsets within the block's register page
 localparam logic [11:0] OFF_SCRATCH0   = 12'h000;
-localparam logic [11:0] OFF_STRAPA     = 12'h004;
+localparam logic [11:0] OFF_BOOTSEL    = 12'h004;
 localparam logic [11:0] OFF_LLCSEL     = 12'h00C;
 localparam logic [11:0] OFF_CRPSEL     = 12'h010;
 localparam logic [11:0] OFF_LLCINV     = 12'h014;
@@ -59,15 +59,13 @@ assign do_write = reg_req_i.valid && reg_req_i.write;
 ///////////////
 
 logic [31:0]           scratch0;  // SCRATCH0
-logic                  strapped;  // STRAPA sampled flag
-logic [2:0]            strap_dly;
-logic [NumPads-1:0]    strapa;    // STRAPA
 logic [OcmLlcWays-1:0] llcsel;    // LLCSEL
 logic                  crpsel;    // CRPSEL
 logic                  llcinv;    // LLCINV
 logic [63:0]           llcrdacc;  // LLCRDACC
 logic [63:0]           llcrdmiss; // LLCRDMISS
 logic [63:0]           llcwracc;  // LLCWRACC
+logic [BootSelW-1:0]   bootsel;   // BOOTSEL
 
 logic inc_llcrdacc, inc_llcrdmiss, inc_llcwracc;
 
@@ -84,17 +82,15 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
     end
 end
 
-logic [NumPads-1:0] strap_sync;
-
-for (genvar i = 0; i < NumPads; i++) begin : gen_strap_sync
+for (genvar i = 0; i < BootSelW; i++) begin : gen_boot_sel_sync
     tc_sync #(
         .Stages     ( 2    ),
         .ResetValue ( 1'b0 )
-    ) i_sync_strap (
+    ) i_sync_boot_sel (
         .clk_i,
         .rst_ni,
-        .serial_i ( strap_i[i]   ),
-        .serial_o ( strap_sync[i])
+        .serial_i ( boot_sel_i[i] ),
+        .serial_o ( bootsel[i]    )
     );
 end
 
@@ -102,66 +98,72 @@ end
 // Write //
 ///////////
 
+// SCRATCH0
 always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (!rst_ni) begin
-        scratch0  <= 32'h0;
-        strapped  <= 1'b0;
-        strap_dly <= 3'h0;
-        strapa    <= '0;
-        llcsel    <= '0;
-        crpsel    <= '0;
-        llcinv    <= 1'b0;
-        llcrdacc  <= '0;
-        llcrdmiss <= '0;
-        llcwracc  <= '0;
-    end else begin
-        // Write one to request an invalidate, then self-clear
-        llcinv <= do_write && off == OFF_LLCINV && reg_req_i.wstrb[0] && reg_req_i.wdata[0];
-
-        // Capture the pad inputs once, on the first cycle out of reset
-        if (!strapped) begin
-            strap_dly <= strap_dly + 1'b1;
-            if (&strap_dly) begin
-                strapa   <= strap_sync;
-                strapped <= 1'b1;
-            end
-        end
-
-        if (do_write && off == OFF_SCRATCH0) begin
-            for (int i = 0; i < 4; i++) begin
-                if (reg_req_i.wstrb[i])
-                    scratch0[8*i +: 8] <= reg_req_i.wdata[8*i +: 8];
-            end
-        end
-
-        if (do_write && off == OFF_LLCSEL && reg_req_i.wstrb[0]) begin
-            llcsel <= reg_req_i.wdata[OcmLlcWays-1:0];
-        end
-
-        if (do_write && off == OFF_CRPSEL && reg_req_i.wstrb[0]) begin
-            crpsel <= reg_req_i.wdata[0];
-        end
-
-        // Clear LLCRDACC on any write, increment on signal if no write
-        if (do_write && (off == OFF_LLCRDACC || off == OFF_LLCRDACCH)) begin
-            llcrdacc <= '0;
-        end else if (inc_llcrdacc) begin
-            llcrdacc <= llcrdacc + 1'b1;
-        end
-
-        // Same with LLCRDMISS and LLCWRACC
-        if (do_write && (off == OFF_LLCRDMISS || off == OFF_LLCRDMISSH)) begin
-            llcrdmiss <= '0;
-        end else if (inc_llcrdmiss) begin
-            llcrdmiss <= llcrdmiss + 1'b1;
-        end
-
-        if (do_write && (off == OFF_LLCWRACC || off == OFF_LLCWRACCH)) begin
-            llcwracc <= '0;
-        end else if (inc_llcwracc) begin
-            llcwracc <= llcwracc + 1'b1;
+    if (!rst_ni) scratch0 <= '0;
+    else if (do_write && off == OFF_SCRATCH0) begin
+        for (int i = 0; i < 4; i++) begin
+            if (reg_req_i.wstrb[i])
+                scratch0[8*i +: 8] <= reg_req_i.wdata[8*i +: 8];
         end
     end
+end
+
+// LLCSEL
+always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) llcsel <= '0;
+    else if (do_write && off == OFF_LLCSEL && reg_req_i.wstrb[0]) begin
+        llcsel <= reg_req_i.wdata[OcmLlcWays-1:0];
+    end
+end
+
+// CRPSEL
+always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) crpsel <= '0;
+    else if (do_write && off == OFF_CRPSEL && reg_req_i.wstrb[0]) begin
+        crpsel <= reg_req_i.wdata[0];
+    end
+end
+
+// LLCINV
+always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) llcinv <= 1'b0;
+    else
+        // Write one to request an invalidate, then self-clear
+        llcinv <= do_write && off == OFF_LLCINV && reg_req_i.wstrb[0] && reg_req_i.wdata[0];
+end
+
+// LLCRDACC
+// Clear on any write, increment on signal if no write
+always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni)
+        llcrdacc <= '0;
+    else if (do_write && (off == OFF_LLCRDACC || off == OFF_LLCRDACCH))
+        llcrdacc <= '0;
+    else if (inc_llcrdacc)
+        llcrdacc <= llcrdacc + 1'b1;
+end
+
+// LLCRDMISS
+// Clear on any write, increment on signal if no write
+always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni)
+        llcrdmiss <= '0;
+    else if (do_write && (off == OFF_LLCRDMISS || off == OFF_LLCRDMISSH))
+        llcrdmiss <= '0;
+    else if (inc_llcrdmiss)
+        llcrdmiss <= llcrdmiss + 1'b1;
+end
+
+// LLCWRACC
+// Clear on any write, increment on signal if no write
+always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni)
+        llcwracc  <= '0;
+    else if (do_write && (off == OFF_LLCWRACC || off == OFF_LLCWRACCH))
+        llcwracc <= '0;
+    else if (inc_llcwracc)
+        llcwracc <= llcwracc + 1'b1;
 end
 
 assign llcsel_o = llcsel;
@@ -180,10 +182,10 @@ always_comb begin
     map_err = 1'b0;
     unique case (off)
         OFF_SCRATCH0:   rdata = scratch0;
-        OFF_STRAPA:     rdata = 32'(strapa);
+        OFF_BOOTSEL:    rdata = 32'(bootsel);
         OFF_LLCSEL:     rdata = {{32-OcmLlcWays{1'b0}}, {llcsel}};
         OFF_CRPSEL:     rdata = {31'h0, crpsel};
-        OFF_LLCINV:     rdata = 32'h0;   // write-only, the invalidate is done by the time the store retires
+        OFF_LLCINV:     rdata = 32'h0;   // write-only
         OFF_LLCRDACC:   rdata = llcrdacc [31:0];
         OFF_LLCRDACCH:  rdata = llcrdacc [63:32];
         OFF_LLCRDMISS:  rdata = llcrdmiss[31:0];

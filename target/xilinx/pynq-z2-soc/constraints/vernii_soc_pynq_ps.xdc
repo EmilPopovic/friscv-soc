@@ -39,10 +39,9 @@ set_property -dict { PACKAGE_PIN W19 IOSTANDARD LVCMOS33 } [get_ports {qspi_cs_o
 # Bits 5:0 are driven by the board itself, so the top level masks their output
 # enables: writing the GPIO direction register cannot turn them into outputs.
 #
-# Bits 12:0 are also sampled once at reset as the boot straps, readable from
-# the SCB STRAPA register, so the buttons and switches double as boot-time
-# configuration. Strap bits 9:6 always read 0 -- the LEDs are high-Z until
-# software drives them and the pin pulldown holds them low.
+# Bits 1:0 also feed the boot select pads, read live through a synchronizer
+# from the SCB BOOTSEL register, so BTN0 and BTN1 double as boot-time
+# configuration.
 # ---------------------------------------------------------------------------
 
 # Pushbuttons
