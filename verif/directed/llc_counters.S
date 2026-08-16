@@ -3,9 +3,6 @@
 //
 // Emil Popović <mail@emilpopovic.me>
 
-# Copyright 2026 FER, HPC Architecture and Application Research Center
-# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
-
 .equ SCB,       0x03000000
 .equ SCRATCH0,  0x000
 .equ LLCSEL,    0x00C
