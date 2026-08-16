@@ -166,8 +166,8 @@ rstgen i_rstgen_por (
     .clk_i,
     .rst_ni,
     .test_mode_i,
-    .rst_no  ( por_rst_n ),
-    .init_no (           )
+    .rst_no  ( por_rst_n    ),
+    .init_no ( /* unused */ )
 );
 `pragma diagnostic pop
 
@@ -178,7 +178,7 @@ rstgen i_rstgen_soc (
     .rst_ni  ( soc_rst_n_async ),
     .test_mode_i,
     .rst_no  ( soc_rst_n       ),
-    .init_no (                 )
+    .init_no ( /* unused */    )
 );
 `pragma diagnostic pop
 
@@ -657,8 +657,8 @@ addr_decode #(
     .addr_i           ( regs_reg_req.addr        ),
     .addr_map_i       ( RegAddrMap               ),
     .idx_o            ( reg_select               ),
-    .dec_valid_o      (                          ),
-    .dec_error_o      (                          ),
+    .dec_valid_o      ( /* unused */             ),
+    .dec_error_o      ( /* unused */             ),
     .en_default_idx_i ( 1'b1                     ),
     .default_idx_i    ( (RegPortWidth)'(ErrPort) )
 );
@@ -835,7 +835,7 @@ rstgen i_rstgen_tck (
     .rst_ni      ( jtag_trst_n_async ),
     .test_mode_i ( test_mode_i       ),
     .rst_no      ( jtag_trst_n       ),
-    .init_no     (                   )
+    .init_no     ( /* unused */      )
 );
 `pragma diagnostic pop
 
@@ -949,10 +949,10 @@ apb_uart_wrap #(
     .dsr_ni    ( 1'b0          ),
     .dcd_ni    ( 1'b0          ),
     .rin_ni    ( 1'b0          ),
-    .out1_no   (               ),
-    .out2_no   (               ),
-    .rts_no    (               ),
-    .dtr_no    (               )
+    .out1_no   ( /* unused */  ),
+    .out2_no   ( /* unused */  ),
+    .rts_no    ( /* unused */  ),
+    .dtr_no    ( /* unused */  )
 );
 `pragma diagnostic pop
 
@@ -1046,7 +1046,7 @@ if (NumExtIrq > 0) begin : gen_ext_irq
             .ResetValue ( 1'b0 )
         ) i_sync_ext_irq (
             .clk_i,
-            .rst_ni   ( soc_rst_n        ),
+            .rst_ni   ( soc_rst_n       ),
             .serial_i ( ext_irq_i[i]    ),
             .serial_o ( ext_irq_sync[i] )
         );
@@ -1073,7 +1073,7 @@ plic_top #(
     .reg_rsp_t ( reg_rsp_t   )
 ) i_plic (
     .clk_i,
-    .rst_ni        ( soc_rst_n              ),
+    .rst_ni        ( soc_rst_n             ),
     .req_i         ( reg_dev_req[PlicPort] ),
     .resp_o        ( reg_dev_rsp[PlicPort] ),
     .le_i          ( '0                    ),  // All level-held
@@ -1107,7 +1107,7 @@ aclint #(
     .reg_rsp_o  ( reg_dev_rsp[ClintPort] ),
     .mtip_o     ( mtip                   ),
     .msip_o     ( msip                   ),
-    .ssip_set_o (                        ),
+    .ssip_set_o ( /* unused */           ),
     .mtime_o    ( mtime                  )
 );
 `pragma diagnostic pop
