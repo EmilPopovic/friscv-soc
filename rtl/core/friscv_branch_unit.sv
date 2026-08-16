@@ -13,38 +13,38 @@
  */
 
 module friscv_branch_unit import friscv_pkg::*; (
-    input  jump_sel_e    branch_jal_sel_in,
-    input  branch_cond_e branch_cond_in,
-    input  data_t        src1_in,
-    input  data_t        src2_in,
-    input  addr_t        target,
-    output logic         branch_ok_out,
-    output logic         misaligned_out
+    input  jump_sel_e    branch_jal_sel_i,
+    input  branch_cond_e branch_cond_i,
+    input  data_t        src1_i,
+    input  data_t        src2_i,
+    input  addr_t        target_i,
+    output logic         branch_ok_o,
+    output logic         misaligned_o
 );
 
 logic [DATA_WIDTH:0] w_sub;
-assign w_sub = {1'b0, src1_in} + {1'b0, ~src2_in} + 1'b1;
+assign w_sub = {1'b0, src1_i} + {1'b0, ~src2_i} + 1'b1;
 
 logic  n, z, c, v;
 assign n = w_sub[DATA_WIDTH-1];
-assign z = (src1_in == src2_in);
+assign z = (src1_i == src2_i);
 assign c = w_sub[DATA_WIDTH];
-assign v = (src1_in[DATA_WIDTH-1] ^ src2_in[DATA_WIDTH-1]) & (src1_in[DATA_WIDTH-1] ^ w_sub[DATA_WIDTH-1]);
+assign v = (src1_i[DATA_WIDTH-1] ^ src2_i[DATA_WIDTH-1]) & (src1_i[DATA_WIDTH-1] ^ w_sub[DATA_WIDTH-1]);
 
 always_comb begin
-    branch_ok_out = 1'b0;
-    if (branch_jal_sel_in == BRANCH_INSTR) case (branch_cond_in)     
-        COND_EQ:     branch_ok_out = z;
-        COND_NE:     branch_ok_out = !z;
-        COND_LT:     branch_ok_out = n ^ v;
-        COND_GE:     branch_ok_out = !(n ^ v);
-        COND_LTU:    branch_ok_out = !c;
-        COND_GEU:    branch_ok_out = c;
-        COND_ALWAYS: branch_ok_out = 1'b1;
-        default:     branch_ok_out = 1'b0;
+    branch_ok_o = 1'b0;
+    if (branch_jal_sel_i == BRANCH_INSTR) case (branch_cond_i)     
+        COND_EQ:     branch_ok_o = z;
+        COND_NE:     branch_ok_o = !z;
+        COND_LT:     branch_ok_o = n ^ v;
+        COND_GE:     branch_ok_o = !(n ^ v);
+        COND_LTU:    branch_ok_o = !c;
+        COND_GEU:    branch_ok_o = c;
+        COND_ALWAYS: branch_ok_o = 1'b1;
+        default:     branch_ok_o = 1'b0;
     endcase
 end
 
-assign misaligned_out = branch_ok_out && (target[1:0] != 2'b0);
+assign misaligned_o = branch_ok_o && (target_i[1:0] != 2'b0);
 
 endmodule

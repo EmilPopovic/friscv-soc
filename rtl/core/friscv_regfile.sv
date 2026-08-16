@@ -28,14 +28,14 @@ if (RegisterNum < 2) begin : gen_invalid_regfile
     $fatal(1, "Invalid register file size: %0d. Must be at least 2.", RegisterNum);
 end
 
-data_t r_regfile [RegisterNum-1:1]; // Register file, x0 is hardwired to 0
+data_t regfile [RegisterNum-1:1]; // Register file, x0 is hardwired to 0
 
-assign rs1_o = rs1_sel_i == 0 ? '0 : r_regfile[rs1_sel_i];
-assign rs2_o = rs2_sel_i == 0 ? '0 : r_regfile[rs2_sel_i];
+assign rs1_o = rs1_sel_i == 0 ? '0 : regfile[rs1_sel_i];
+assign rs2_o = rs2_sel_i == 0 ? '0 : regfile[rs2_sel_i];
 
 always_ff @(posedge clk_i) begin
     // Never write to x0
-    if (rd_sel_i != 0 && wen_i) r_regfile[rd_sel_i] <= rd_i;
+    if (rd_sel_i != 0 && wen_i) regfile[rd_sel_i] <= rd_i;
 end
 
 endmodule

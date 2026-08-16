@@ -14,191 +14,188 @@
  */
 
 module friscv_muldiv import friscv_pkg::*; (
-    input  logic        i_clk,
-    input  logic        i_rstn,
-    input  logic        i_flush,
-    input  logic        i_start,
-    input  logic        i_mul,
-    input  logic        i_a_signed,
-    input  logic        i_b_signed,
-    input  data_t       i_a,
-    input  data_t       i_b,
-    output logic [63:0] o_result,
-    output logic        o_done
+    input  logic        clk_i,
+    input  logic        rst_ni,
+    input  logic        flush_i,
+    input  logic        start_i,
+    input  logic        mul_i,
+    input  logic        a_signed_i,
+    input  logic        b_signed_i,
+    input  data_t       a_i,
+    input  data_t       b_i,
+    output logic [63:0] result_o,
+    output logic        done_o
 );
 
-    typedef enum logic [1:0] {S_IDLE, S_ACTIVE, S_DONE} state_e;
+    typedef enum logic [1:0] {StIdle, StActive, StDone} state_e;
 
-    state_e      r_state, w_next_state;
-    logic [32:0] r_a, w_a;
-    data_t       r_m, w_m;
-    data_t       r_q, w_q;
-    logic [5:0]  r_cnt, w_cnt;
-    logic        r_mul, w_mul;
-    logic        r_sign, w_sign;
-    logic        r_rem_sign, w_rem_sign;
-    logic        r_special, w_special;
-    logic [63:0] w_result;
-    logic        w_done;
+    state_e      state_q, state_d;
+    logic [32:0] a_q, a_d;
+    data_t       m_q, m_d;
+    data_t       q_q, q_d;
+    logic [5:0]  cnt_q, cnt_d;
+    logic        mul_q, mul_d;
+    logic        sign_q, sign_d;
+    logic        rem_sign_q, rem_sign_d;
+    logic        special_q, special_d;
+    logic [63:0] result;
+    logic        done;
 
-    logic        w_a_neg, w_b_neg;
-    data_t       w_a_abs, w_b_abs;
+    logic        a_neg, b_neg;
+    data_t       a_abs, b_abs;
 
-    logic [32:0] w_shift_a;
-    data_t       w_shift_q;
-    logic [32:0] w_alu_a, w_alu_m, w_alu_res;
-    logic        w_alu_sub;
-    data_t       w_div_q;
-    logic [64:0] w_mul_shift;
-    logic [63:0] w_prod, w_signed_prod;
+    logic [32:0] shift_a;
+    data_t       shift_q;
+    logic [32:0] alu_a, alu_m, alu_res;
+    logic        alu_sub;
+    data_t       div_q;
+    logic [64:0] mul_shift;
+    logic [63:0] prod, signed_prod;
 
-    assign w_a_neg = i_a_signed && i_a[31];
-    assign w_b_neg = i_b_signed && i_b[31];
-    assign w_a_abs = w_a_neg ? (~i_a + 1'b1) : i_a;
-    assign w_b_abs = w_b_neg ? (~i_b + 1'b1) : i_b;
+    assign a_neg = a_signed_i && a_i[31];
+    assign b_neg = b_signed_i && b_i[31];
+    assign a_abs = a_neg ? (~a_i + 1'b1) : a_i;
+    assign b_abs = b_neg ? (~b_i + 1'b1) : b_i;
 
-    assign w_prod = {r_a[31:0], r_q};
-    assign w_signed_prod = r_sign ? (~w_prod + 1'b1) : w_prod;
+    assign prod = {a_q[31:0], q_q};
+    assign signed_prod = sign_q ? (~prod + 1'b1) : prod;
 
     // Both algorithms use this single add/subtract path.
     always_comb begin
-        {w_shift_a, w_shift_q} = {r_a, r_q} << 1;
+        {shift_a, shift_q} = {a_q, q_q} << 1;
 
-        w_alu_a   = r_a;
-        w_alu_m   = '0;
-        w_alu_sub = 1'b0;
+        alu_a   = a_q;
+        alu_m   = '0;
+        alu_sub = 1'b0;
 
-        if (r_state == S_ACTIVE) begin
-            if (r_mul) begin
-                w_alu_m = r_q[0] ? {1'b0, r_m} : '0;
+        if (state_q == StActive) begin
+            if (mul_q) begin
+                alu_m = q_q[0] ? {1'b0, m_q} : '0;
             end else begin
-                w_alu_a   = w_shift_a;
-                w_alu_m   = {1'b0, r_m};
-                w_alu_sub = !r_a[32];
+                alu_a   = shift_a;
+                alu_m   = {1'b0, m_q};
+                alu_sub = !a_q[32];
             end
-        end else if (r_state == S_DONE && !r_mul && r_a[32]) begin
-            w_alu_m = {1'b0, r_m};
+        end else if (state_q == StDone && !mul_q && a_q[32]) begin
+            alu_m = {1'b0, m_q};
         end
 
-        w_alu_res = w_alu_sub ? w_alu_a - w_alu_m : w_alu_a + w_alu_m;
+        alu_res = alu_sub ? alu_a - alu_m : alu_a + alu_m;
 
-        w_div_q    = w_shift_q;
-        w_div_q[0] = !w_alu_res[32];
+        div_q    = shift_q;
+        div_q[0] = !alu_res[32];
 
-        w_mul_shift = {w_alu_res, r_q} >> 1;
+        mul_shift = {alu_res, q_q} >> 1;
     end
 
     always_comb begin
-        w_next_state = r_state;
-        w_a          = r_a;
-        w_m          = r_m;
-        w_q          = r_q;
-        w_cnt        = r_cnt;
-        w_mul        = r_mul;
-        w_sign       = r_sign;
-        w_rem_sign   = r_rem_sign;
-        w_special    = r_special;
-        w_result     = o_result;
-        w_done       = o_done;
+        state_d    = state_q;
+        a_d        = a_q;
+        m_d        = m_q;
+        q_d        = q_q;
+        cnt_d      = cnt_q;
+        mul_d      = mul_q;
+        sign_d     = sign_q;
+        rem_sign_d = rem_sign_q;
+        special_d  = special_q;
+        result     = result_o;
+        done       = done_o;
 
-        if (i_flush) begin
-            w_next_state = S_IDLE;
-            w_done       = 1'b0;
+        if (flush_i) begin
+            state_d = StIdle;
+            done    = 1'b0;
         end else begin
-            case (r_state)
-                S_IDLE: begin
-                    w_done = 1'b0;
+            case (state_q)
+                StIdle: begin
+                    done = 1'b0;
 
-                    if (i_start) begin
-                        w_a        = '0;
-                        w_m        = w_b_abs;
-                        w_q        = w_a_abs;
-                        w_cnt      = 6'd32;
-                        w_mul      = i_mul;
-                        w_sign     = w_a_neg ^ w_b_neg;
-                        w_rem_sign = w_a_neg;
+                    if (start_i) begin
+                        a_d        = '0;
+                        m_d        = b_abs;
+                        q_d        = a_abs;
+                        cnt_d      = 6'd32;
+                        mul_d      = mul_i;
+                        sign_d     = a_neg ^ b_neg;
+                        rem_sign_d = a_neg;
 
-                        if (i_mul) begin
-                            w_special    = 1'b0;
-                            w_next_state = S_ACTIVE;
-                        end else if (i_b == '0) begin
-                            w_result     = {i_a, 32'hFFFFFFFF};
-                            w_special    = 1'b1;
-                            w_next_state = S_DONE;
-                        end else if (i_a_signed && i_b_signed &&
-                                     i_a == 32'h80000000 && i_b == 32'hFFFFFFFF) begin
-                            w_result     = {32'b0, 32'h80000000};
-                            w_special    = 1'b1;
-                            w_next_state = S_DONE;
+                        if (mul_i) begin
+                            special_d = 1'b0;
+                            state_d   = StActive;
+                        end else if (b_i == '0) begin
+                            result    = {a_i, 32'hFFFFFFFF};
+                            special_d = 1'b1;
+                            state_d   = StDone;
+                        end else if (a_signed_i && b_signed_i && a_i == 32'h80000000 && b_i == 32'hFFFFFFFF) begin
+                            result    = {32'b0, 32'h80000000};
+                            special_d = 1'b1;
+                            state_d   = StDone;
                         end else begin
-                            w_special    = 1'b0;
-                            w_next_state = S_ACTIVE;
+                            special_d    = 1'b0;
+                            state_d   = StActive;
                         end
                     end
                 end
 
-                S_ACTIVE: begin
-                    if (r_cnt == 0) begin
-                        w_next_state = S_DONE;
+                StActive: begin
+                    if (cnt_q == 0) begin
+                        state_d = StDone;
                     end else begin
-                        if (r_mul) begin
-                            w_a = w_mul_shift[64:32];
-                            w_q = w_mul_shift[31:0];
+                        if (mul_q) begin
+                            a_d = mul_shift[64:32];
+                            q_d = mul_shift[31:0];
                         end else begin
-                            w_a = w_alu_res;
-                            w_q = w_div_q;
+                            a_d = alu_res;
+                            q_d = div_q;
                         end
-                        w_cnt = r_cnt - 1'b1;
+                        cnt_d = cnt_q - 1'b1;
                     end
                 end
 
-                S_DONE: begin
-                    if (r_mul) begin
-                        w_result = w_signed_prod;
-                    end else if (!r_special) begin
-                        w_result[31:0]  = r_sign ? (~r_q + 1'b1) : r_q;
-                        w_result[63:32] = r_rem_sign
-                                        ? (~w_alu_res[31:0] + 1'b1)
-                                        : w_alu_res[31:0];
+                StDone: begin
+                    if (mul_q) begin
+                        result = signed_prod;
+                    end else if (!special_q) begin
+                        result[31:0]  = sign_q ? (~q_q + 1'b1) : q_q;
+                        result[63:32] = rem_sign_q ? (~alu_res[31:0] + 1'b1) : alu_res[31:0];
                     end
 
-                    w_done       = 1'b1;
-                    w_next_state = S_IDLE;
+                    done    = 1'b1;
+                    state_d = StIdle;
                 end
 
                 default: begin
-                    w_next_state = S_IDLE;
-                    w_done       = 1'b0;
+                    done    = 1'b0;
+                    state_d = StIdle;
                 end
             endcase
         end
     end
 
-    always_ff @(posedge i_clk or negedge i_rstn) begin
-        if (!i_rstn) begin
-            r_state    <= S_IDLE;
-            r_a        <= '0;
-            r_m        <= '0;
-            r_q        <= '0;
-            r_cnt      <= '0;
-            r_mul      <= 1'b0;
-            r_sign     <= 1'b0;
-            r_rem_sign <= 1'b0;
-            r_special  <= 1'b0;
-            o_result   <= '0;
-            o_done     <= 1'b0;
+    always_ff @(posedge clk_i or negedge rst_ni) begin
+        if (!rst_ni) begin
+            state_q    <= StIdle;
+            a_q        <= '0;
+            m_q        <= '0;
+            q_q        <= '0;
+            cnt_q      <= '0;
+            mul_q      <= 1'b0;
+            sign_q     <= 1'b0;
+            rem_sign_q <= 1'b0;
+            special_q  <= 1'b0;
+            result_o   <= '0;
+            done_o     <= 1'b0;
         end else begin
-            r_state    <= w_next_state;
-            r_a        <= w_a;
-            r_m        <= w_m;
-            r_q        <= w_q;
-            r_cnt      <= w_cnt;
-            r_mul      <= w_mul;
-            r_sign     <= w_sign;
-            r_rem_sign <= w_rem_sign;
-            r_special  <= w_special;
-            o_result   <= w_result;
-            o_done     <= w_done;
+            state_q    <= state_d;
+            a_q        <= a_d;
+            m_q        <= m_d;
+            q_q        <= q_d;
+            cnt_q      <= cnt_d;
+            mul_q      <= mul_d;
+            sign_q     <= sign_d;
+            rem_sign_q <= rem_sign_d;
+            special_q  <= special_d;
+            result_o   <= result;
+            done_o     <= done;
         end
     end
 

@@ -33,94 +33,93 @@ module friscv_amo_unit import friscv_pkg::*; (
 );
 
 typedef enum logic [1:0] {
-    S_IDLE,
-    S_LOAD,
-    S_STORE
+    StIdle,
+    StLoad,
+    StStore
 } state_e;
 
-state_e  r_state, w_next_state;
-data_t   r_load_data;
-data_t   w_load_data;  // r_load_data, or live rdata on the cycle the load completes
-amo_op_e r_amo_op;
-data_t   r_rs2_val;
+state_e  state_q, state_d;
+data_t   load_data_q, load_data_d;
+amo_op_e amo_op_q;
+data_t   rs2_val_q;
 
-// Use live rdata on load-completion cycle (r_load_data not yet updated),
-// use the registered capture for all S_STORE cycles
-assign w_load_data = (r_state == S_LOAD && !mem_wait_i) ? mem_load_data_i : r_load_data;
+// Use live rdata on load-completion cycle (load_data_q not yet updated),
+// use the registered capture for all StStore cycles
+assign load_data_d = (state_q == StLoad && !mem_wait_i) ? mem_load_data_i : load_data_q;
 
-assign core_load_data_o = w_load_data;
+assign core_load_data_o = load_data_d;
 
 // Core should wait if
 //  1) On the initiating cycle when AMO is idle
 //  2) During a load
 //  3) During a stall, except when downstream is not waiting, that is the last cycle
-assign core_wait_o = ((r_state == S_IDLE)  && (amo_op_i != AMO_NONE)) ||
-                      ((r_state == S_LOAD)  && !mem_err_i) ||
-                      ((r_state == S_STORE) && mem_wait_i);
+assign core_wait_o = ((state_q == StIdle)  && (amo_op_i != AMO_NONE)) ||
+                      ((state_q == StLoad)  && !mem_err_i) ||
+                      ((state_q == StStore) && mem_wait_i);
 
 always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
-        r_load_data <= 32'b0;
-        r_amo_op    <= AMO_NONE;
-        r_rs2_val   <= 32'b0;
+        load_data_q <= 32'b0;
+        amo_op_q    <= AMO_NONE;
+        rs2_val_q   <= 32'b0;
     end else begin
         // Freeze AMO op/operand for the whole LOAD-STORE sequence.
-        if (r_state == S_IDLE && amo_op_i != AMO_NONE) begin
-            r_amo_op  <= amo_op_i;
-            r_rs2_val <= rs2_val_i;
+        if (state_q == StIdle && amo_op_i != AMO_NONE) begin
+            amo_op_q  <= amo_op_i;
+            rs2_val_q <= rs2_val_i;
         end
 
-        if (w_next_state == S_IDLE)
-            r_amo_op <= AMO_NONE;
+        if (state_d == StIdle)
+            amo_op_q <= AMO_NONE;
 
         // Capture load data when load completes
-        if (r_state == S_LOAD && !mem_wait_i)
-            r_load_data <= mem_load_data_i;
+        if (state_q == StLoad && !mem_wait_i)
+            load_data_q <= mem_load_data_i;
     end
 end
 
 always_comb begin
-    case (r_amo_op)
-        AMO_NONE: mem_store_data_o = r_load_data;
-        AMO_SWAP: mem_store_data_o = r_rs2_val;
-        AMO_ADD:  mem_store_data_o = r_load_data + r_rs2_val;
-        AMO_XOR:  mem_store_data_o = r_load_data ^ r_rs2_val;
-        AMO_AND:  mem_store_data_o = r_load_data & r_rs2_val;
-        AMO_OR:   mem_store_data_o = r_load_data | r_rs2_val;
-        AMO_MIN:  mem_store_data_o = ($signed(r_load_data) < $signed(r_rs2_val)) ? r_load_data : r_rs2_val;
-        AMO_MAX:  mem_store_data_o = ($signed(r_load_data) > $signed(r_rs2_val)) ? r_load_data : r_rs2_val;
-        AMO_MINU: mem_store_data_o = (r_load_data < r_rs2_val) ? r_load_data : r_rs2_val;
-        AMO_MAXU: mem_store_data_o = (r_load_data > r_rs2_val) ? r_load_data : r_rs2_val;
-        default:  mem_store_data_o = r_load_data;
+    case (amo_op_q)
+        AMO_NONE: mem_store_data_o = load_data_q;
+        AMO_SWAP: mem_store_data_o = rs2_val_q;
+        AMO_ADD:  mem_store_data_o = load_data_q + rs2_val_q;
+        AMO_XOR:  mem_store_data_o = load_data_q ^ rs2_val_q;
+        AMO_AND:  mem_store_data_o = load_data_q & rs2_val_q;
+        AMO_OR:   mem_store_data_o = load_data_q | rs2_val_q;
+        AMO_MIN:  mem_store_data_o = ($signed(load_data_q) < $signed(rs2_val_q)) ? load_data_q : rs2_val_q;
+        AMO_MAX:  mem_store_data_o = ($signed(load_data_q) > $signed(rs2_val_q)) ? load_data_q : rs2_val_q;
+        AMO_MINU: mem_store_data_o = (load_data_q < rs2_val_q) ? load_data_q : rs2_val_q;
+        AMO_MAXU: mem_store_data_o = (load_data_q > rs2_val_q) ? load_data_q : rs2_val_q;
+        default:  mem_store_data_o = load_data_q;
     endcase
 end
 
 // State machine
 always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (!rst_ni) r_state <= S_IDLE;
-    else         r_state <= w_next_state;
+    if (!rst_ni) state_q <= StIdle;
+    else         state_q <= state_d;
 end
 
 always_comb begin
-    case (r_state)
-        S_IDLE:
-            w_next_state = (amo_op_i != AMO_NONE) ? S_LOAD : S_IDLE;
-        S_LOAD:
-            w_next_state = mem_wait_i ? S_LOAD :
-                           mem_err_i  ? S_IDLE :
-                                        S_STORE;
-        S_STORE:
-            w_next_state = mem_wait_i ? S_STORE : S_IDLE;
-        default: w_next_state = S_IDLE;
+    case (state_q)
+        StIdle:
+            state_d = (amo_op_i != AMO_NONE) ? StLoad : StIdle;
+        StLoad:
+            state_d = mem_wait_i ? StLoad :
+                      mem_err_i  ? StIdle :
+                                   StStore;
+        StStore:
+            state_d = mem_wait_i ? StStore : StIdle;
+        default: state_d = StIdle;
     endcase
 end
 
 // Output decode
 always_comb begin
-    case (r_state)
-        S_IDLE:  mem_rw_o = (amo_op_i != AMO_NONE) ? RW_READ : RW_IDLE;
-        S_LOAD:  mem_rw_o = RW_READ;
-        S_STORE: mem_rw_o = RW_WRITE;
+    case (state_q)
+        StIdle:  mem_rw_o = (amo_op_i != AMO_NONE) ? RW_READ : RW_IDLE;
+        StLoad:  mem_rw_o = RW_READ;
+        StStore: mem_rw_o = RW_WRITE;
         default: mem_rw_o = RW_IDLE;
     endcase
 end

@@ -49,14 +49,16 @@ module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t,
     parameter int unsigned NumGpioAIrq      = 8,
     parameter bit          EnableSAxiGp     = 1'b0,
     parameter int unsigned NumSAxiGpRules   = 1,
+
     parameter type axi_lite_req_t = vernii_axi_lite_req_t,
     parameter type axi_lite_rsp_t = vernii_axi_lite_resp_t,
-    parameter type axi_req_t = vernii_axi_req_t,
-    parameter type axi_rsp_t = vernii_axi_resp_t,
-    parameter type reg_req_t = vernii_reg_req_t,
-    parameter type reg_rsp_t = vernii_reg_rsp_t,
-    parameter axi_pkg::xbar_rule_32_t [NumMRegRules-1:0]   MRegRules = '{default: '0},
-    parameter axi_pkg::xbar_rule_32_t [NumSAxiGpRules-1:0] SAxiGpRules    = '{default: '0}
+    parameter type axi_req_t      = vernii_axi_req_t,
+    parameter type axi_rsp_t      = vernii_axi_resp_t,
+    parameter type reg_req_t      = vernii_reg_req_t,
+    parameter type reg_rsp_t      = vernii_reg_rsp_t,
+
+    parameter axi_pkg::xbar_rule_32_t [NumMRegRules-1:0]   MRegRules   = '{default: '0},
+    parameter axi_pkg::xbar_rule_32_t [NumSAxiGpRules-1:0] SAxiGpRules = '{default: '0}
 ) (
     input  logic  clk_i,
     input  logic  rst_ni,

@@ -27,31 +27,31 @@ module friscv_tlb import friscv_pkg::*; #(
     // If not enabled, any sfence.vma will flush all TLB entries
     parameter bit EnableFineTlbFlush = 0
 ) (
-    input  logic       i_clk,
-    input  logic       i_rstn,
+    input  logic       clk_i,
+    input  logic       rst_ni,
 
     // Lookup
-    input  vpn_t       i_match_vpn,
-    input  satp_mode_e i_mode,
-    input  asid_t      i_match_asid,
-    output ppn_t       o_ppn,
-    output perm_t      o_perm,
-    output logic       o_hit,
+    input  vpn_t       match_vpn_i,
+    input  satp_mode_e mode_i,
+    input  asid_t      match_asid_i,
+    output ppn_t       ppn_o,
+    output perm_t      perm_o,
+    output logic       hit_o,
 
     // Fill
-    input  vpn_t       i_fill_vpn,
-    input  ppn_t       i_fill_ppn,
-    input  asid_t      i_fill_asid,
-    input  perm_t      i_fill_perm,
-    input  pte_level_t i_fill_level,
-    input  logic       i_fill_en,
+    input  vpn_t       fill_vpn_i,
+    input  ppn_t       fill_ppn_i,
+    input  asid_t      fill_asid_i,
+    input  perm_t      fill_perm_i,
+    input  pte_level_t fill_level_i,
+    input  logic       fill_en_i,
 
     // Flush
-    input  logic       i_flush,
-    input  vpn_t       i_flush_vpn,
-    input  logic       i_flush_vpn_en,
-    input  asid_t      i_flush_asid,
-    input  logic       i_flush_asid_en
+    input  logic       flush_i,
+    input  vpn_t       flush_vpn_i,
+    input  logic       flush_vpn_en_i,
+    input  asid_t      flush_asid_i,
+    input  logic       flush_asid_en_i
 );
 
 if (EntryCount < 2) begin : gen_chk_entry_count
@@ -69,13 +69,13 @@ typedef struct packed {
     perm_t      perm;
 } tlb_entry_t;
 
-tlb_entry_t r_tlb [EntryCount];
+tlb_entry_t tlb [EntryCount];
 
-logic [EntryCount-1:0]         r_ref;       // Clock reference bits (set on fill, cleared on sweep)
-logic [$clog2(EntryCount)-1:0] r_clock_ptr; // Clock hand position
+logic [EntryCount-1:0]         ref_q;       // Clock reference bits (set on fill, cleared on sweep)
+logic [$clog2(EntryCount)-1:0] clock_ptr_q; // Clock hand position
 
-logic                          w_any_invalid;
-logic [$clog2(EntryCount)-1:0] w_invalid_slot, w_clock_victim, w_hit_idx;
+logic                          any_invalid;
+logic [$clog2(EntryCount)-1:0] invalid_slot, clock_victim, hit_idx;
 
 // Generate a mask that zeroes the lowest level*pn_width bits of a vpn
 `pragma diagnostic push
@@ -94,61 +94,61 @@ endfunction
 // Fill and flush
 // ============================================================
 
-logic w_hit;
+logic hit_d;
 
-always_ff @(posedge i_clk or negedge i_rstn) begin
+always_ff @(posedge clk_i or negedge rst_ni) begin
 
-    if (!i_rstn) begin
+    if (!rst_ni) begin
 
         for (int unsigned g = 0; g < EntryCount; g++) begin : tlb_reset
-            r_tlb[g] <= '0;
+            tlb[g] <= '0;
         end
 
-        r_ref       <= '0;
-        r_clock_ptr <= '0;
+        ref_q       <= '0;
+        clock_ptr_q <= '0;
 
     end else begin
 
         // Set ref bit on hit so recently-used entries get a second chance
-        if (w_hit)
-            r_ref[w_hit_idx] <= 1'b1;
+        if (hit_d)
+            ref_q[hit_idx] <= 1'b1;
 
-        if (i_flush) begin  // Global flush enable, has priority (nothing flushed if not i_flush)
+        if (flush_i) begin  // Global flush enable, has priority (nothing flushed if not flush_i)
 
             // sfence.vma rs1, rs2: VPN+ASID match, not global
-            if (EnableFineTlbFlush && i_flush_vpn_en && i_flush_asid_en) begin
+            if (EnableFineTlbFlush && flush_vpn_en_i && flush_asid_en_i) begin
 
                 for (int unsigned g = 0; g < EntryCount; g++) begin
                     vpn_t mask;
                     logic vpn_match;
 
-                    mask = vpn_mask(r_tlb[g].level, i_mode);
-                    vpn_match = (i_flush_vpn & mask) == r_tlb[g].vpn;
+                    mask = vpn_mask(tlb[g].level, mode_i);
+                    vpn_match = (flush_vpn_i & mask) == tlb[g].vpn;
 
-                    if (vpn_match && r_tlb[g].asid == i_flush_asid && !r_tlb[g].perm.g)
-                        r_tlb[g] <= '0;
+                    if (vpn_match && tlb[g].asid == flush_asid_i && !tlb[g].perm.g)
+                        tlb[g] <= '0;
                 end
 
             // sfence.vma rs1, x0: VPN match, all ASIDs and global
-            end else if (EnableFineTlbFlush && i_flush_vpn_en) begin
+            end else if (EnableFineTlbFlush && flush_vpn_en_i) begin
 
                 for (int unsigned g = 0; g < EntryCount; g++) begin
                     vpn_t mask;
                     logic vpn_match;
 
-                    mask = vpn_mask(r_tlb[g].level, i_mode);
-                    vpn_match = (i_flush_vpn & mask) == r_tlb[g].vpn;
+                    mask = vpn_mask(tlb[g].level, mode_i);
+                    vpn_match = (flush_vpn_i & mask) == tlb[g].vpn;
 
                     if (vpn_match)
-                        r_tlb[g] <= '0;
+                        tlb[g] <= '0;
                 end
 
             // sfence.vma x0, rs2: ASID match, not global
-            end else if (EnableFineTlbFlush && i_flush_asid_en) begin
+            end else if (EnableFineTlbFlush && flush_asid_en_i) begin
 
                 for (int unsigned g = 0; g < EntryCount; g++) begin
-                    if (r_tlb[g].asid == i_flush_asid && !r_tlb[g].perm.g)
-                        r_tlb[g] <= '0;
+                    if (tlb[g].asid == flush_asid_i && !tlb[g].perm.g)
+                        tlb[g] <= '0;
                 end
 
             // sfence.vma x0, x0: flush all
@@ -156,35 +156,35 @@ always_ff @(posedge i_clk or negedge i_rstn) begin
             end else begin
 
                 for (int unsigned g = 0; g < EntryCount; g++) begin
-                    r_tlb[g] <= '0;
+                    tlb[g] <= '0;
                 end
 
             end
 
-        end else if (i_fill_en) begin  // Insert or replace with new entry
+        end else if (fill_en_i) begin  // Insert or replace with new entry
 
             logic [$clog2(EntryCount)-1:0] victim;
             vpn_t mask;
 
-            victim = w_any_invalid ? w_invalid_slot : w_clock_victim;
-            mask   = vpn_mask(i_fill_level, i_mode);
+            victim = any_invalid ? invalid_slot : clock_victim;
+            mask   = vpn_mask(fill_level_i, mode_i);
 
-            r_tlb[victim].vpn   <= i_fill_vpn & mask;
-            r_tlb[victim].ppn   <= i_fill_ppn;
-            r_tlb[victim].asid  <= i_fill_asid;
-            r_tlb[victim].level <= i_fill_level;
-            r_tlb[victim].perm  <= i_fill_perm;
-            r_ref[victim]       <= 1'b1;  // Mark newly added entry as recently used
+            tlb[victim].vpn   <= fill_vpn_i & mask;
+            tlb[victim].ppn   <= fill_ppn_i;
+            tlb[victim].asid  <= fill_asid_i;
+            tlb[victim].level <= fill_level_i;
+            tlb[victim].perm  <= fill_perm_i;
+            ref_q[victim]     <= 1'b1;  // Mark newly added entry as recently used
 
-            if (!w_any_invalid) begin
+            if (!any_invalid) begin
                 // Clear ref bits of all entries the clock hand swept past on its way to the victim
                 // Entries at distance 0 to dist_victim-1 from r_clock_ptr are cleared (not recently used)
                 for (int unsigned g = 0; g < EntryCount; g++) begin : tlb_sweep_ref
                     // 5-bit unsigned circular distances from clock_ptr to g and to victim
-                    if (($clog2(EntryCount))'(g) - r_clock_ptr < w_clock_victim - r_clock_ptr)
-                        r_ref[g] <= 1'b0;
+                    if (($clog2(EntryCount))'(g) - clock_ptr_q < clock_victim - clock_ptr_q)
+                        ref_q[g] <= 1'b0;
                 end
-                r_clock_ptr <= (w_clock_victim == ($clog2(EntryCount))'(EntryCount-1)) ? '0 : w_clock_victim + 1;
+                clock_ptr_q <= (clock_victim == ($clog2(EntryCount))'(EntryCount-1)) ? '0 : clock_victim + 1;
             end
 
         end
@@ -197,12 +197,12 @@ end
 // ============================================================
 
 always_comb begin : tlb_detect_invalid_slot
-    w_any_invalid = 1'b0;
-    w_invalid_slot = '0;
+    any_invalid = 1'b0;
+    invalid_slot = '0;
     for (int unsigned g = 0; g < EntryCount; g++) begin
-        if (!r_tlb[g].perm.v && !w_any_invalid) begin
-            w_any_invalid = 1'b1;
-            w_invalid_slot = g[$clog2(EntryCount)-1:0];
+        if (!tlb[g].perm.v && !any_invalid) begin
+            any_invalid = 1'b1;
+            invalid_slot = g[$clog2(EntryCount)-1:0];
         end
     end
 end
@@ -210,10 +210,10 @@ end
 // Clock victim - first entry with r_ref=0 starting from r_clock_ptr, circular.
 // If all refs are 1, defaults to r_clock_ptr.
 always_comb begin : tlb_detect_clock_victim
-    w_clock_victim = r_clock_ptr;
+    clock_victim = clock_ptr_q;
     for (int i = EntryCount-1; i >= 0; i--) begin
-        if (!r_ref[r_clock_ptr + i[$clog2(EntryCount)-1:0]])
-            w_clock_victim = r_clock_ptr + i[$clog2(EntryCount)-1:0];
+        if (!ref_q[clock_ptr_q + i[$clog2(EntryCount)-1:0]])
+            clock_victim = clock_ptr_q + i[$clog2(EntryCount)-1:0];
     end
 end
 
@@ -238,44 +238,44 @@ function automatic ppn_t reconstruct_ppn(
 endfunction : reconstruct_ppn
 `pragma diagnostic pop
 
-ppn_t       r_ppn, w_ppn;
-perm_t      r_perm, w_perm;
-logic       r_hit;
+ppn_t       ppn_q, ppn_d;
+perm_t      perm_q, perm_d;
+logic       hit_q;
 
-always_ff @(posedge i_clk or negedge i_rstn) begin : buffer_lookup
-    if (!i_rstn) begin
-        r_ppn   <= '0;
-        r_perm  <= '0;
-        r_hit   <= 1'b0;
+always_ff @(posedge clk_i or negedge rst_ni) begin : buffer_lookup
+    if (!rst_ni) begin
+        ppn_q   <= '0;
+        perm_q  <= '0;
+        hit_q   <= 1'b0;
     end else begin
-        r_ppn   <= w_ppn;
-        r_perm  <= w_perm;
-        r_hit   <= w_hit;
+        ppn_q   <= ppn_d;
+        perm_q  <= perm_d;
+        hit_q   <= hit_d;
     end
 end
 
-assign o_ppn   = r_ppn;
-assign o_perm  = r_perm;
-assign o_hit   = r_hit;
+assign ppn_o   = ppn_q;
+assign perm_o  = perm_q;
+assign hit_o   = hit_q;
 
 always_comb begin
-    w_ppn     = '0;
-    w_perm    = '0;
-    w_hit     = 1'b0;
-    w_hit_idx = '0;
+    ppn_d   = '0;
+    perm_d  = '0;
+    hit_d   = 1'b0;
+    hit_idx = '0;
 
     for (int unsigned g = 0; g < EntryCount; g++) begin : tlb_lookup
         vpn_t mask;
         logic vpn_match;
 
-        mask      = vpn_mask(r_tlb[g].level, i_mode);
-        vpn_match = (i_match_vpn & mask) == r_tlb[g].vpn;
+        mask      = vpn_mask(tlb[g].level, mode_i);
+        vpn_match = (match_vpn_i & mask) == tlb[g].vpn;
 
-        if (r_tlb[g].perm.v && (r_tlb[g].perm.g || i_match_asid == r_tlb[g].asid) && vpn_match) begin
-            w_ppn     = reconstruct_ppn(r_tlb[g].ppn, i_match_vpn, r_tlb[g].level, i_mode);
-            w_perm    = r_tlb[g].perm;
-            w_hit     = 1'b1;
-            w_hit_idx = g[$clog2(EntryCount)-1:0];
+        if (tlb[g].perm.v && (tlb[g].perm.g || match_asid_i == tlb[g].asid) && vpn_match) begin
+            ppn_d     = reconstruct_ppn(tlb[g].ppn, match_vpn_i, tlb[g].level, mode_i);
+            perm_d    = tlb[g].perm;
+            hit_d     = 1'b1;
+            hit_idx = g[$clog2(EntryCount)-1:0];
         end
     end : tlb_lookup
 end

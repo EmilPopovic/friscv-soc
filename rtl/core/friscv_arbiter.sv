@@ -7,143 +7,145 @@
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
 
 module friscv_arbiter import friscv_pkg::*; (
-    input  logic       i_clk,
-    input  logic       i_rstn,
+    input  logic       clk_i,
+    input  logic       rst_ni,
 
     // Instruction Memory Interface
-    input  addr_t      i_inst_addr,
-    output data_t      o_inst_data,
-    input  logic       i_inst_en,
-    output logic       o_inst_wait,
-    output logic       o_inst_err,
+    input  addr_t      inst_addr_i,
+    output data_t      inst_data_o,
+    input  logic       inst_en_i,
+    output logic       inst_wait_o,
+    output logic       inst_err_o,
 
     // Data Memory Interface
-    input  addr_t      i_data_addr,
-    input  mem_width_e i_data_size,
-    input  data_t      i_data_wdata,
-    output data_t      o_data_rdata,
-    input  logic       i_data_en,
-    input  logic       i_data_wr,
-    output logic       o_data_wait,
-    input  amo_op_e    i_amo_op,
-    output logic       o_data_err,
+    input  addr_t      data_addr_i,
+    input  mem_width_e data_size_i,
+    input  data_t      data_wdata_i,
+    output data_t      data_rdata_o,
+    input  logic       data_en_i,
+    input  logic       data_wr_i,
+    output logic       data_wait_o,
+    input  amo_op_e    amo_op_i,
+    output logic       data_err_o,
 
     // External Interface
-    output addr_t      o_mem_addr,
-    output mem_width_e o_mem_size,
-    output data_t      o_mem_wdata,
-    input  data_t      i_mem_rdata,
-    output rw_cmd_e    o_mem_rw,
-    input  logic       i_mem_wait,
-    input  logic       i_mem_err,
-    output amo_op_e    o_amo_op,
+    output addr_t      mem_addr_o,
+    output mem_width_e mem_size_o,
+    output data_t      mem_wdata_o,
+    input  data_t      mem_rdata_i,
+    output rw_cmd_e    mem_rw_o,
+    input  logic       mem_wait_i,
+    input  logic       mem_err_i,
+    output amo_op_e    amo_op_o,
 
     // Status to the MMU
-    output logic       o_grant_start,
-    output logic       o_grant_start_inst,
-    output logic       o_grant_held
+    output logic       grant_start_o,
+    output logic       grant_start_inst_o,
+    output logic       grant_held_o
 );
 
-// S_IDLE      : bus free, a request present on the core inputs is issued
-//               combinationally in this same cycle.
-// S_HOLD_INST : an instruction fetch was issued and the memory asserted wait;
-//               the request is frozen in r_inst_addr and re-driven until done.
-// S_HOLD_DATA : same for a data access.
+// StIdle     : bus free, a request present on the core inputs is issued
+//              combinationally in this same cycle.
+// StHoldInst : an instruction fetch was issued and the memory asserted wait;
+//              the request is frozen in r_inst_addr and re-driven until done.
+// StHoldData : same for a data access.
 typedef enum logic [1:0] {
-    S_IDLE,
-    S_HOLD_INST,
-    S_HOLD_DATA
+    StIdle,
+    StHoldInst,
+    StHoldData
 } state_e;
 
-state_e r_state, w_next_state;
-logic   r_data_priority;
+state_e state_q, state_d;
+logic   data_priority_q;
 
-addr_t      r_inst_addr;
-addr_t      r_data_addr;
-mem_width_e r_data_size;
-data_t      r_data_wdata;
-logic       r_data_wr;
-amo_op_e    r_data_amo;
+addr_t      inst_addr_q;
+addr_t      data_addr_q;
+mem_width_e data_size_q;
+data_t      data_wdata_q;
+logic       data_wr_q;
+amo_op_e    data_amo_q;
 
 // ============================================================
 // Issue selection
 // ===========================================================
-logic w_take_inst, w_take_data, w_take_any;
+logic take_inst, take_data, take_any;
 
 always_comb begin
-    w_take_inst = 1'b0;
-    w_take_data = 1'b0;
-    if (r_state == S_IDLE) begin
-        if (i_inst_en && i_data_en) begin
-            w_take_inst = !r_data_priority;
-            w_take_data =  r_data_priority;
+    take_inst = 1'b0;
+    take_data = 1'b0;
+    if (state_q == StIdle) begin
+        if (inst_en_i && data_en_i) begin
+            take_inst = !data_priority_q;
+            take_data =  data_priority_q;
         end else begin
-            w_take_inst = i_inst_en;
-            w_take_data = i_data_en;
+            take_inst = inst_en_i;
+            take_data = data_en_i;
         end
     end
 end
 
-assign w_take_any = w_take_inst | w_take_data;
+assign take_any = take_inst | take_data;
 
 // A transaction is on the bus this cycle if it is being issued now, or held
-logic w_busy_inst, w_busy_data, w_busy;
-assign w_busy_inst = w_take_inst | (r_state == S_HOLD_INST);
-assign w_busy_data = w_take_data | (r_state == S_HOLD_DATA);
-assign w_busy      = w_busy_inst | w_busy_data;
+logic busy_inst, busy_data, busy;
+assign busy_inst = take_inst | (state_q == StHoldInst);
+assign busy_data = take_data | (state_q == StHoldData);
+assign busy      = busy_inst | busy_data;
 
 // Transaction retires this cycle
-logic w_done;
-assign w_done = w_busy & ~i_mem_wait;
+logic done;
+assign done = busy & !mem_wait_i;
 
 // Must park in a HOLD state, issued this cycle but the memory did not complete
-logic w_park;
-assign w_park = w_take_any & i_mem_wait;
+logic park;
+assign park = take_any & mem_wait_i;
 
 // ============================================================
 // Next state
 // ============================================================
 always_comb begin
-    w_next_state = r_state;
-    case (r_state)
-        S_IDLE:      if (w_park) w_next_state = w_take_inst ? S_HOLD_INST : S_HOLD_DATA;
-        S_HOLD_INST,
-        S_HOLD_DATA: if (!i_mem_wait) w_next_state = S_IDLE;
-        default:     w_next_state = S_IDLE;
+    state_d = state_q;
+    case (state_q)
+        StIdle:     if (park) state_d = take_inst ? StHoldInst : StHoldData;
+        StHoldInst,
+        StHoldData: if (!mem_wait_i) state_d = StIdle;
+        default:    state_d = StIdle;
     endcase
 end
 
 // ============================================================
-// Sequential
+// Sequentials == St
 // ============================================================
-always_ff @(posedge i_clk or negedge i_rstn) begin
-    if (!i_rstn) begin
-        r_state         <= S_IDLE;
-        r_data_priority <= 1'b0;
-        r_inst_addr     <= '0;
-        r_data_addr     <= '0;
-        r_data_size     <= WIDTH_I32;
-        r_data_wdata    <= '0;
-        r_data_wr       <= 1'b0;
-        r_data_amo      <= AMO_NONE;
+
+always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) state_q <= StIdle;
+    else         state_q <= state_d;
+end
+
+always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+        data_priority_q <= 1'b0;
+        inst_addr_q     <= '0;
+        data_addr_q     <= '0;
+        data_size_q     <= WIDTH_I32;
+        data_wdata_q    <= '0;
+        data_wr_q       <= 1'b0;
+        data_amo_q      <= AMO_NONE;
     end else begin
-        r_state <= w_next_state;
-
         // Freeze the request if it is going to be held
-        if (w_park && w_take_inst) begin
-            r_inst_addr  <= i_inst_addr;
+        if (park && take_inst) begin
+            inst_addr_q  <= inst_addr_i;
         end
-        if (w_park && w_take_data) begin
-            r_data_addr  <= i_data_addr;
-            r_data_size  <= i_data_size;
-            r_data_wdata <= i_data_wdata;
-            r_data_wr    <= i_data_wr;
-            r_data_amo   <= i_amo_op;
+        if (park && take_data) begin
+            data_addr_q  <= data_addr_i;
+            data_size_q  <= data_size_i;
+            data_wdata_q <= data_wdata_i;
+            data_wr_q    <= data_wr_i;
+            data_amo_q   <= amo_op_i;
         end
-
         // Rotate priority on completion
-        if (w_done) begin
-            r_data_priority <= w_busy_inst;
+        if (done) begin
+            data_priority_q <= busy_inst;
         end
     end
 end
@@ -152,49 +154,49 @@ end
 // Output
 // ============================================================
 always_comb begin
-    o_mem_addr  = '0;
-    o_mem_size  = WIDTH_I32;
-    o_mem_wdata = '0;
-    o_mem_rw    = RW_IDLE;
-    o_amo_op    = AMO_NONE;
-    o_inst_wait = 1'b0;
-    o_data_wait = 1'b0;
-    o_inst_err  = 1'b0;
-    o_data_err  = 1'b0;
+    mem_addr_o  = '0;
+    mem_size_o  = WIDTH_I32;
+    mem_wdata_o = '0;
+    mem_rw_o    = RW_IDLE;
+    amo_op_o    = AMO_NONE;
+    inst_wait_o = 1'b0;
+    data_wait_o = 1'b0;
+    inst_err_o  = 1'b0;
+    data_err_o  = 1'b0;
 
-    if (w_busy_inst) begin
-        o_mem_addr  = w_take_inst ? i_inst_addr : r_inst_addr;
-        o_mem_size  = WIDTH_I32;
-        o_mem_rw    = RW_READ;
+    if (busy_inst) begin
+        mem_addr_o  = take_inst ? inst_addr_i : inst_addr_q;
+        mem_size_o  = WIDTH_I32;
+        mem_rw_o    = RW_READ;
 
-        o_inst_wait = i_mem_wait;
-        o_inst_err  = i_mem_err;
+        inst_wait_o = mem_wait_i;
+        inst_err_o  = mem_err_i;
 
-        if (i_data_en) o_data_wait = 1'b1;   // data is queued
+        if (data_en_i) data_wait_o = 1'b1;   // data is queued
 
-    end else if (w_busy_data) begin
-        o_mem_addr  = w_take_data ? i_data_addr  : r_data_addr;
-        o_mem_size  = w_take_data ? i_data_size  : r_data_size;
-        o_mem_wdata = w_take_data ? i_data_wdata : r_data_wdata;
-        o_mem_rw    = (w_take_data ? i_data_wr : r_data_wr) ? RW_WRITE : RW_READ;
-        o_amo_op    = w_take_data ? i_amo_op     : r_data_amo;
+    end else if (busy_data) begin
+        mem_addr_o  = take_data ? data_addr_i  : data_addr_q;
+        mem_size_o  = take_data ? data_size_i  : data_size_q;
+        mem_wdata_o = take_data ? data_wdata_i : data_wdata_q;
+        mem_rw_o    = (take_data ? data_wr_i : data_wr_q) ? RW_WRITE : RW_READ;
+        amo_op_o    = take_data ? amo_op_i     : data_amo_q;
 
-        o_data_wait = i_mem_wait;
-        o_data_err  = i_mem_err;
+        data_wait_o = mem_wait_i;
+        data_err_o  = mem_err_i;
 
-        if (i_inst_en) o_inst_wait = 1'b1;   // fetch is queued
+        if (inst_en_i) inst_wait_o = 1'b1;   // fetch is queued
 
     end else begin
-        if (i_inst_en) o_inst_wait = 1'b1;
-        if (i_data_en) o_data_wait = 1'b1;
+        if (inst_en_i) inst_wait_o = 1'b1;
+        if (data_en_i) data_wait_o = 1'b1;
     end
 end
 
-assign o_inst_data  = i_mem_rdata;
-assign o_data_rdata = i_mem_rdata;
+assign inst_data_o  = mem_rdata_i;
+assign data_rdata_o = mem_rdata_i;
 
-assign o_grant_start      = w_take_any;
-assign o_grant_start_inst = w_take_inst;
-assign o_grant_held       = (r_state != S_IDLE);
+assign grant_start_o      = take_any;
+assign grant_start_inst_o = take_inst;
+assign grant_held_o       = (state_q != StIdle);
 
 endmodule

@@ -12,177 +12,177 @@
  */
 
 module friscv_mmu import friscv_pkg::*; #(
-    parameter bit EnforcePmp    = 0,
-    parameter bit EnforcePtwPmp = 0,
+    parameter bit          EnforcePmp    = 0,
+    parameter bit          EnforcePtwPmp = 0,
     parameter int unsigned PmpEntries    = 8,
     // Must be a power of 2 greater than 1
     parameter int unsigned ItlbEntries = 2,
     parameter int unsigned DtlbEntries = 4,
     // If not enabled, any sfence.vma will flush all TLB entries
-    parameter bit EnableFineTlbFlush = 0
+    parameter bit          EnableFineTlbFlush = 0
 ) (
-    input  logic        i_clk,
-    input  logic        i_rstn,
+    input  logic        clk_i,
+    input  logic        rst_ni,
 
     // Instruction Memory Interface
-    input  addr_t       i_inst_addr,
-    output data_t       o_inst_data,
-    input  logic        i_inst_en,
-    output logic        o_inst_wait,
-    output logic        o_inst_err,
-    output logic        o_inst_pmp_fault,
+    input  addr_t       inst_addr_i,
+    output data_t       inst_data_o,
+    input  logic        inst_en_i,
+    output logic        inst_wait_o,
+    output logic        inst_err_o,
+    output logic        inst_pmp_fault_o,
 
     // Data Memory Interface
-    input  addr_t       i_data_addr,
-    input  mem_width_e  i_data_size,
-    input  data_t       i_data_wdata,
-    output data_t       o_data_rdata,
-    input  logic        i_data_en,
-    input  logic        i_data_wr,
-    input  logic        i_data_store_like,
-    output logic        o_data_wait,
-    output logic        o_data_err,
-    output logic        o_data_pmp_fault,
-    input  amo_op_e     i_amo_op,
+    input  addr_t       data_addr_i,
+    input  mem_width_e  data_size_i,
+    input  data_t       data_wdata_i,
+    output data_t       data_rdata_o,
+    input  logic        data_en_i,
+    input  logic        data_wr_i,
+    input  logic        data_store_like_i,
+    output logic        data_wait_o,
+    output logic        data_err_o,
+    output logic        data_pmp_fault_o,
+    input  amo_op_e     amo_op_i,
 
     // External Memory Interface
-    output addr_t       o_mem_addr,
-    output mem_width_e  o_mem_size,
-    output data_t       o_mem_wdata,
-    input  data_t       i_mem_rdata,
-    output rw_cmd_e     o_mem_rw,
-    input  logic        i_mem_wait,
-    input  logic        i_mem_err,
-    output amo_op_e     o_amo_op,
+    output addr_t       mem_addr_o,
+    output mem_width_e  mem_size_o,
+    output data_t       mem_wdata_o,
+    input  data_t       mem_rdata_i,
+    output rw_cmd_e     mem_rw_o,
+    input  logic        mem_wait_i,
+    input  logic        mem_err_i,
+    output amo_op_e     amo_op_o,
 
     // Protection and Translation Control
-    input  satp_t       i_satp,
-    input  logic        i_sum,
-    input  logic        i_mxr,
-    input  mode_e       i_inst_mode,
-    input  mode_e       i_data_mode,
-    input  logic        i_flush_tlb,
-    input  vpn_t        i_flush_vpn,
-    input  logic        i_flush_vpn_en,
-    input  asid_t       i_flush_asid,
-    input  logic        i_flush_asid_en,
-    input  pmp_entry_t [PmpEntries-1:0] i_pmp_table,
+    input  satp_t       satp_i,
+    input  logic        sum_i,
+    input  logic        mxr_i,
+    input  mode_e       inst_mode_i,
+    input  mode_e       data_mode_i,
+    input  logic        flush_tlb_i,
+    input  vpn_t        flush_vpn_i,
+    input  logic        flush_vpn_en_i,
+    input  asid_t       flush_asid_i,
+    input  logic        flush_asid_en_i,
+    input  pmp_entry_t [PmpEntries-1:0] pmp_table_i,
 
     // Page fault signals
-    output logic        o_inst_fault,
-    output logic        o_load_fault,
-    output logic        o_store_fault,
-    output addr_t       o_fault_addr
+    output logic        inst_fault_o,
+    output logic        load_fault_o,
+    output logic        store_fault_o,
+    output addr_t       fault_addr_o
 );
 
 // Granted request lines and latched translation context
-mem_width_e   w_grant_size;
-data_t        w_grant_wdata;
-rw_cmd_e      w_grant_rw;
-logic         w_stall;
-amo_op_e      w_grant_amo;
-logic         w_grant_start;
-logic         w_grant_start_inst;
-logic         w_grant_held;
-logic         w_grant_active;
-logic         w_l1_inst_err;
-logic         w_l1_data_err;
+mem_width_e   grant_size;
+data_t        grant_wdata;
+rw_cmd_e      grant_rw;
+logic         stall;
+amo_op_e      grant_amo;
+logic         grant_start;
+logic         grant_start_inst;
+logic         grant_held;
+logic         grant_active;
+logic         l1_inst_err;
+logic         l1_data_err;
 mmu_req_ctx_t r_req_ctx;
-mmu_req_ctx_t w_eff_req_ctx;
-mmu_req_ctx_t w_start_req_ctx;
-asid_t        w_eff_asid;
+mmu_req_ctx_t eff_req_ctx;
+mmu_req_ctx_t start_req_ctx;
+asid_t        eff_asid;
 
-logic w_paging_en;
+logic paging_en;
 
 // ============================================================
 // TLB layer
 // ============================================================
 
-vpn_t w_inst_vpn, w_data_vpn;
-assign w_inst_vpn = (w_grant_active && w_eff_req_ctx.is_inst)  ? vpn_t'(w_eff_req_ctx.addr[31:12]) : vpn_t'(i_inst_addr[31:12]);
-assign w_data_vpn = (w_grant_active && !w_eff_req_ctx.is_inst) ? vpn_t'(w_eff_req_ctx.addr[31:12]) : vpn_t'(i_data_addr[31:12]);
+vpn_t inst_vpn, data_vpn;
+assign inst_vpn = (grant_active && eff_req_ctx.is_inst)  ? vpn_t'(eff_req_ctx.addr[31:12]) : vpn_t'(inst_addr_i[31:12]);
+assign data_vpn = (grant_active && !eff_req_ctx.is_inst) ? vpn_t'(eff_req_ctx.addr[31:12]) : vpn_t'(data_addr_i[31:12]);
 
 // Lookup lines
-ppn_t       w_itlb_ppn, w_dtlb_ppn;
-perm_t      w_itlb_perm, w_dtlb_perm;
-logic       w_itlb_hit, w_dtlb_hit;
+ppn_t  itlb_ppn,  dtlb_ppn;
+perm_t itlb_perm, dtlb_perm;
+logic  itlb_hit,  dtlb_hit;
 
-satp_mode_e w_tlb_mode;
-assign w_tlb_mode = satp_mode_e'(w_eff_req_ctx.satp.mode);
+satp_mode_e tlb_mode;
+assign tlb_mode = satp_mode_e'(eff_req_ctx.satp.mode);
 
 // Fill lines
-vpn_t       w_fill_vpn;
-ppn_t       w_fill_ppn;
-asid_t      w_fill_asid;
-perm_t      w_fill_perm;
-pte_level_t w_fill_level;
-logic       w_fill_itlb, w_fill_dtlb;
+vpn_t       fill_vpn;
+ppn_t       fill_ppn;
+asid_t      fill_asid;
+perm_t      fill_perm;
+pte_level_t fill_level;
+logic       fill_itlb, fill_dtlb;
 
 // Physical addresses
-addr_t w_inst_pa, w_data_pa;
-assign w_inst_pa = w_paging_en ? {w_itlb_ppn[PA_PPN_W-1:0], i_inst_addr[11:0]} : i_inst_addr;
-assign w_data_pa = w_paging_en ? {w_dtlb_ppn[PA_PPN_W-1:0], i_data_addr[11:0]} : i_data_addr;
+addr_t inst_pa, data_pa;
+assign inst_pa = paging_en ? {itlb_ppn[PA_PPN_W-1:0], inst_addr_i[11:0]} : inst_addr_i;
+assign data_pa = paging_en ? {dtlb_ppn[PA_PPN_W-1:0], data_addr_i[11:0]} : data_addr_i;
 
 friscv_tlb #(
     .EntryCount         ( ItlbEntries        ),
     .EnableFineTlbFlush ( EnableFineTlbFlush )
 ) i_itlb (
-    .i_clk           ( i_clk           ),
-    .i_rstn          ( i_rstn          ),
+    .clk_i,
+    .rst_ni,
 
     // Lookup
-    .i_match_vpn     ( w_inst_vpn      ),
-    .i_mode          ( w_tlb_mode      ),
-    .i_match_asid    ( w_eff_asid      ),
-    .o_ppn           ( w_itlb_ppn      ),
-    .o_perm          ( w_itlb_perm     ),
-    .o_hit           ( w_itlb_hit      ),
+    .match_vpn_i     ( inst_vpn        ),
+    .mode_i          ( tlb_mode        ),
+    .match_asid_i    ( eff_asid        ),
+    .ppn_o           ( itlb_ppn        ),
+    .perm_o          ( itlb_perm       ),
+    .hit_o           ( itlb_hit        ),
 
     // Fill
-    .i_fill_vpn      ( w_fill_vpn      ),
-    .i_fill_ppn      ( w_fill_ppn      ),
-    .i_fill_asid     ( w_fill_asid     ),
-    .i_fill_perm     ( w_fill_perm     ),
-    .i_fill_level    ( w_fill_level    ),
-    .i_fill_en       ( w_fill_itlb     ),
+    .fill_vpn_i      ( fill_vpn        ),
+    .fill_ppn_i      ( fill_ppn        ),
+    .fill_asid_i     ( fill_asid       ),
+    .fill_perm_i     ( fill_perm       ),
+    .fill_level_i    ( fill_level      ),
+    .fill_en_i       ( fill_itlb       ),
 
     // Flush
-    .i_flush         ( i_flush_tlb     ),
-    .i_flush_vpn     ( i_flush_vpn     ),
-    .i_flush_vpn_en  ( i_flush_vpn_en  ),
-    .i_flush_asid    ( i_flush_asid    ),
-    .i_flush_asid_en ( i_flush_asid_en )
+    .flush_i         ( flush_tlb_i     ),
+    .flush_vpn_i     ( flush_vpn_i     ),
+    .flush_vpn_en_i  ( flush_vpn_en_i  ),
+    .flush_asid_i    ( flush_asid_i    ),
+    .flush_asid_en_i ( flush_asid_en_i )
 );
 
 friscv_tlb #(
     .EntryCount         ( DtlbEntries        ),
     .EnableFineTlbFlush ( EnableFineTlbFlush )
 ) i_dtlb (
-    .i_clk           ( i_clk           ),
-    .i_rstn          ( i_rstn          ),
+    .clk_i,
+    .rst_ni,
 
     // Lookup
-    .i_match_vpn     ( w_data_vpn      ),
-    .i_mode          ( w_tlb_mode      ),
-    .i_match_asid    ( w_eff_asid      ),
-    .o_ppn           ( w_dtlb_ppn      ),
-    .o_perm          ( w_dtlb_perm     ),
-    .o_hit           ( w_dtlb_hit      ),
+    .match_vpn_i     ( data_vpn        ),
+    .mode_i          ( tlb_mode        ),
+    .match_asid_i    ( eff_asid        ),
+    .ppn_o           ( dtlb_ppn        ),
+    .perm_o          ( dtlb_perm       ),
+    .hit_o           ( dtlb_hit        ),
 
     // Fill
-    .i_fill_vpn      ( w_fill_vpn      ),
-    .i_fill_ppn      ( w_fill_ppn      ),
-    .i_fill_asid     ( w_fill_asid     ),
-    .i_fill_perm     ( w_fill_perm     ),
-    .i_fill_level    ( w_fill_level    ),
-    .i_fill_en       ( w_fill_dtlb     ),
+    .fill_vpn_i      ( fill_vpn        ),
+    .fill_ppn_i      ( fill_ppn        ),
+    .fill_asid_i     ( fill_asid       ),
+    .fill_perm_i     ( fill_perm       ),
+    .fill_level_i    ( fill_level      ),
+    .fill_en_i       ( fill_dtlb       ),
 
     // Flush
-    .i_flush         ( i_flush_tlb     ),
-    .i_flush_vpn     ( i_flush_vpn     ),
-    .i_flush_vpn_en  ( i_flush_vpn_en  ),
-    .i_flush_asid    ( i_flush_asid    ),
-    .i_flush_asid_en ( i_flush_asid_en )
+    .flush_i         ( flush_tlb_i     ),
+    .flush_vpn_i     ( flush_vpn_i     ),
+    .flush_vpn_en_i  ( flush_vpn_en_i  ),
+    .flush_asid_i    ( flush_asid_i    ),
+    .flush_asid_en_i ( flush_asid_en_i )
 );
 
 // ============================================================
@@ -192,36 +192,36 @@ friscv_tlb #(
 `pragma diagnostic push
 `pragma diagnostic ignore="-Wempty-output-connection"
 friscv_arbiter i_arbiter (
-    .i_clk        ( i_clk         ),
-    .i_rstn       ( i_rstn        ),
+    .clk_i,
+    .rst_ni,
 
-    .i_inst_addr  ( i_inst_addr   ),
-    .o_inst_data  ( o_inst_data   ),
-    .i_inst_en    ( i_inst_en     ),
-    .o_inst_wait  ( o_inst_wait   ),
-    .o_inst_err   ( w_l1_inst_err ),
+    .inst_addr_i,
+    .inst_data_o,
+    .inst_en_i,
+    .inst_wait_o,
+    .inst_err_o   ( l1_inst_err ),
 
-    .i_data_addr  ( i_data_addr   ),
-    .i_data_size  ( i_data_size   ),
-    .i_data_wdata ( i_data_wdata  ),
-    .o_data_rdata ( o_data_rdata  ),
-    .i_data_en    ( i_data_en     ),
-    .i_data_wr    ( i_data_wr     ),
-    .o_data_wait  ( o_data_wait   ),
-    .i_amo_op     ( i_amo_op      ),
-    .o_data_err   ( w_l1_data_err ),
+    .data_addr_i,
+    .data_size_i,
+    .data_wdata_i,
+    .data_rdata_o,
+    .data_en_i,
+    .data_wr_i,
+    .data_wait_o,
+    .amo_op_i,
+    .data_err_o   ( l1_data_err ),
 
-    .o_mem_addr   (               ),
-    .o_mem_size   ( w_grant_size  ),
-    .o_mem_wdata  ( w_grant_wdata ),
-    .i_mem_rdata  ( i_mem_rdata   ),
-    .o_mem_rw     ( w_grant_rw    ),
-    .i_mem_wait   ( w_stall       ),
-    .i_mem_err    ( i_mem_err     ),
-    .o_amo_op     ( w_grant_amo   ),
-    .o_grant_start( w_grant_start ),
-    .o_grant_start_inst( w_grant_start_inst ),
-    .o_grant_held ( w_grant_held  )
+    .mem_addr_o   (             ),
+    .mem_size_o   ( grant_size  ),
+    .mem_wdata_o  ( grant_wdata ),
+    .mem_rdata_i,
+    .mem_rw_o     ( grant_rw    ),
+    .mem_wait_i   ( stall       ),
+    .mem_err_i,
+    .amo_op_o     ( grant_amo   ),
+    .grant_start_o      ( grant_start ),
+    .grant_start_inst_o ( grant_start_inst ),
+    .grant_held_o       ( grant_held  )
 );
 `pragma diagnostic pop
 
@@ -230,32 +230,29 @@ friscv_arbiter i_arbiter (
 // ============================================================
 
 // Paging active when satp.MODE != 0 and not in M-mode
-assign w_paging_en = (|w_eff_req_ctx.satp.mode) && (w_eff_req_ctx.mode != M_MODE);
+assign paging_en = (|eff_req_ctx.satp.mode) && (eff_req_ctx.mode != M_MODE);
 
 // Arbiter is in a grant state when it drives a non-idle command
-assign w_grant_active = (w_grant_rw != RW_IDLE);
+assign grant_active = (grant_rw != RW_IDLE);
 
 always_comb begin
-    w_start_req_ctx.addr     = w_grant_start_inst ? i_inst_addr : i_data_addr;
-    w_start_req_ctx.satp     = i_satp;
-    w_start_req_ctx.mode     = w_grant_start_inst ? i_inst_mode : i_data_mode;
-    w_start_req_ctx.sum      = i_sum;
-    w_start_req_ctx.mxr      = i_mxr;
-    w_start_req_ctx.is_inst  = w_grant_start_inst;
-    w_start_req_ctx.is_write = !w_grant_start_inst && (i_data_wr || i_data_store_like || (i_amo_op != AMO_NONE));
+    start_req_ctx.addr     = grant_start_inst ? inst_addr_i : data_addr_i;
+    start_req_ctx.satp     = satp_i;
+    start_req_ctx.mode     = grant_start_inst ? inst_mode_i : data_mode_i;
+    start_req_ctx.sum      = sum_i;
+    start_req_ctx.mxr      = mxr_i;
+    start_req_ctx.is_inst  = grant_start_inst;
+    start_req_ctx.is_write = !grant_start_inst && (data_wr_i || data_store_like_i || (amo_op_i != AMO_NONE));
 end
 
 always_comb begin
-    w_eff_req_ctx = w_grant_held ? r_req_ctx : w_start_req_ctx;
-    w_eff_asid    = w_eff_req_ctx.satp.asid;
+    eff_req_ctx = grant_held ? r_req_ctx : start_req_ctx;
+    eff_asid    = eff_req_ctx.satp.asid;
 end
 
-always_ff @(posedge i_clk or negedge i_rstn) begin
-    if (!i_rstn) begin
-        r_req_ctx <= '0;
-    end else if (w_grant_start) begin
-        r_req_ctx <= w_start_req_ctx;
-    end
+always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni)            r_req_ctx <= '0;
+    else if (grant_start) r_req_ctx <= start_req_ctx;
 end
 
 // TLB validity gate
@@ -263,15 +260,15 @@ vpn_t r_ivpn_q, r_dvpn_q;
 // A fill/flush last cycle, the registered TLB result is stale this cycle
 logic r_tlb_changed;
 
-always_ff @(posedge i_clk or negedge i_rstn) begin
-    if (!i_rstn) begin
+always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
         r_ivpn_q      <= '0;
         r_dvpn_q      <= '0;
         r_tlb_changed <= 1'b0;
     end else begin
-        r_ivpn_q      <= w_inst_vpn;
-        r_dvpn_q      <= w_data_vpn;
-        r_tlb_changed <= w_fill_itlb | w_fill_dtlb | i_flush_tlb;
+        r_ivpn_q      <= inst_vpn;
+        r_dvpn_q      <= data_vpn;
+        r_tlb_changed <= fill_itlb | fill_dtlb | flush_tlb_i;
     end
 end
 
@@ -279,18 +276,18 @@ end
 // translated again. An sfence.vma in between would make it a TLB miss and
 // the walk would read the request's own response as its PTE.
 logic  r_access_busy;
-addr_t r_access_pa, w_tlate_pa;
-logic  w_walk_en;
+addr_t r_access_pa, tlate_pa;
+logic  walk_en;
 
-always_ff @(posedge i_clk or negedge i_rstn) begin
-    if (!i_rstn) begin
+always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
         r_access_busy <= 1'b0;
         r_access_pa   <= '0;
-    end else if (!i_mem_wait) begin
+    end else if (!mem_wait_i) begin
         r_access_busy <= 1'b0;
-    end else if (!r_access_busy && !w_walk_en && o_mem_rw != RW_IDLE) begin
+    end else if (!r_access_busy && !walk_en && mem_rw_o != RW_IDLE) begin
         r_access_busy <= 1'b1;
-        r_access_pa   <= w_tlate_pa;
+        r_access_pa   <= tlate_pa;
     end
 end
 
@@ -299,208 +296,207 @@ end
 //  2) no fill/flush last cycle changed the TLB contents
 // Pending only matters under paging, a granted access whose registered translation is
 // not yet valid for its own VPN must wait
-logic w_tlate_valid, w_tlate_pending;
-assign w_tlate_valid = !r_tlb_changed &&
-                       (w_eff_req_ctx.is_inst ? (r_ivpn_q == w_inst_vpn)
-                                              : (r_dvpn_q == w_data_vpn));
-assign w_tlate_pending = w_paging_en && w_grant_active && !w_tlate_valid && !r_access_busy;
+logic tlate_valid, tlate_pending;
+assign tlate_valid = !r_tlb_changed &&
+                     (eff_req_ctx.is_inst ? (r_ivpn_q == inst_vpn)
+                                            : (r_dvpn_q == data_vpn));
+assign tlate_pending = paging_en && grant_active && !tlate_valid && !r_access_busy;
 
 // TLB miss - arbiter has granted the request, paging is on, and the TLB did not hit
-logic w_itlb_miss, w_dtlb_miss, w_tlb_miss;
-assign w_itlb_miss = w_grant_active &&  w_eff_req_ctx.is_inst && !w_itlb_hit && w_paging_en && !w_tlate_pending && !r_access_busy;
-assign w_dtlb_miss = w_grant_active && !w_eff_req_ctx.is_inst && !w_dtlb_hit && w_paging_en && !w_tlate_pending && !r_access_busy;
-assign w_tlb_miss  = w_itlb_miss || w_dtlb_miss;
+logic itlb_miss, dtlb_miss, tlb_miss;
+assign itlb_miss = grant_active &&  eff_req_ctx.is_inst && !itlb_hit && paging_en && !tlate_pending && !r_access_busy;
+assign dtlb_miss = grant_active && !eff_req_ctx.is_inst && !dtlb_hit && paging_en && !tlate_pending && !r_access_busy;
+assign tlb_miss  = itlb_miss || dtlb_miss;
 
 // PTW memory interface
-addr_t w_walk_addr;
-data_t w_walk_rdata;
-logic  w_walk_wait;
-logic  w_walk_err;
-logic  w_ptw_stall;
+addr_t walk_addr;
+data_t walk_rdata;
+logic  walk_wait;
+logic  walk_err;
+logic  ptw_stall;
 
 // PTW intermediate fault wires
-logic  w_ptw_inst_fault, w_ptw_load_fault, w_ptw_store_fault;
-addr_t w_ptw_fault_addr;
+logic  ptw_inst_fault, ptw_load_fault, ptw_store_fault;
+addr_t ptw_fault_addr;
 
 // PTW PMP
-logic w_walk_req;
-logic w_ptw_pmp_fault, w_ptw_access_fault;
+logic walk_req;
+logic ptw_pmp_fault, ptw_access_fault;
 
 friscv_ptw i_ptw (
-    .i_clk           ( i_clk             ),
-    .i_rstn          ( i_rstn            ),
+    .clk_i,
+    .rst_ni,
 
     // Translation control
-    .i_satp          ( w_eff_req_ctx.satp ),
+    .satp_i          ( eff_req_ctx.satp ),
 
     // Walk trigger
-    .i_itlb_miss     ( w_itlb_miss       ),
-    .i_dtlb_miss     ( w_dtlb_miss       ),
-    .i_req_va        ( w_eff_req_ctx.addr ),
-    .i_req_is_write  ( w_eff_req_ctx.is_write ),
+    .itlb_miss_i     ( itlb_miss       ),
+    .dtlb_miss_i     ( dtlb_miss       ),
+    .req_va_i        ( eff_req_ctx.addr ),
+    .req_is_write_i  ( eff_req_ctx.is_write ),
 
     // PMP control
-    .i_pmp_fault     ( w_ptw_pmp_fault   ),
-    .o_walk_req      ( w_walk_req        ),
-    .o_pmp_fault     ( w_ptw_access_fault),
+    .pmp_fault_i     ( ptw_pmp_fault   ),
+    .walk_req_o      ( walk_req        ),
+    .pmp_fault_o     ( ptw_access_fault),
 
     // External bus
-    .o_walk_addr     ( w_walk_addr       ),
-    .o_walk_en       ( w_walk_en         ),
-    .i_walk_rdata    ( w_walk_rdata      ),
-    .i_walk_wait     ( w_walk_wait       ),
-    .i_walk_err      ( w_walk_err        ),
+    .walk_addr_o     ( walk_addr       ),
+    .walk_en_o       ( walk_en         ),
+    .walk_rdata_i    ( walk_rdata      ),
+    .walk_wait_i     ( walk_wait       ),
+    .walk_err_i      ( walk_err        ),
 
     // Arbiter stall
-    .o_stall         ( w_ptw_stall       ),
+    .stall_o         ( ptw_stall       ),
 
     // TLB fill
-    .o_fill_vpn      ( w_fill_vpn        ),
-    .o_fill_ppn      ( w_fill_ppn        ),
-    .o_fill_asid     ( w_fill_asid       ),
-    .o_fill_perm     ( w_fill_perm       ),
-    .o_fill_level    ( w_fill_level      ),
-    .o_fill_itlb_en  ( w_fill_itlb       ),
-    .o_fill_dtlb_en  ( w_fill_dtlb       ),
+    .fill_vpn_o      ( fill_vpn        ),
+    .fill_ppn_o      ( fill_ppn        ),
+    .fill_asid_o     ( fill_asid       ),
+    .fill_perm_o     ( fill_perm       ),
+    .fill_level_o    ( fill_level      ),
+    .fill_itlb_en_o  ( fill_itlb       ),
+    .fill_dtlb_en_o  ( fill_dtlb       ),
 
     // Page fault outputs
-    .o_inst_fault    ( w_ptw_inst_fault  ),
-    .o_load_fault    ( w_ptw_load_fault  ),
-    .o_store_fault   ( w_ptw_store_fault ),
-    .o_fault_addr    ( w_ptw_fault_addr  )
+    .inst_fault_o    ( ptw_inst_fault  ),
+    .load_fault_o    ( ptw_load_fault  ),
+    .store_fault_o   ( ptw_store_fault ),
+    .fault_addr_o    ( ptw_fault_addr  )
 );
 
 if (EnforcePmp && EnforcePtwPmp) begin : gen_ptw_pmp_check
     friscv_pmp_check #(
         .PmpEntries ( PmpEntries )
     ) i_pmp_chk_ptw (
-        .pa_i        ( w_walk_addr     ),
-        .access_r_i  ( w_walk_req      ),
-        .access_w_i  ( 1'b0            ),
-        .access_x_i  ( 1'b0            ),
-        .mode_i      ( S_MODE          ),
-        .pmp_table_i ( i_pmp_table     ),
-        .fault_o     ( w_ptw_pmp_fault )
+        .pa_i        ( walk_addr     ),
+        .access_r_i  ( walk_req      ),
+        .access_w_i  ( 1'b0          ),
+        .access_x_i  ( 1'b0          ),
+        .mode_i      ( S_MODE        ),
+        .pmp_table_i ( pmp_table_i   ),
+        .fault_o     ( ptw_pmp_fault )
     );
 end else begin : gen_no_ptw_pmp_check
-    assign w_ptw_pmp_fault = 1'b0;
+    assign ptw_pmp_fault = 1'b0;
 end
 
 // ============================================================
 // Permission check (TLB hit path)
 // ============================================================
 
-logic w_perm_inst_ok, w_perm_load_ok, w_perm_store_ok;
-logic w_perm_inst_fault, w_perm_load_fault, w_perm_store_fault;
-logic w_perm_fault;
+logic perm_inst_ok, perm_load_ok, perm_store_ok;
+logic perm_inst_fault, perm_load_fault, perm_store_fault;
+logic perm_fault;
 
-logic w_inst_pmp_fault, w_data_pmp_fault;
-assign o_inst_pmp_fault = w_inst_pmp_fault || (w_ptw_access_fault &&  w_eff_req_ctx.is_inst);
-assign o_data_pmp_fault = w_data_pmp_fault || (w_ptw_access_fault && !w_eff_req_ctx.is_inst);
+logic inst_pmp_fault, data_pmp_fault;
+assign inst_pmp_fault_o = inst_pmp_fault || (ptw_access_fault &&  eff_req_ctx.is_inst);
+assign data_pmp_fault_o = data_pmp_fault || (ptw_access_fault && !eff_req_ctx.is_inst);
 
-logic w_data_read, w_data_write;
-assign w_data_read  = i_data_en && (!i_data_store_like || (i_amo_op != AMO_NONE));
-assign w_data_write = i_data_en &&   i_data_store_like;
+logic data_read, data_write;
+assign data_read  = data_en_i && (!data_store_like_i || (amo_op_i != AMO_NONE));
+assign data_write = data_en_i &&   data_store_like_i;
 
 // PMP fault of the access currently granted on the bus
-logic w_grant_pmp_fault;
-assign w_grant_pmp_fault = w_grant_active && !r_access_busy &&
-                           (w_eff_req_ctx.is_inst ? w_inst_pmp_fault : w_data_pmp_fault);
+logic grant_pmp_fault;
+assign grant_pmp_fault = grant_active && !r_access_busy &&
+                         (eff_req_ctx.is_inst ? inst_pmp_fault : data_pmp_fault);
 
 if (EnforcePmp) begin : gen_pmp_check
     friscv_pmp_check #(
         .PmpEntries ( PmpEntries )
     ) i_pmp_chk_inst (
-        .pa_i        ( w_inst_pa        ),
-        .access_r_i  ( 1'b0             ),
-        .access_w_i  ( 1'b0             ),
-        .access_x_i  ( i_inst_en        ),
-        .mode_i      ( i_inst_mode      ),
-        .pmp_table_i ( i_pmp_table      ),
-        .fault_o     ( w_inst_pmp_fault )
+        .pa_i        ( inst_pa        ),
+        .access_r_i  ( 1'b0           ),
+        .access_w_i  ( 1'b0           ),
+        .access_x_i  ( inst_en_i      ),
+        .mode_i      ( inst_mode_i    ),
+        .pmp_table_i ( pmp_table_i    ),
+        .fault_o     ( inst_pmp_fault )
     );
 
     friscv_pmp_check #(
         .PmpEntries ( PmpEntries )
     ) i_pmp_chk_data (
-        .pa_i        ( w_data_pa        ),
-        .access_r_i  ( w_data_read      ),
-        .access_w_i  ( w_data_write     ),
-        .access_x_i  ( 1'b0             ),
-        .mode_i      ( i_data_mode      ),
-        .pmp_table_i ( i_pmp_table      ),
-        .fault_o     ( w_data_pmp_fault )
+        .pa_i        ( data_pa        ),
+        .access_r_i  ( data_read      ),
+        .access_w_i  ( data_write     ),
+        .access_x_i  ( 1'b0           ),
+        .mode_i      ( data_mode_i    ),
+        .pmp_table_i ( pmp_table_i    ),
+        .fault_o     ( data_pmp_fault )
     );
 end else begin : gen_no_pmp_check
-    assign w_inst_pmp_fault = 1'b0;
-    assign w_data_pmp_fault = 1'b0;
+    assign inst_pmp_fault = 1'b0;
+    assign data_pmp_fault = 1'b0;
 end
 
 // Instruction fetch TLB permission check
-assign w_perm_inst_ok = w_itlb_perm.x &&
-                        w_itlb_perm.a &&
-                        ((w_eff_req_ctx.mode == U_MODE &&  w_itlb_perm.u) ||
-                         (w_eff_req_ctx.mode == S_MODE && !w_itlb_perm.u));
+assign perm_inst_ok = itlb_perm.x &&
+                      itlb_perm.a &&
+                      ((eff_req_ctx.mode == U_MODE &&  itlb_perm.u) ||
+                       (eff_req_ctx.mode == S_MODE && !itlb_perm.u));
 
 // Load TLB permission check
-assign w_perm_load_ok = (w_dtlb_perm.r || (w_eff_req_ctx.mxr && w_dtlb_perm.x)) &&
-                        w_dtlb_perm.a &&
-                        ((w_eff_req_ctx.mode == U_MODE &&  w_dtlb_perm.u) ||
-                         (w_eff_req_ctx.mode == S_MODE && (!w_dtlb_perm.u || w_eff_req_ctx.sum)));
+assign perm_load_ok = (dtlb_perm.r || (eff_req_ctx.mxr && dtlb_perm.x)) &&
+                      dtlb_perm.a &&
+                      ((eff_req_ctx.mode == U_MODE &&  dtlb_perm.u) ||
+                       (eff_req_ctx.mode == S_MODE && (!dtlb_perm.u || eff_req_ctx.sum)));
 
 // Store TLB permission check
-assign w_perm_store_ok = w_dtlb_perm.w &&
-                         w_dtlb_perm.d &&
-                         w_dtlb_perm.a &&
-                         ((w_eff_req_ctx.mode == U_MODE &&  w_dtlb_perm.u) ||
-                          (w_eff_req_ctx.mode == S_MODE && (!w_dtlb_perm.u || w_eff_req_ctx.sum)));
+assign perm_store_ok = dtlb_perm.w &&
+                       dtlb_perm.d &&
+                       dtlb_perm.a &&
+                       ((eff_req_ctx.mode == U_MODE &&  dtlb_perm.u) ||
+                        (eff_req_ctx.mode == S_MODE && (!dtlb_perm.u || eff_req_ctx.sum)));
 
 // Perm fault: paging on, arbiter granted, TLB hit, but permission denied
-assign w_perm_inst_fault  = w_paging_en && w_grant_active &&  w_eff_req_ctx.is_inst                            && w_itlb_hit && !w_perm_inst_ok  && !w_tlate_pending && !r_access_busy;
-assign w_perm_load_fault  = w_paging_en && w_grant_active && !w_eff_req_ctx.is_inst && !w_eff_req_ctx.is_write && w_dtlb_hit && !w_perm_load_ok  && !w_tlate_pending && !r_access_busy;
-assign w_perm_store_fault = w_paging_en && w_grant_active && !w_eff_req_ctx.is_inst &&  w_eff_req_ctx.is_write && w_dtlb_hit && !w_perm_store_ok && !w_tlate_pending && !r_access_busy;
-assign w_perm_fault       = w_perm_inst_fault | w_perm_load_fault | w_perm_store_fault;
+assign perm_inst_fault  = paging_en && grant_active &&  eff_req_ctx.is_inst                          && itlb_hit && !perm_inst_ok  && !tlate_pending && !r_access_busy;
+assign perm_load_fault  = paging_en && grant_active && !eff_req_ctx.is_inst && !eff_req_ctx.is_write && dtlb_hit && !perm_load_ok  && !tlate_pending && !r_access_busy;
+assign perm_store_fault = paging_en && grant_active && !eff_req_ctx.is_inst &&  eff_req_ctx.is_write && dtlb_hit && !perm_store_ok && !tlate_pending && !r_access_busy;
+assign perm_fault       = perm_inst_fault | perm_load_fault | perm_store_fault;
 
 // Final fault outputs: PTW structural faults OR perm faults
 // PTW faults only if TLB miss, perm faults only if TLB hit - mutually exclusive
-assign o_inst_fault  = w_ptw_inst_fault  | w_perm_inst_fault;
-assign o_load_fault  = w_ptw_load_fault  | w_perm_load_fault;
-assign o_store_fault = w_ptw_store_fault | w_perm_store_fault;
-assign o_fault_addr  = (w_ptw_inst_fault | w_ptw_load_fault | w_ptw_store_fault) ? w_ptw_fault_addr : w_eff_req_ctx.addr;
+assign inst_fault_o  = ptw_inst_fault  || perm_inst_fault;
+assign load_fault_o  = ptw_load_fault  || perm_load_fault;
+assign store_fault_o = ptw_store_fault || perm_store_fault;
+assign fault_addr_o  = (ptw_inst_fault || ptw_load_fault || ptw_store_fault) ? ptw_fault_addr : eff_req_ctx.addr;
 
 // ============================================================
 // PTW / arbiter bus mux
 // ============================================================
 
 // Physical address for the granted request
-ppn_t w_granted_ppn;
-assign w_granted_ppn = w_eff_req_ctx.is_inst ? w_itlb_ppn : w_dtlb_ppn;
+ppn_t granted_ppn;
+assign granted_ppn = eff_req_ctx.is_inst ? itlb_ppn : dtlb_ppn;
 
-addr_t w_granted_pa;
-assign w_tlate_pa   = w_paging_en ? {w_granted_ppn[PA_PPN_W-1:0], w_eff_req_ctx.addr[11:0]} : w_eff_req_ctx.addr;
-assign w_granted_pa = r_access_busy ? r_access_pa : w_tlate_pa;
+addr_t granted_pa;
+assign tlate_pa   = paging_en ? {granted_ppn[PA_PPN_W-1:0], eff_req_ctx.addr[11:0]} : eff_req_ctx.addr;
+assign granted_pa = r_access_busy ? r_access_pa : tlate_pa;
 
-assign o_inst_err = w_l1_inst_err;
-assign o_data_err = w_l1_data_err;
+assign inst_err_o = l1_inst_err;
+assign data_err_o = l1_data_err;
 
 // PTW walk signals routed directly to/from external memory
-assign w_walk_rdata = i_mem_rdata;
-assign w_walk_wait  = i_mem_wait;
-assign w_walk_err   = i_mem_err;
+assign walk_rdata = mem_rdata_i;
+assign walk_wait  = mem_wait_i;
+assign walk_err   = mem_err_i;
 
 // Stall arbiter while PTW is active, memory stalls, or the registered
-assign w_stall = w_ptw_stall | (i_mem_wait & (o_mem_rw != RW_IDLE)) | w_tlate_pending;
+assign stall = ptw_stall | (mem_wait_i & (mem_rw_o != RW_IDLE)) | tlate_pending;
 
 // Suppress physical memory access on TLB miss (PTW takes over), perm fault,
 // PMP fault, or while the translation is still not ready
-assign o_mem_rw    = w_walk_en ? RW_READ :
-                     (w_tlb_miss | w_perm_fault | w_grant_pmp_fault | w_tlate_pending) ? RW_IDLE :
-                     w_grant_rw;
+assign mem_rw_o    = walk_en ? RW_READ :
+                     (tlb_miss | perm_fault | grant_pmp_fault | tlate_pending) ? RW_IDLE :
+                     grant_rw;
 
-assign o_mem_addr  = w_walk_en ? w_walk_addr : w_granted_pa;
-
-assign o_mem_size  = w_walk_en ? WIDTH_I32 : w_grant_size;
-assign o_mem_wdata = w_walk_en ? '0        : w_grant_wdata;
-assign o_amo_op    = w_walk_en ? AMO_NONE  : w_grant_amo;
+assign mem_addr_o  = walk_en ? walk_addr : granted_pa;
+assign mem_size_o  = walk_en ? WIDTH_I32 : grant_size;
+assign mem_wdata_o = walk_en ? '0        : grant_wdata;
+assign amo_op_o    = walk_en ? AMO_NONE  : grant_amo;
 
 endmodule

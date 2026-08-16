@@ -16,60 +16,60 @@
  */
 
 module friscv_ptw import friscv_pkg::*; (
-    input  logic       i_clk,
-    input  logic       i_rstn,
+    input  logic       clk_i,
+    input  logic       rst_ni,
 
     // Translation control
-    input  satp_t      i_satp,
+    input  satp_t      satp_i,
 
     // Walk trigger
-    input  logic       i_itlb_miss,
-    input  logic       i_dtlb_miss,
-    input  addr_t      i_req_va,
-    input  logic       i_req_is_write,
+    input  logic       itlb_miss_i,
+    input  logic       dtlb_miss_i,
+    input  addr_t      req_va_i,
+    input  logic       req_is_write_i,
 
     // PMP control
-    input  logic       i_pmp_fault,
-    output logic       o_walk_req,
-    output logic       o_pmp_fault,
+    input  logic       pmp_fault_i,
+    output logic       walk_req_o,
+    output logic       pmp_fault_o,
 
     // External bus
-    output addr_t      o_walk_addr,
-    output logic       o_walk_en,
-    input  data_t      i_walk_rdata,
-    input  logic       i_walk_wait,
-    input  logic       i_walk_err,
+    output addr_t      walk_addr_o,
+    output logic       walk_en_o,
+    input  data_t      walk_rdata_i,
+    input  logic       walk_wait_i,
+    input  logic       walk_err_i,
 
     // Arbiter stall
-    output logic       o_stall,
+    output logic       stall_o,
 
     // TLB fill
-    output vpn_t       o_fill_vpn,
-    output ppn_t       o_fill_ppn,
-    output asid_t      o_fill_asid,
-    output perm_t      o_fill_perm,
-    output pte_level_t o_fill_level,
-    output logic       o_fill_itlb_en,
-    output logic       o_fill_dtlb_en,
+    output vpn_t       fill_vpn_o,
+    output ppn_t       fill_ppn_o,
+    output asid_t      fill_asid_o,
+    output perm_t      fill_perm_o,
+    output pte_level_t fill_level_o,
+    output logic       fill_itlb_en_o,
+    output logic       fill_dtlb_en_o,
 
     // Page fault outputs
-    output logic       o_inst_fault,
-    output logic       o_load_fault,
-    output logic       o_store_fault,
-    output addr_t      o_fault_addr
+    output logic       inst_fault_o,
+    output logic       load_fault_o,
+    output logic       store_fault_o,
+    output addr_t      fault_addr_o
 );
 
 // Semantic states
 typedef enum logic [2:0] {
-    S_IDLE,
-    S_READ,
-    S_DECODE,
-    S_FILL,
-    S_PAGE_FAULT,
-    S_PMP_FAULT
+    StIdle,
+    StRead,
+    StDecode,
+    StFill,
+    StPageFault,
+    StPmpFault
 } state_e;
 
-state_e r_state, w_next_state;
+state_e state_q, state_d;
 
 typedef struct packed {
     ppn_t       ppn;
@@ -77,35 +77,35 @@ typedef struct packed {
     perm_t      perm;
 } pte_t;
 
-pte_t r_pte;
+pte_t pte_q;
 
-logic w_start_walk;
-assign w_start_walk = satp_mode_e'(i_satp.mode) != SATP_BARE
-                      && r_state == S_IDLE
-                      && (i_itlb_miss || i_dtlb_miss);
+logic start_walk;
+assign start_walk = satp_mode_e'(satp_i.mode) != SATP_BARE
+                    && state_q == StIdle
+                    && (itlb_miss_i || dtlb_miss_i);
 
 // ============================================================
 // Capture inputs
 // ============================================================
 
-satp_t r_satp;
-logic  r_itlb_miss, r_dtlb_miss;
-addr_t r_req_va;
-logic  r_req_is_write;
+satp_t satp_q;
+logic  itlb_miss_q, dtlb_miss_q;
+addr_t req_va_q;
+logic  req_is_write_q;
 
-always_ff @(posedge i_clk or negedge i_rstn) begin : capture_inputs
-    if (!i_rstn) begin
-        r_satp         <= '0;
-        r_itlb_miss    <= 1'b0;
-        r_dtlb_miss    <= 1'b0;
-        r_req_va       <= '0;
-        r_req_is_write <= 1'b0;
-    end else if (w_start_walk) begin
-        r_satp         <= i_satp;
-        r_itlb_miss    <= i_itlb_miss;
-        r_dtlb_miss    <= i_dtlb_miss;
-        r_req_va       <= i_req_va;
-        r_req_is_write <= i_req_is_write;
+always_ff @(posedge clk_i or negedge rst_ni) begin : capture_inputs
+    if (!rst_ni) begin
+        satp_q         <= '0;
+        itlb_miss_q    <= 1'b0;
+        dtlb_miss_q    <= 1'b0;
+        req_va_q       <= '0;
+        req_is_write_q <= 1'b0;
+    end else if (start_walk) begin
+        satp_q         <= satp_i;
+        itlb_miss_q    <= itlb_miss_i;
+        dtlb_miss_q    <= dtlb_miss_i;
+        req_va_q       <= req_va_i;
+        req_is_write_q <= req_is_write_i;
     end
 end : capture_inputs
 
@@ -113,35 +113,35 @@ end : capture_inputs
 // Determine mode geometry
 // ============================================================
 
-logic [2:0] w_max_level;
-logic       r_is_wide_vpn, w_is_wide_vpn;  // 1: 10-bit VPN fields (SV32), 0: 9-bit (SV39+)
-logic       r_is_wide_pte, w_is_wide_pte;  // 1: 8-byte PTEs (SV39+), 0: 4-byte (SV32)
+logic [2:0] max_level;
+logic       is_wide_vpn_q, is_wide_vpn_d;  // 1: 10-bit VPN fields (SV32), 0: 9-bit (SV39+)
+logic       is_wide_pte_q, is_wide_pte_d;  // 1: 8-byte PTEs (SV39+), 0: 4-byte (SV32)
 
-always_ff @(posedge i_clk or negedge i_rstn) begin : geometry_capture
-    if (!i_rstn) begin
-        r_is_wide_vpn <= 1'b0;
-        r_is_wide_pte <= 1'b0;
-    end else if (w_start_walk) begin
-        r_is_wide_vpn <= w_is_wide_vpn;
-        r_is_wide_pte <= w_is_wide_pte;
+always_ff @(posedge clk_i or negedge rst_ni) begin : geometry_capture
+    if (!rst_ni) begin
+        is_wide_vpn_q <= 1'b0;
+        is_wide_pte_q <= 1'b0;
+    end else if (start_walk) begin
+        is_wide_vpn_q <= is_wide_vpn_d;
+        is_wide_pte_q <= is_wide_pte_d;
     end
 end : geometry_capture
 
 always_comb begin : geometry_decode
-    w_is_wide_vpn = 1'b0;
-    w_is_wide_pte = 1'b1;
+    is_wide_vpn_d = 1'b0;
+    is_wide_pte_d = 1'b1;
 
-    case (satp_mode_e'(i_satp.mode))
+    case (satp_mode_e'(satp_i.mode))
         SATP_SV32: begin
-            w_max_level   = 3'd1;
-            w_is_wide_vpn = 1'b1;
-            w_is_wide_pte = 1'b0;
+            max_level   = 3'd1;
+            is_wide_vpn_d = 1'b1;
+            is_wide_pte_d = 1'b0;
         end
-        SATP_SV39: w_max_level = 3'd2;
-        SATP_SV48: w_max_level = 3'd3;
-        SATP_SV57: w_max_level = 3'd4;
-        SATP_BARE:  w_max_level = 3'd0;
-        default:   w_max_level = 3'd1;
+        SATP_SV39: max_level = 3'd2;
+        SATP_SV48: max_level = 3'd3;
+        SATP_SV57: max_level = 3'd4;
+        SATP_BARE: max_level = 3'd0;
+        default:   max_level = 3'd1;
     endcase
 end : geometry_decode
 
@@ -149,32 +149,32 @@ end : geometry_decode
 // State machine
 // ============================================================
 
-always_ff @(posedge i_clk or negedge i_rstn) begin : transition_state
-    if (!i_rstn) r_state <= S_IDLE;
-    else         r_state <= w_next_state;
+always_ff @(posedge clk_i or negedge rst_ni) begin : transition_state
+    if (!rst_ni) state_q <= StIdle;
+    else         state_q <= state_d;
 end
 
 // r_level is the level of the PTE currently being read or decoded
 logic [2:0] r_level;
-logic       w_descend;
+logic       descend;
 
-always_ff @(posedge i_clk or negedge i_rstn) begin : pte_capture
-    if (!i_rstn) begin
-        r_pte   <= '0;
+always_ff @(posedge clk_i or negedge rst_ni) begin : pte_capture
+    if (!rst_ni) begin
+        pte_q   <= '0;
         r_level <= 3'b0;
-    end else if (w_start_walk) begin
-        r_pte <= '{
-            ppn: i_satp.ppn,
+    end else if (start_walk) begin
+        pte_q <= '{
+            ppn: satp_i.ppn,
             reserved: 2'b0,
             perm: '{
                 d: 1'b0, a: 1'b0, g: 1'b0, u: 1'b0,
                 x: 1'b0, w: 1'b0, r: 1'b0, v: 1'b1
             }
         };
-        r_level <= w_max_level;
-    end else if (r_state == S_READ && !i_walk_wait) begin
-        r_pte <= pte_t'(i_walk_rdata);
-    end else if (w_descend) begin
+        r_level <= max_level;
+    end else if (state_q == StRead && !walk_wait_i) begin
+        pte_q <= pte_t'(walk_rdata_i);
+    end else if (descend) begin
         r_level <= r_level - 1;
     end
 end : pte_capture
@@ -183,175 +183,175 @@ end : pte_capture
 // Effective walk inputs
 // ============================================================
 
-// o_walk_en is asserted one cycle before entering S_READ so that the downstream
+// o_walk_en is asserted one cycle before entering StRead so that the downstream
 // has time to assert i_walk_wait before we sample it
 // The walk address must therefore be valid during that pre-read cycle
 
-ppn_t       w_eff_ppn;
-addr_t      w_eff_va;
-logic [2:0] w_eff_level;
-logic       w_eff_wide_vpn;
-logic       w_eff_wide_pte;
+ppn_t       eff_ppn;
+addr_t      eff_va;
+logic [2:0] eff_level;
+logic       eff_wide_vpn;
+logic       eff_wide_pte;
 
-assign w_eff_ppn      = w_start_walk ? i_satp.ppn    : r_pte.ppn;
-assign w_eff_va       = w_start_walk ? i_req_va      : r_req_va;
-assign w_eff_wide_vpn = w_start_walk ? w_is_wide_vpn : r_is_wide_vpn;
-assign w_eff_wide_pte = w_start_walk ? w_is_wide_pte : r_is_wide_pte;
+assign eff_ppn      = start_walk ? satp_i.ppn    : pte_q.ppn;
+assign eff_va       = start_walk ? req_va_i      : req_va_q;
+assign eff_wide_vpn = start_walk ? is_wide_vpn_d : is_wide_vpn_q;
+assign eff_wide_pte = start_walk ? is_wide_pte_d : is_wide_pte_q;
 
-always_comb begin : eff_level_select
-    if (w_start_walk)
-        w_eff_level = w_max_level;
-    else if (r_state == S_DECODE && w_descend)
-        w_eff_level = r_level - 3'd1;
+always_comb begin
+    if (start_walk)
+        eff_level = max_level;
+    else if (state_q == StDecode && descend)
+        eff_level = r_level - 3'd1;
     else
-        w_eff_level = r_level;
-end : eff_level_select
+        eff_level = r_level;
+end
 
 // ============================================================
 // VPN field extraction
 // ============================================================
 
-logic [9:0] w_vpn_idx;
+logic [9:0] vpn_idx;
 
-always_comb begin : vpn_extract
-    w_vpn_idx = '0;
-    if (w_eff_wide_vpn) begin  // SV32: 10-bit VPN fields
-        case (w_eff_level)
-            3'd1:    w_vpn_idx = w_eff_va[31:22];  // VPN[1]
-            default: w_vpn_idx = w_eff_va[21:12];  // VPN[0]
+always_comb begin
+    vpn_idx = '0;
+    if (eff_wide_vpn) begin  // SV32: 10-bit VPN fields
+        case (eff_level)
+            3'd1:    vpn_idx = eff_va[31:22];  // VPN[1]
+            default: vpn_idx = eff_va[21:12];  // VPN[0]
         endcase
     end else begin  // SV39/48/57: 9-bit VPN fields
-        w_vpn_idx = {1'b0, w_eff_va[12 + 9*int'(w_eff_level[2:0]) +: 9]};
+        vpn_idx = {1'b0, eff_va[12 + 9*int'(eff_level[2:0]) +: 9]};
     end
-end : vpn_extract
+end
 
 // PTE address = base_ppn * PAGESIZE | VPN[level] * PTE_SIZE
 // The PPN base has zeros in [11:0] and the VPN offset fits within 12 bits, so | is safe.
-assign o_walk_addr = addr_t'({w_eff_ppn[PA_PPN_W-1:0], 12'b0}) |
-                     (w_eff_wide_pte ? addr_t'({w_vpn_idx, 3'b0})
-                                     : addr_t'({w_vpn_idx, 2'b0}));
+assign walk_addr_o = addr_t'({eff_ppn[PA_PPN_W-1:0], 12'b0}) |
+                     (eff_wide_pte ? addr_t'({vpn_idx, 3'b0})
+                                     : addr_t'({vpn_idx, 2'b0}));
 
-logic w_ppn_oob;
-assign w_ppn_oob = |w_eff_ppn[PPN_W-1:PA_PPN_W];
+logic ppn_oob;
+assign ppn_oob = |eff_ppn[PPN_W-1:PA_PPN_W];
 
 // ============================================================
 // Transition logic
 // ============================================================
 
-always_comb begin : transition_logic
-    w_next_state = r_state;
-    w_descend    = 1'b0;
+always_comb begin
+    state_d = state_q;
+    descend = 1'b0;
 
-    o_walk_en  = 1'b0;
-    o_walk_req = 1'b0;
-    o_stall    = 1'b1;
+    walk_en_o  = 1'b0;
+    walk_req_o = 1'b0;
+    stall_o    = 1'b1;
 
-    o_fill_vpn     = '0;
-    o_fill_ppn     = '0;
-    o_fill_asid    = '0;
-    o_fill_perm    = '0;
-    o_fill_level   = '0;
-    o_fill_itlb_en = 1'b0;
-    o_fill_dtlb_en = 1'b0;
+    fill_vpn_o     = '0;
+    fill_ppn_o     = '0;
+    fill_asid_o    = '0;
+    fill_perm_o    = '0;
+    fill_level_o   = '0;
+    fill_itlb_en_o = 1'b0;
+    fill_dtlb_en_o = 1'b0;
 
-    o_inst_fault  = 1'b0;
-    o_load_fault  = 1'b0;
-    o_store_fault = 1'b0;
-    o_fault_addr  = '0;
-    o_pmp_fault   = 1'b0;
+    inst_fault_o  = 1'b0;
+    load_fault_o  = 1'b0;
+    store_fault_o = 1'b0;
+    fault_addr_o  = '0;
+    pmp_fault_o   = 1'b0;
 
-    case (r_state)
+    case (state_q)
 
-        S_IDLE: begin
-            o_stall    = 1'b0;
-            o_walk_req = 1'b1;
-            if (w_start_walk && !i_pmp_fault && !w_ppn_oob) begin
+        StIdle: begin
+            stall_o    = 1'b0;
+            walk_req_o = 1'b1;
+            if (start_walk && !pmp_fault_i && !ppn_oob) begin
                 // Assert walk_en now with the effective address
-                // Registers capture at posedge, so in S_READ the address is unchanged
-                // and i_walk_wait already asserted
+                // Registers capture at posedge, so in StRead the address is unchanged
+                // and walk_wait_i already asserted
                 // Do not start the walk on a PMP fault
-                o_walk_en    = 1'b1;
-                o_stall      = 1'b1;
-                w_next_state = S_READ;
-            end else if (w_start_walk) begin
-                o_stall      = 1'b1;
-                w_next_state = S_PMP_FAULT;
+                walk_en_o = 1'b1;
+                stall_o   = 1'b1;
+                state_d   = StRead;
+            end else if (start_walk) begin
+                stall_o = 1'b1;
+                state_d = StPmpFault;
             end
         end
 
-        S_READ: begin
-            o_walk_req = 1'b1;
-            o_walk_en  = 1'b1;
-            if (!i_walk_wait && i_walk_err) begin
-                o_stall      = 1'b0;
-                w_next_state = S_IDLE;
-            end else if (!i_walk_wait) begin
-                w_next_state = S_DECODE;
+        StRead: begin
+            walk_req_o = 1'b1;
+            walk_en_o  = 1'b1;
+            if (!walk_wait_i && walk_err_i) begin
+                stall_o      = 1'b0;
+                state_d = StIdle;
+            end else if (!walk_wait_i) begin
+                state_d = StDecode;
             end
         end
 
-        S_DECODE: begin
-            if (!r_pte.perm.v || (r_pte.perm.w && !r_pte.perm.r)) begin
+        StDecode: begin
+            if (!pte_q.perm.v || (pte_q.perm.w && !pte_q.perm.r)) begin
                 // Invalid PTE
-                w_next_state = S_PAGE_FAULT;
-            end else if (r_pte.perm.r || r_pte.perm.x) begin
+                state_d = StPageFault;
+            end else if (pte_q.perm.r || pte_q.perm.x) begin
                 // Leaf PTE, fill TLB and let requester retry
                 // Fault if misaligned superpage or if the frame is out of reach.
-                w_next_state = (r_level != '0 && r_pte.ppn[9:0] != 10'b0) ? S_PAGE_FAULT :
-                               w_ppn_oob ? S_PMP_FAULT  : S_FILL;
+                state_d = (r_level != '0 && pte_q.ppn[9:0] != 10'b0) ? StPageFault :
+                          ppn_oob ? StPmpFault : StFill;
             end else begin
                 // Non-leaf PTE
-                if (r_pte.perm.d || r_pte.perm.a || r_pte.perm.u) begin
+                if (pte_q.perm.d || pte_q.perm.a || pte_q.perm.u) begin
                     // Non-leaf with D/A/U set
-                    w_next_state = S_PAGE_FAULT;
+                    state_d = StPageFault;
                 end else if (r_level == '0) begin
                     // Non-leaf at last level, walk exhausted
-                    w_next_state = S_PAGE_FAULT;
+                    state_d = StPageFault;
                 end else begin
                     // Non-leaf, descend, assert walk_en now with the next-level address
-                    o_walk_req = 1'b1;
-                    w_descend    = 1'b1;
-                    if (!i_pmp_fault && !w_ppn_oob) begin
-                        o_walk_en    = 1'b1;
-                        w_next_state = S_READ;
+                    walk_req_o = 1'b1;
+                    descend    = 1'b1;
+                    if (!pmp_fault_i && !ppn_oob) begin
+                        walk_en_o = 1'b1;
+                        state_d   = StRead;
                     end else begin
                         // Stop walk if the descended level is PMP denied or unreachable
-                        w_next_state = S_PMP_FAULT;
+                        state_d = StPmpFault;
                     end
                 end
             end
         end
 
-        S_FILL: begin
-            o_fill_vpn     = vpn_t'(r_req_va >> 12);
-            o_fill_ppn     = r_pte.ppn;
-            o_fill_asid    = r_satp.asid;
-            o_fill_perm    = r_pte.perm;
-            o_fill_level   = pte_level_t'(r_level);
-            o_fill_itlb_en = r_itlb_miss;
-            o_fill_dtlb_en = r_dtlb_miss;
-            w_next_state   = S_IDLE;
+        StFill: begin
+            fill_vpn_o     = vpn_t'(req_va_q >> 12);
+            fill_ppn_o     = pte_q.ppn;
+            fill_asid_o    = satp_q.asid;
+            fill_perm_o    = pte_q.perm;
+            fill_level_o   = pte_level_t'(r_level);
+            fill_itlb_en_o = itlb_miss_q;
+            fill_dtlb_en_o = dtlb_miss_q;
+            state_d        = StIdle;
         end
 
         // Release stall so the pipeline can capture the fault
-        S_PAGE_FAULT: begin
-            o_stall       = 1'b0;
-            o_inst_fault  = r_itlb_miss;
-            o_load_fault  = r_dtlb_miss && !r_req_is_write;
-            o_store_fault = r_dtlb_miss &&  r_req_is_write;
-            o_fault_addr  = r_req_va;
-            w_next_state  = S_IDLE;
+        StPageFault: begin
+            stall_o       = 1'b0;
+            inst_fault_o  = itlb_miss_q;
+            load_fault_o  = dtlb_miss_q && !req_is_write_q;
+            store_fault_o = dtlb_miss_q &&  req_is_write_q;
+            fault_addr_o  = req_va_q;
+            state_d       = StIdle;
         end
 
-        S_PMP_FAULT: begin
-            o_stall      = 1'b0;
-            o_pmp_fault  = 1'b1;
-            w_next_state = S_IDLE;
+        StPmpFault: begin
+            stall_o     = 1'b0;
+            pmp_fault_o = 1'b1;
+            state_d     = StIdle;
         end
 
-        default: w_next_state = S_IDLE;
+        default: state_d = StIdle;
 
     endcase
-end : transition_logic
+end
 
 endmodule
