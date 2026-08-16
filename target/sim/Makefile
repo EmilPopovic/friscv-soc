@@ -12,6 +12,7 @@ MEM_IF_SRCS = $(shell bender -d ../.. script flist -t rtl | grep '/friscv_mem_pk
 SOC_SRAM_BASE ?= 0
 SOC_SRAM_SIZE_BYTES ?= 8192
 SOC_MEM_SIZE ?= 16777216
+SOC_OCM_ONLY ?= 0
 
 SOC_TOP = vernii_soc_sim
 SOC_DIR ?= obj_dir_soc
@@ -38,9 +39,10 @@ soc: sources.f | $(SOC_DIR)
 	verilator --cc --exe --build --timescale 1ns/1ps -j 0 --top-module $(SOC_TOP) -Wno-fatal \
 		+define+ASSERTS_OFF \
 		-GOcmBase=$(SOC_SRAM_BASE) -GOcmSize=$(SOC_SRAM_SIZE_BYTES) \
-		-GExtSize=$(SOC_MEM_SIZE) $(SOC_PARAMS) \
+		-GExtSize=$(SOC_MEM_SIZE) -GOcmOnly=$(SOC_OCM_ONLY) $(SOC_PARAMS) \
 		-CFLAGS -DVERNII_SOC_SRAM_BASE=$(SOC_SRAM_BASE) \
 		-CFLAGS -DVERNII_SOC_SRAM_SIZE_BYTES=$(SOC_SRAM_SIZE_BYTES) \
+		-CFLAGS -DVERNII_SOC_OCM_ONLY=$(SOC_OCM_ONLY) \
 		--Mdir $(SOC_DIR) -f sources.f $(SOC_CPP) -o vernii_soc
 
 jtag: soc

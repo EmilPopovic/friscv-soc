@@ -36,6 +36,7 @@ module vernii_soc
     parameter int unsigned LineBytes        = 32,
     parameter int unsigned Ways             = 4,
     parameter bit          SramTags         = 1'b1,
+    parameter bit          OcmOnly          = 1'b0,
     parameter int unsigned ItlbEntries      = 2,
     parameter int unsigned DtlbEntries      = 4,
     parameter bit          FineTlbFlush     = 0,
@@ -451,6 +452,7 @@ friscv_mem_hub #(
     .CachedSize ( CachedSize ),
     .OcmBase    ( OcmBase    ),
     .OcmSize    ( OcmSize    ),
+    .OcmOnly    ( OcmOnly    ),
     .LineBytes  ( LineBytes  ),
     .Ways       ( Ways       ),
     .SramTags   ( SramTags   )

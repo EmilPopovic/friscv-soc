@@ -13,6 +13,8 @@ ACT_SOC_CONFIG := $(ACT_CONFIG_ROOT)/friscv-soc/test_config.yaml
 ACT_SOC_SIM_DIR := obj_dir_soc_act
 ACT_SOC_SRAM_BASE := 2147483648
 ACT_SOC_SRAM_SIZE_BYTES := 524288
+# The suite runs entirely out of the OCM, so build without the LLC
+ACT_SOC_OCM_ONLY := 1
 ACT_EXCLUDE_EXTENSIONS ?= Sm,S,InterruptsSm,InterruptsS,InterruptsU,ExceptionsZalrsc,ExceptionsZaamo,Svade,Svadu,SvaduPMP,SvPMP,SvZicbo,SvPMPZicbo,PMPF,PMPS,PMPSm,PMPU,PMPZaamo,PMPZalrsc,PMPZca,PMPZicbo
 UV_LINK_MODE ?= copy
 JOBS ?= $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
@@ -65,5 +67,6 @@ run-soc:
 	make -C $(TARGET_SIM_ROOT) soc \
 		SOC_DIR=$(ACT_SOC_SIM_DIR) \
 		SOC_SRAM_BASE=$(ACT_SOC_SRAM_BASE) \
-		SOC_SRAM_SIZE_BYTES=$(ACT_SOC_SRAM_SIZE_BYTES)
+		SOC_SRAM_SIZE_BYTES=$(ACT_SOC_SRAM_SIZE_BYTES) \
+		SOC_OCM_ONLY=$(ACT_SOC_OCM_ONLY)
 	python3 scripts/run.py soc

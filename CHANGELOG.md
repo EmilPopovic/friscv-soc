@@ -9,9 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `OcmOnly` parameter on `vernii_soc`.
+
 ### Changed
 
-- Bumped `friscv-mem-utils` to `v4.0.0`, now using packed struct pairs instead of `friscv_mem_if` interface. There are no more `interface`s in the design.
+- Bumped `friscv-mem-utils` to `v4.1.0`, now using packed struct pairs instead of `friscv_mem_if` interface. There are no more `interface`s in the design.
 - **Breaking:** Moved every peripheral into one block 64 KiB apart: SCB `0x0300_0000`,
   UART0 `0x0301_0000`, QSPI0 `0x0302_0000`, GPIO port A `0x0303_0000`, ZSBL ROM
   `0x0304_0000`, debug module `0x0305_0000`. The OCM, the ACLINT, the PLIC and external
