@@ -115,15 +115,15 @@ assign led_o[3] = heartbeat_cnt[23]; // LD4 green: free-running heartbeat
 vernii_axi_req_t  axi_req;
 vernii_axi_resp_t axi_rsp;
 
-vernii_reg_req_t [0:0] reg_ext_req;
-vernii_reg_rsp_t [0:0] reg_ext_rsp;
+vernii_reg_req_t [0:0] m_reg_req;
+vernii_reg_rsp_t [0:0] m_reg_rsp;
 
-assign reg_ext_rsp[0].rdata = '0;
-assign reg_ext_rsp[0].error = 1'b0;
-assign reg_ext_rsp[0].ready = 1'b1;
+assign m_reg_rsp[0].rdata = '0;
+assign m_reg_rsp[0].error = 1'b0;
+assign m_reg_rsp[0].ready = 1'b1;
 
-localparam xbar_rule_32_t [0:0] ExtRegSlvRules = '{
-    '{ idx: 0, start_addr: 32'h4000_1000, end_addr: 32'h4000_2000 }
+localparam xbar_rule_32_t [0:0] MRegRules = '{
+    '{ idx: 0, start_addr: 32'h0400_0000, end_addr: 32'h0400_1000 }
 };
 
 logic [31:0] gpio_in, gpio_out, gpio_oe;
@@ -170,8 +170,8 @@ vernii_soc #(
     .ExtSize          ( ExtSize        ),
     .ZsblRomEnable    ( ZsblRom != 0                     ),
     .NumStraps        ( NumStraps      ),
-    .NumExtRegSlv     ( 1              ),
-    .ExtRegSlvRules   ( ExtRegSlvRules ),
+    .NumMRegRules     ( 1              ),
+    .MRegRules        ( MRegRules      ),
     .HaltOnEnd        ( 1'b1           )
 ) i_vernii_soc (
     .clk_i          ( clk_i                  ),
@@ -184,8 +184,8 @@ vernii_soc #(
     .s_axi_gp_rsp_o (                        ),
     .m_axi_hp_req_o ( axi_req                ),
     .m_axi_hp_rsp_i ( axi_rsp                ),
-    .reg_ext_req_o  ( reg_ext_req            ),
-    .reg_ext_rsp_i  ( reg_ext_rsp            ),
+    .m_reg_req_o    ( m_reg_req              ),
+    .m_reg_rsp_i    ( m_reg_rsp              ),
     .strap_i        ( gpio_in[NumStraps-1:0] ),
     .uart0_rx_i     ( uart_rx_i              ),
     .uart0_tx_o     ( uart_tx_o              ),

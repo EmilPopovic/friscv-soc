@@ -39,7 +39,17 @@ Vernii is configurable, but contains a fixed set of peripherals. The block diagr
 
 Vernii's internal memory map is static.
 
-TODO: table
+| Block | Start | End | Flags |
+| ----- | ----- | --- | ----- |
+| OCM | `0x0000_0000` | `OcmSize` | E |
+| ACLINT | `0x0200_0000` | `0x0202_0000` | |
+| SCB | `0x0300_0000` | `0x0300_1000` | |
+| UART0 | `0x0301_0000` | `0x0301_1000` | |
+| QSPI0 | `0x0302_0000` | `0x0302_1000` | |
+| GPIO port A | `0x0303_0000` | `0x0303_1000` | |
+| ZSBL ROM | `0x0304_0000` | `0x0304_0080` | E |
+| Debug module | `0x0305_0000` | `0x0305_1000` | E |
+| PLIC | `0x0C00_0000` | `0x0C20_2000` | |
 
 The flags are defined as follows:
 
@@ -50,7 +60,8 @@ Additionally, Vernii assumes the following parametrized layout for external reso
 
 | Block | Start | End | Flags |
 | ----- | ----- | --- | ----- |
-|       |       |     |       |
+| External memory | `ExtBase` | `ExtBase + ExtSize` | E |
+| Cached window | `CachedBase` | `CachedBase + CachedSize` | C, E |
 
 ## Components and Parameters
 

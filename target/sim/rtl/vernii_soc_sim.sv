@@ -88,11 +88,11 @@ module vernii_soc_sim import vernii_pkg::*; #(
 
 localparam int unsigned PinmuxSlv    = 0;
 localparam int unsigned HyperCfgSlv  = 1;
-localparam int unsigned NumExtRegSlv = 2;
+localparam int unsigned NumMRegRules = 2;
 
-localparam axi_pkg::xbar_rule_32_t [NumExtRegSlv-1:0] ExtRegSlvRules = '{
-    '{ idx: HyperCfgSlv, start_addr: 32'h5001_0000, end_addr: 32'h5001_1000 },
-    '{ idx: PinmuxSlv,   start_addr: 32'h4000_1000, end_addr: 32'h4000_2000 }
+localparam axi_pkg::xbar_rule_32_t [NumMRegRules-1:0] MRegRules = '{
+    '{ idx: HyperCfgSlv, start_addr: 32'h0401_0000, end_addr: 32'h0401_1000 },
+    '{ idx: PinmuxSlv,   start_addr: 32'h0400_0000, end_addr: 32'h0400_1000 }
 };
 
 vernii_axi_req_t  axi_req;
@@ -100,14 +100,14 @@ vernii_axi_resp_t axi_rsp;
 
 `pragma diagnostic push
 `pragma diagnostic ignore="-Wunused-but-set-variable"
-vernii_reg_req_t [NumExtRegSlv-1:0] reg_ext_req;
-vernii_reg_rsp_t [NumExtRegSlv-1:0] reg_ext_rsp;
+vernii_reg_req_t [NumMRegRules-1:0] m_reg_req;
+vernii_reg_rsp_t [NumMRegRules-1:0] m_reg_rsp;
 `pragma diagnostic pop
 
-for (genvar i = 0; i < NumExtRegSlv; i++) begin : gen_reg_ext_sink
-    assign reg_ext_rsp[i].rdata = '0;
-    assign reg_ext_rsp[i].error = 1'b0;
-    assign reg_ext_rsp[i].ready = 1'b1;
+for (genvar i = 0; i < NumMRegRules; i++) begin : gen_m_reg_sink
+    assign m_reg_rsp[i].rdata = '0;
+    assign m_reg_rsp[i].error = 1'b0;
+    assign m_reg_rsp[i].ready = 1'b1;
 end
 
 `pragma diagnostic push
@@ -124,8 +124,8 @@ vernii_soc #(
     .ZsblRomWords     ( ZsblRomWords     ),
     .ZsblRomProg      ( ZsblRomProg      ),
     .NumStraps        ( NumStraps        ),
-    .NumExtRegSlv     ( NumExtRegSlv     ),
-    .ExtRegSlvRules   ( ExtRegSlvRules   ),
+    .NumMRegRules     ( NumMRegRules     ),
+    .MRegRules        ( MRegRules        ),
     .HaltOnEnd        ( 1                )
 ) i_vernii_soc (
     .clk_i          ( i_clk         ),
@@ -138,8 +138,8 @@ vernii_soc #(
     .s_axi_gp_rsp_o (               ),
     .m_axi_hp_req_o ( axi_req       ),
     .m_axi_hp_rsp_i ( axi_rsp       ),
-    .reg_ext_req_o  ( reg_ext_req   ),
-    .reg_ext_rsp_i  ( reg_ext_rsp   ),
+    .m_reg_req_o    ( m_reg_req     ),
+    .m_reg_rsp_i    ( m_reg_rsp     ),
     .strap_i        ( i_strap       ),
     .uart0_rx_i     ( i_uart_rx     ),
     .uart0_tx_o     ( o_uart_tx     ),

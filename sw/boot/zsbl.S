@@ -12,12 +12,12 @@
 
 .option arch, +zicsr
 
-.equ SCB_BASE,     0x40000000
+.equ SCB_BASE,     0x03000000
 .equ SCB_SCRATCH0, 0x00
 .equ SCB_STRAPA,   0x04
 
 # gen_zsbl_rom.py checks these against vernii_soc.sv
-.equ QSPI_BASE,    0x60000000
+.equ QSPI_BASE,    0x03020000
 .equ SPI_CONTROL,  0x10
 .equ SPI_CONFIGOPTS, 0x18
 .equ SPI_STATUS,   0x14
@@ -27,7 +27,7 @@
 .equ FSBL_BYTES,  512           # one RX command's worth
 
 _start:
-    lui t0, 0x40000
+    lui t0, (SCB_BASE >> 12)
     lw t1, SCB_STRAPA(t0)        # pads sampled at reset
     andi t1, t1, 1
     bnez t1, qspi

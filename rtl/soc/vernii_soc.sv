@@ -42,9 +42,8 @@ module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t,
     parameter bit          ZsblRomEnable    = 1'b1,
     parameter int unsigned ZsblRomWords     = vernii_zsbl_rom_pkg::ZSBL_PROG_WORDS,
     parameter logic [31:0] ZsblRomProg [ZsblRomWords] = vernii_zsbl_rom_pkg::ZSBL_PROG,
-    parameter logic [31:0] ZsblBaseAddr     = 32'h0020_0000,
     parameter int unsigned NumStraps        = 8,
-    parameter int unsigned NumExtRegSlv     = 1,
+    parameter int unsigned NumMRegRules     = 1,
     parameter bit          HaltOnEnd        = 0,
     parameter int unsigned NumExtIrq        = 2,
     parameter int unsigned NumGpioAIrq      = 8,
@@ -56,7 +55,7 @@ module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t,
     parameter type axi_rsp_t = vernii_axi_resp_t,
     parameter type reg_req_t = vernii_reg_req_t,
     parameter type reg_rsp_t = vernii_reg_rsp_t,
-    parameter axi_pkg::xbar_rule_32_t [NumExtRegSlv-1:0]   ExtRegSlvRules = '{default: '0},
+    parameter axi_pkg::xbar_rule_32_t [NumMRegRules-1:0]   MRegRules = '{default: '0},
     parameter axi_pkg::xbar_rule_32_t [NumSAxiGpRules-1:0] SAxiGpRules    = '{default: '0}
 ) (
     input  logic  clk_i,
@@ -78,8 +77,8 @@ module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t,
     input  axi_rsp_t m_axi_hp_rsp_i,
 
     // External register manager port
-    output reg_req_t [NumExtRegSlv-1:0] reg_ext_req_o,
-    input  reg_rsp_t [NumExtRegSlv-1:0] reg_ext_rsp_i,
+    output reg_req_t [NumMRegRules-1:0] m_reg_req_o,
+    input  reg_rsp_t [NumMRegRules-1:0] m_reg_rsp_i,
 
     // Straps
     input  logic [NumStraps-1:0] strap_i,
@@ -114,6 +113,41 @@ module vernii_soc import vernii_pkg::*, axi_pkg::xbar_rule_32_t, dm::hartinfo_t,
     output logic [31:0] gpio_a_o,
     output logic [31:0] gpio_a_oe_o
 );
+
+// ============================================================
+// Address map
+// ============================================================
+//
+//   0x0000_0000  OCM              OcmSize
+//   0x0200_0000  clint            128 KiB
+//   0x0300_0000  scb
+//   0x0301_0000  uart0
+//   0x0302_0000  qspi0
+//   0x0303_0000  gpio port a
+//   0x0304_0000  zsbl rom
+//   0x0305_0000  debug module
+//   0x0c00_0000  plic             2 MiB
+//   0x8000_0000  external memory  ExtSize
+
+// MSWI + MTIMER + tick generator config + SSWI, the whole ACLINT map
+localparam logic [31:0] ClintBaseAddr = 32'h0200_0000;
+localparam logic [31:0] ClintSize     = 32'h0002_0000;
+
+localparam logic [31:0] PlicBaseAddr = 32'h0C00_0000;
+localparam logic [31:0] PlicSize     = 32'h0020_2000;
+
+// Decode 4 KiB each, 64 KiB apart
+localparam logic [31:0] PeriphSize    = 32'h0000_1000;
+localparam logic [31:0] ScbBaseAddr   = 32'h0300_0000;
+localparam logic [31:0] Uart0BaseAddr = 32'h0301_0000;
+localparam logic [31:0] Qspi0BaseAddr = 32'h0302_0000;
+localparam logic [31:0] GpioABaseAddr = 32'h0303_0000;
+localparam logic [31:0] ZsblBaseAddr  = 32'h0304_0000;
+localparam logic [31:0] DmBaseAddr    = 32'h0305_0000;
+localparam logic [31:0] DmSize        = PeriphSize;
+
+// Contents rounded up to a power of two, the rest of the slot decodes as error
+localparam int unsigned ZsblRomWindow = ZsblRomEnable ? (1 << $clog2(ZsblRomWords * 4)) : 0;
 
 logic por_rstn;  // power-on reset synchronizer
 logic soc_rstn, soc_rstn_async;
@@ -150,9 +184,6 @@ friscv_mem_rsp_t cpu_rsp;
 logic [63:0] mtime;
 logic        msip, mtip, meip, seip;
 
-localparam logic [31:0] DmBaseAddr   = 32'h0010_0000;
-localparam logic [31:0] DmSize       = 32'h0000_1000;
-
 logic ndmreset;   // non-debug-module reset request from the DM
 logic debug_req;  // async debug request to the hart
 
@@ -164,8 +195,7 @@ assign por_rst_no = por_rstn;
 assign soc_rst_no = soc_rstn;
 
 // The zsbl rom is a reg-bus peripheral, the core just boots at its base
-localparam int unsigned ZsblRomWindow = ZsblRomEnable ? (1 << $clog2(ZsblRomWords * 4)) : 0;
-localparam int unsigned ResetVec      = ZsblRomEnable ? ZsblBaseAddr : ExtBase;
+localparam int unsigned ResetVec = ZsblRomEnable ? ZsblBaseAddr : ExtBase;
 
 friscv #(
     .ResetVec           ( ResetVec         ),
@@ -391,19 +421,6 @@ end endgenerate
 // Memory hub {cpu, s_axi_gp, dm} -> {soc, m_axi_hp}
 // ============================================================
 
-if (OcmBase < DmBaseAddr + DmSize &&
-    DmBaseAddr < OcmBase + OcmSize) begin : gen_chk_sram_dm
-    $error("the OCM window (%08x + %08x) covers the debug module at %08x",
-           OcmBase, OcmSize, DmBaseAddr);
-end
-
-// Check that a large OCM does not overlap with the ZSBL region
-if (ZsblRomWindow > 0 && OcmBase < ZsblBaseAddr + ZsblRomWindow &&
-    ZsblBaseAddr < OcmBase + OcmSize) begin : gen_chk_sram_zsbl
-    $fatal(1, "the OCM window (%08x + %08x) covers the ZSBL ROM window (%08x + %08x)",
-           OcmBase, OcmSize, ZsblBaseAddr, ZsblRomWindow);
-end
-
 logic [Ways-1:0] llcsel;
 logic            crpsel;
 logic            llcinv;
@@ -520,12 +537,8 @@ localparam int unsigned ClintPort = 6;
 localparam int unsigned ZsblPort  = 7;
 localparam int unsigned ErrPort   = 8;
 
-localparam int unsigned NoRegPorts   = NumIntRegPorts + NumExtRegSlv;
+localparam int unsigned NoRegPorts   = NumIntRegPorts + NumMRegRules;
 localparam int unsigned RegPortWidth = $clog2(NoRegPorts);
-
-// MSWI + MTIMER + tick generator config + SSWI, the whole ACLINT map
-localparam logic [31:0] ClintBaseAddr = 32'h0200_0000;
-localparam logic [31:0] ClintSize     = 32'h0002_0000;
 
 reg_req_t [NoRegPorts-1:0] reg_dev_req;
 reg_rsp_t [NoRegPorts-1:0] reg_dev_rsp;
@@ -538,25 +551,36 @@ reg_rsp_t [NoRegPorts-1:0] reg_dev_rsp;
 localparam int unsigned NoIntRegRules = 8;
 
 localparam xbar_rule_32_t [NoIntRegRules-1:0] IntRegRules = '{
-    '{ idx: DmPort,    start_addr: DmBaseAddr,    end_addr: DmBaseAddr + DmSize },
-    '{ idx: ClintPort, start_addr: ClintBaseAddr, end_addr: ClintBaseAddr + ClintSize },
-    '{ idx: PlicPort,  start_addr: 32'h0C00_0000, end_addr: 32'h0C20_2000 },
-    '{ idx: Uart0Port, start_addr: 32'h1000_0000, end_addr: 32'h1000_1000 },
-    '{ idx: GpioAPort, start_addr: 32'h2000_0000, end_addr: 32'h2000_0040 },
-    '{ idx: ScbPort,   start_addr: 32'h4000_0000, end_addr: 32'h4000_1000 },
-    '{ idx: Qspi0Port, start_addr: 32'h6000_0000, end_addr: 32'h6000_1000 },
-    '{ idx: ZsblPort,  start_addr: ZsblBaseAddr,  end_addr: ZsblBaseAddr + ZsblRomWindow }
+    '{ idx: DmPort,    start_addr: DmBaseAddr,    end_addr: DmBaseAddr    + DmSize        },
+    '{ idx: ClintPort, start_addr: ClintBaseAddr, end_addr: ClintBaseAddr + ClintSize     },
+    '{ idx: PlicPort,  start_addr: PlicBaseAddr,  end_addr: PlicBaseAddr  + PlicSize      },
+    '{ idx: ScbPort,   start_addr: ScbBaseAddr,   end_addr: ScbBaseAddr   + PeriphSize    },
+    '{ idx: Uart0Port, start_addr: Uart0BaseAddr, end_addr: Uart0BaseAddr + PeriphSize    },
+    '{ idx: Qspi0Port, start_addr: Qspi0BaseAddr, end_addr: Qspi0BaseAddr + PeriphSize    },
+    '{ idx: GpioAPort, start_addr: GpioABaseAddr, end_addr: GpioABaseAddr + PeriphSize    },
+    '{ idx: ZsblPort,  start_addr: ZsblBaseAddr,  end_addr: ZsblBaseAddr  + ZsblRomWindow }
 };
 
-function automatic int unsigned count_ext_rules();
-    count_ext_rules = 0;
-    for (int unsigned i = 0; i < NumExtRegSlv; i++) begin
-        if (rule_populated(ExtRegSlvRules[i])) count_ext_rules++;
+// The hub answers for the OCM window before the reg bus sees it, so anything
+// the OCM covers is unreachable. An empty rule (a disabled rom) cannot collide.
+for (genvar r = 0; r < NoIntRegRules; r++) begin : gen_chk_ocm_int_overlap
+    if (rule_populated(IntRegRules[r]) &&
+        OcmBase < rule_end(IntRegRules[r]) &&
+        IntRegRules[r].start_addr < OcmBase + OcmSize) begin : gen_chk_overlap
+        $fatal(1, "the OCM window (%08x + %08x) covers the internal region %08x..%08x",
+               OcmBase, OcmSize, IntRegRules[r].start_addr, rule_end(IntRegRules[r]));
+    end
+end
+
+function automatic int unsigned count_m_reg_rules();
+    count_m_reg_rules = 0;
+    for (int unsigned i = 0; i < NumMRegRules; i++) begin
+        if (rule_populated(MRegRules[i])) count_m_reg_rules++;
     end
 endfunction
 
-localparam int unsigned NoExtRegRules = count_ext_rules();
-localparam int unsigned NoRegRules    = NoIntRegRules + NoExtRegRules;
+localparam int unsigned NoMRegRules = count_m_reg_rules();
+localparam int unsigned NoRegRules    = NoIntRegRules + NoMRegRules;
 
 function automatic xbar_rule_32_t [NoRegRules-1:0] gen_reg_rules();
     xbar_rule_32_t rule;
@@ -566,9 +590,9 @@ function automatic xbar_rule_32_t [NoRegRules-1:0] gen_reg_rules();
     n             = 0;
 
     // External rules go in first, internal take priority in case of overlap
-    for (int unsigned i = 0; i < NumExtRegSlv; i++) begin
-        if (rule_populated(ExtRegSlvRules[i])) begin
-            rule     = ExtRegSlvRules[i];
+    for (int unsigned i = 0; i < NumMRegRules; i++) begin
+        if (rule_populated(MRegRules[i])) begin
+            rule     = MRegRules[i];
             rule.idx = rule.idx + NumIntRegPorts;
             gen_reg_rules[n] = rule;
             n++;
@@ -576,31 +600,31 @@ function automatic xbar_rule_32_t [NoRegRules-1:0] gen_reg_rules();
     end
 
     for (int unsigned i = 0; i < NoIntRegRules; i++) begin
-        gen_reg_rules[NoExtRegRules + i] = IntRegRules[i];
+        gen_reg_rules[NoMRegRules + i] = IntRegRules[i];
     end
 endfunction
 
 localparam xbar_rule_32_t [NoRegRules-1:0] RegAddrMap = gen_reg_rules();
 
-// Check that the external reg slave rules are valid and do not overlap internal rules
-for (genvar e = 0; e < NumExtRegSlv; e++) begin : gen_chk_ext_rule
-    // Check if the external slave index is in range
-    if (rule_populated(ExtRegSlvRules[e]) && ExtRegSlvRules[e].idx >= NumExtRegSlv) begin : gen_chk_idx
-        $fatal(1, "ExtRegSlvRules[%0d].idx (%0d) is not a valid external slave index (0..%0d)",
-               e, ExtRegSlvRules[e].idx, NumExtRegSlv - 1);
+// Check that the manager reg rules are valid and do not overlap internal rules
+for (genvar e = 0; e < NumMRegRules; e++) begin : gen_chk_m_reg_rule
+    // Check if the manager port index is in range
+    if (rule_populated(MRegRules[e]) && MRegRules[e].idx >= NumMRegRules) begin : gen_chk_idx
+        $fatal(1, "MRegRules[%0d].idx (%0d) is not a valid manager reg port (0..%0d)",
+               e, MRegRules[e].idx, NumMRegRules - 1);
     end
     // Check that end_addr is not below start_addr
-    if (rule_populated(ExtRegSlvRules[e]) && rule_end(ExtRegSlvRules[e]) < ExtRegSlvRules[e].start_addr) begin : gen_chk_range
-        $fatal(1, "ExtRegSlvRules[%0d] ends (%08x) below where it starts (%08x)",
-               e, ExtRegSlvRules[e].end_addr, ExtRegSlvRules[e].start_addr);
+    if (rule_populated(MRegRules[e]) && rule_end(MRegRules[e]) < MRegRules[e].start_addr) begin : gen_chk_range
+        $fatal(1, "MRegRules[%0d] ends (%08x) below where it starts (%08x)",
+               e, MRegRules[e].end_addr, MRegRules[e].start_addr);
     end
     // Check that the external rule does not overlap any internal rule
     for (genvar n = 0; n < NoIntRegRules; n++) begin : gen_chk_int_overlap
-        if (rule_populated(ExtRegSlvRules[e]) &&
-            ExtRegSlvRules[e].start_addr < rule_end(IntRegRules[n]) &&
-            IntRegRules[n].start_addr < rule_end(ExtRegSlvRules[e])) begin : gen_chk_overlap
-            $fatal(1, "ExtRegSlvRules[%0d] (%08x..%08x) overlaps the internal region %08x..%08x",
-                   e, ExtRegSlvRules[e].start_addr, rule_end(ExtRegSlvRules[e]),
+        if (rule_populated(MRegRules[e]) &&
+            MRegRules[e].start_addr < rule_end(IntRegRules[n]) &&
+            IntRegRules[n].start_addr < rule_end(MRegRules[e])) begin : gen_chk_overlap
+            $fatal(1, "MRegRules[%0d] (%08x..%08x) overlaps the internal region %08x..%08x",
+                   e, MRegRules[e].start_addr, rule_end(MRegRules[e]),
                    IntRegRules[n].start_addr, rule_end(IntRegRules[n]));
         end
     end
@@ -642,9 +666,9 @@ reg_demux #(
     .out_rsp_i   ( reg_dev_rsp  )
 );
 
-for (genvar i = 0; i < NumExtRegSlv; i++) begin : gen_ext_reg
-    assign reg_ext_req_o[i]                    = reg_dev_req[NumIntRegPorts + i];
-    assign reg_dev_rsp[NumIntRegPorts + i]     = reg_ext_rsp_i[i];
+for (genvar i = 0; i < NumMRegRules; i++) begin : gen_m_reg
+    assign m_reg_req_o[i]                    = reg_dev_req[NumIntRegPorts + i];
+    assign reg_dev_rsp[NumIntRegPorts + i]     = m_reg_rsp_i[i];
 end
 
 // ============================================================

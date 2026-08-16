@@ -6,7 +6,7 @@
 # Copyright 2026 FER, HPC Architecture and Application Research Center
 # SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 
-.equ SCRATCH, 0x40000000        # SCB.SCRATCH0, where the testbench reads the result
+.equ SCRATCH, 0x03000000        # SCB.SCRATCH0, where the testbench reads the result
 .equ HALT,    0x50000000        # END_ADDRESS to end simulation
 .equ PASS,    0xaabbccdd
 .equ FAIL,    0xdeadbeef

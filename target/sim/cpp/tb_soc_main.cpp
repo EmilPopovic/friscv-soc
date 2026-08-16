@@ -30,10 +30,10 @@ namespace {
 #endif
 
 constexpr uint32_t MEM_BASE = 0x80000000;
-constexpr uint32_t UART0_BASE = 0x10000000;
-constexpr uint32_t SCB_LLCSEL = 0x4000000C;
-constexpr uint32_t HYPER_CFG_BASE = 0x50010000;
-constexpr uint32_t SCRATCH_ADDRESS = 0x40000000;
+constexpr uint32_t UART0_BASE = 0x03010000;
+constexpr uint32_t SCB_LLCSEL = 0x0300000C;
+constexpr uint32_t HYPER_CFG_BASE = 0x04010000;
+constexpr uint32_t SCRATCH_ADDRESS = 0x03000000;
 constexpr uint32_t PARKED = 1;
 constexpr uint32_t PASS_VALUE = 0xaabbccdd;
 constexpr uint32_t SRAM_BASE = VERNII_SOC_SRAM_BASE;

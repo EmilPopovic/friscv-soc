@@ -13,7 +13,7 @@ package vernii_zsbl_rom_pkg;
 
     localparam int unsigned ZSBL_PROG_WORDS = 32;
     localparam logic [31:0] ZSBL_PROG [32] = '{
-        32'h400002b7,
+        32'h030002b7,
         32'h0042a303,
         32'h00137313,
         32'h00031e63,
@@ -23,7 +23,7 @@ package vernii_zsbl_rom_pkg;
         32'hfe638ee3,
         32'h0000100f,
         32'h00038067,
-        32'h600002b7,
+        32'h030202b7,
         32'h0062ac23,
         32'ha0000337,
         32'h0062a823,

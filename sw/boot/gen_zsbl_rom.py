@@ -46,10 +46,10 @@ def check_against_soc(source: Path, soc_path: Path):
     want = [
         ("scb base",
          find(asm, r"\.equ\s+SCB_BASE,\s*(0x[0-9a-fA-F]+)"),
-         find(soc, r"idx:\s*ScbPort\s*,\s*start_addr:\s*32'h([0-9a-fA-F_]+)"), 16),
+         find(soc, r"ScbBaseAddr\s*=\s*32'h([0-9a-fA-F_]+)"), 16),
         ("qspi base",
          find(asm, r"\.equ\s+QSPI_BASE,\s*(0x[0-9a-fA-F]+)"),
-         find(soc, r"idx:\s*Qspi0Port\s*,\s*start_addr:\s*32'h([0-9a-fA-F_]+)"), 16),
+         find(soc, r"Qspi0BaseAddr\s*=\s*32'h([0-9a-fA-F_]+)"), 16),
     ]
 
     for name, in_asm, in_soc, base in want:

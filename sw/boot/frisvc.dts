@@ -77,9 +77,9 @@
         interrupts-extended = <&cpu0_intc 3>, <&cpu0_intc 7>;
     };
 
-    uart0: serial@10000000 {
+    uart0: serial@3010000 {
         compatible = "ns16550a";
-        reg = <0x10000000 0x100>;
+        reg = <0x03010000 0x100>;
         reg-shift = <2>;
         reg-io-width = <4>;
         clock-frequency = <50000000>;
@@ -88,9 +88,9 @@
         interrupts = <1>;
     };
 
-    qspi0: spi@60000000 {
+    qspi0: spi@3020000 {
         compatible = "lowrisc,opentitan-spi-host";
-        reg = <0x60000000 0x40>;
+        reg = <0x03020000 0x40>;
 
         interrupt-parent = <&plic>;
         interrupts = <2>, <3>;

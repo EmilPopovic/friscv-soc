@@ -6,9 +6,10 @@
 // First stage boot loader. Runs from OCM, copies the flash image to RAM and
 // boots it. Flash layout: fsbl block, magic, length, checksum, image
 
-.equ SCB_SCRATCH, 0x40000000
-.equ SCB_LLCSEL,  0x4000000C
-.equ UART0,       0x10000000
+.equ SCB_SCRATCH, 0x03000000
+.equ SCB_LLCSEL,  0x0300000C
+.equ UART0,       0x03010000
+.equ QSPI_BASE,   0x03020000
 .equ UART_DLL,    0x00
 .equ UART_DLM,    0x04
 .equ UART_LCR,    0x0c
@@ -49,7 +50,7 @@ _start:
     li      t1, 0x03
     sw      t1, UART_LCR(t0)
 
-    lui     t0, 0x60000
+    lui     t0, (QSPI_BASE >> 12)
 
     // Read from flash offset 0x200
     li      t1, 0x00020003
