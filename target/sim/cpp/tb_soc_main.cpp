@@ -42,6 +42,13 @@ constexpr uint16_t RISCV_MACHINE = 243;
 constexpr uint64_t RUN_CYCLES = 2000;
 constexpr uint64_t TEST_CYCLES = 10000000;
 
+// What the boot ROM reads before it jumps to zero
+constexpr size_t ZSBL_STAGE_BYTES = 512;
+// UART_DIV in zsbl.S, fixed in mask ROM
+constexpr uint32_t ZSBL_UART_DIV = 27;
+// The stage checks the block from here on, so a partial transfer cannot pass
+constexpr size_t STAGE_PATTERN_START = 256;
+
 uint32_t parse_u32(const char* text) {
     char* end = nullptr;
     unsigned long value = std::strtoul(text, &end, 0);
@@ -321,6 +328,75 @@ int qspiboot_command(SocTestbench& testbench, Jtag& jtag, const char* path) {
     return 1;
 }
 
+// Boot select 2: the ROM takes its first stage off the UART instead of flash
+int uartboot_command(SocTestbench& testbench, Jtag& jtag, const char* path) {
+    Dut& top = testbench.top();
+
+    std::vector<uint8_t> stage = read_file(path);
+
+    if (stage.size() > ZSBL_STAGE_BYTES) {
+        std::fprintf(stderr, "stage %s is %zu bytes, the rom takes %zu\n",
+                     path, stage.size(), ZSBL_STAGE_BYTES);
+        return 1;
+    }
+
+    // Pad to the length the ROM expects, with a known tail the stage checks
+    stage.resize(ZSBL_STAGE_BYTES, 0);
+
+    for (size_t i = STAGE_PATTERN_START; i < ZSBL_STAGE_BYTES; ++i) {
+        stage[i] = uint8_t(i * 7 + 0x5a);
+    }
+
+    uint32_t divisor = ZSBL_UART_DIV;
+
+    if (const char* env = std::getenv("VERNII_UART_DIV")) {
+        divisor = uint32_t(std::strtoul(env, nullptr, 0));
+    }
+
+    testbench.uart().set_divisor(divisor);
+    testbench.uart_rx().set_divisor(divisor);
+
+    // Model a host clock that does not match the chip's
+    if (const char* env = std::getenv("VERNII_UART_BIT_CYCLES")) {
+        testbench.uart_rx().set_bit_cycles(unsigned(std::strtoul(env, nullptr, 0)));
+    }
+
+    unsigned boot_sel = 2;
+
+    if (const char* env = std::getenv("VERNII_BOOT_SEL")) {
+        boot_sel = unsigned(std::strtoul(env, nullptr, 0));
+    }
+
+    dut::set_boot_sel(top, boot_sel);
+    testbench.reset();
+    jtag.initialize();  // the reset above took the debug module with it
+
+    testbench.uart_rx().send(stage);
+    std::fprintf(stderr, "uart stage %s: %zu bytes at divisor %u\n",
+                 path, stage.size(), divisor);
+
+    uint64_t limit = TEST_CYCLES;
+
+    if (const char* env = std::getenv("VERNII_TEST_CYCLES")) {
+        limit = std::strtoull(env, nullptr, 0);
+    }
+
+    for (uint64_t cycle = 0; cycle < limit && !top.end_o; ++cycle) {
+        testbench.run_cycles(1);
+    }
+
+    uint32_t result = read_word(jtag, SCRATCH_ADDRESS);
+    unsigned long long cycles = testbench.cycles();
+
+    if (top.end_o && result == PASS_VALUE) {
+        std::fprintf(stderr, "PASS (%llu cycles)\n", cycles);
+        return 0;
+    }
+
+    std::fprintf(stderr, "FAIL (scratch=0x%08x, %llu cycles)\n", result, cycles);
+    return 1;
+}
+
 int test_command(SocTestbench& testbench, Jtag& jtag, const char* path) {
     Dut& top = testbench.top();
     ElfImage image = prepare_image(testbench, jtag, path);
@@ -411,6 +487,7 @@ bool valid_command(int argc, char** argv) {
            (argc == 3 && !std::strcmp(argv[1], "load")) ||
            (argc == 3 && !std::strcmp(argv[1], "test")) ||
            (argc == 3 && !std::strcmp(argv[1], "qspiboot")) ||
+           (argc == 3 && !std::strcmp(argv[1], "uartboot")) ||
            (argc == 4 && !std::strcmp(argv[1], "read")) ||
            (argc >= 4 && !std::strcmp(argv[1], "write"));
 }
@@ -430,6 +507,10 @@ int execute_command(SocTestbench& testbench, Jtag& jtag,
         return qspiboot_command(testbench, jtag, argv[2]);
     }
 
+    if (!std::strcmp(argv[1], "uartboot")) {
+        return uartboot_command(testbench, jtag, argv[2]);
+    }
+
     if (!std::strcmp(argv[1], "read")) {
         read_command(testbench, jtag, argv[2], argv[3]);
         return 0;
@@ -445,10 +526,12 @@ void print_usage(const char* program) {
                  "  %s load <program.elf>\n"
                  "  %s test <program.elf>\n"
                  "  %s qspiboot <image.bin>\n"
+                 "  %s uartboot <stage.bin>\n"
                  "  %s read <address> <size>\n"
                  "  %s write <address> <byte> [byte ...]\n"
                  "  %s server [port]\n",
-                 program, program, program, program, program, program);
+                 program, program, program, program, program, program,
+                 program);
 }
 
 }  // namespace

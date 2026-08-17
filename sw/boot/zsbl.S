@@ -5,7 +5,8 @@
 // Emil Popović <mail@emilpopovic.me>
 //
 // Zero stage boot loader. Boot select 0 parks for the debug module, 1 loads a
-// first stage from QSPI flash and runs it from zero.
+// first stage from QSPI flash, 2 or 3 receives one over the UART. Either loader
+// leaves 512 bytes at zero and jumps there.
 
 .section .text
 .global _start
@@ -18,18 +19,28 @@
 
 # gen_zsbl_rom.py checks these against vernii_soc.sv
 .equ QSPI_BASE,    0x03020000
+.equ UART_BASE,    0x03010000
 .equ SPI_CONTROL,  0x10
 .equ SPI_CONFIGOPTS, 0x18
 .equ SPI_STATUS,   0x14
 .equ SPI_COMMAND,  0x28
 .equ SPI_RXDATA,   0x2c
 .equ SPI_TXDATA,   0x30
+.equ UART_RBR,     0x00
+.equ UART_DLL,     0x00
+.equ UART_LCR,     0x0c
+.equ UART_LSR,     0x14
+.equ F_CPU,        50000000
+.equ BAUD,         115200
+.equ UART_DIV,     ((F_CPU + 8 * BAUD) / (16 * BAUD))
 .equ FSBL_BYTES,  512           # one RX command's worth
 
 _start:
     lui t0, (SCB_BASE >> 12)
     lw t1, SCB_BOOTSEL(t0)       # boot select pads
-    andi t1, t1, 1
+    andi t2, t1, 2
+    bnez t2, uart
+    andi t1, t1, 1               # leaves t1 = 1, the CLKDIV qspi writes
     bnez t1, qspi
 
 park:
@@ -39,6 +50,25 @@ park:
     beq t2, t1, 1b
     fence.i              # the DM wrote code
     jr t2
+
+uart:
+    # DLM resets to zero, so only DLL needs the divisor
+    lui t0, (UART_BASE >> 12)
+    li t1, 0x80
+    sw t1, UART_LCR(t0)          # DLAB
+    li t1, UART_DIV
+    sw t1, UART_DLL(t0)
+    li t1, 3
+    sw t1, UART_LCR(t0)          # 8N1, DLAB off
+    li a0, -FSBL_BYTES           # counts up to zero
+3:  lw t2, UART_LSR(t0)
+    andi t2, t2, 1               # data ready
+    beqz t2, 3b
+    lw t2, UART_RBR(t0)
+    sb t2, FSBL_BYTES(a0)
+    addi a0, a0, 1
+    bnez a0, 3b
+    j done
 
 qspi:
     # The QSPI pads are dedicated, there is nothing to mux
@@ -60,5 +90,7 @@ qspi:
     sw t2, FSBL_BYTES(a0)
     addi a0, a0, 4
     bnez a0, 2b
+
+done:
     fence.i
     jr zero

@@ -49,6 +49,7 @@ void SocTestbench::run_cycles(uint64_t count) {
 
     for (uint64_t i = 0; i < count; ++i) {
         uart_.sample(top_.uart0_tx_o);
+        top_.uart0_rx_i = uart_rx_.drive();
 
         // The loop ends with the clock low, a leading low phase would be a no-op
         top_.clk_i = 1;

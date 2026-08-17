@@ -39,8 +39,8 @@ def find(text: str, pattern: str) -> str | None:
 
 
 def check_against_soc(source: Path, soc_path: Path):
-    """The loader reaches the SCB and the SPI host by address and the assembler
-    cannot check that. The register map lives in the soc."""
+    """The loader reaches the SCB, the SPI host and the UART by address and the
+    assembler cannot check that. The register map lives in the soc."""
     asm, soc = source.read_text(), soc_path.read_text()
 
     want = [
@@ -50,6 +50,9 @@ def check_against_soc(source: Path, soc_path: Path):
         ("qspi base",
          find(asm, r"\.equ\s+QSPI_BASE,\s*(0x[0-9a-fA-F]+)"),
          find(soc, r"Qspi0BaseAddr\s*=\s*32'h([0-9a-fA-F_]+)"), 16),
+        ("uart base",
+         find(asm, r"\.equ\s+UART_BASE,\s*(0x[0-9a-fA-F]+)"),
+         find(soc, r"Uart0BaseAddr\s*=\s*32'h([0-9a-fA-F_]+)"), 16),
     ]
 
     for name, in_asm, in_soc, base in want:

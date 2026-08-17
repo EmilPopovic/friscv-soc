@@ -20,15 +20,20 @@ CYCLES  ?= 40000000
 %.elf: %.S link.ld
 	$(CROSS)gcc $(CFLAGS) -T link.ld -o $@ $<
 
+# The boot ROM leaves its first stage at zero, so this one does not use link.ld
+uart_stage.bin: uart_stage.S
+	$(CROSS)gcc $(CFLAGS) -Wl,-Ttext=0 -o uart_stage.elf $<
+	$(CROSS)objcopy -O binary uart_stage.elf $@
+
 .PHONY: sim-build
 sim-build:
 	$(MAKE) -C $(TARGET_SIM_ROOT) soc SOC_DIR=$(SIM_DIR)
 
 .PHONY: all
-all: $(ELFS)
+all: $(ELFS) uart_stage.bin
 
 .PHONY: run
-run: $(ELFS) sim-build
+run: $(ELFS) uart_stage.bin sim-build
 	@fail=0; \
 	for t in $(TESTS); do \
 	    printf '%-16s ' "$$t"; \
@@ -39,9 +44,16 @@ run: $(ELFS) sim-build
 	        tail -1 $$t.log; fail=1; \
 	    fi; \
 	done; \
+	printf '%-16s ' uart_boot; \
+	if VERNII_TEST_CYCLES=$(CYCLES) \
+	   $(SIM) uartboot uart_stage.bin > uart_boot.log 2>&1; then \
+	    tail -1 uart_boot.log; \
+	else \
+	    tail -1 uart_boot.log; fail=1; \
+	fi; \
 	exit $$fail
 
 .PHONY: clean
 clean:
-	rm -f $(ELFS) *.log
+	rm -f $(ELFS) uart_stage.elf uart_stage.bin *.log
 	rm -rf $(TARGET_SIM_ROOT)/$(SIM_DIR)

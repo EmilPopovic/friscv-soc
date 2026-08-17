@@ -11,6 +11,7 @@
 #include "axi_mem.hpp"
 #include "dut.hpp"
 #include "qspi_flash.hpp"
+#include "uart_rx_driver.hpp"
 #include "uart_tx_monitor.hpp"
 
 class SocTestbench {
@@ -22,6 +23,7 @@ class SocTestbench {
     AxiMem& ext_mem() { return ext_mem_; }
     QspiFlash& flash() { return flash_; }
     UartTxMonitor& uart() { return uart_; }
+    UartRxDriver& uart_rx() { return uart_rx_; }
 
     void reset();
     void run_cycles(uint64_t count);
@@ -34,5 +36,6 @@ class SocTestbench {
     AxiMem ext_mem_;
     QspiFlash flash_;
     UartTxMonitor uart_;
+    UartRxDriver uart_rx_;
     uint64_t cycles_ = 0;
 };

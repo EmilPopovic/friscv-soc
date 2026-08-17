@@ -21,7 +21,7 @@ Vernii is configurable, but contains a fixed set of peripherals. The block diagr
 - **Peripherals:**
 
   - Standard I/O interfaces (UART, QSPI, GPIO)
-  - Integrator-configurable boot ROM (default support for JTAG and QSPI boot)
+  - Integrator-configurable boot ROM (default support for JTAG, QSPI and UART boot)
   - General-purpose register bus port exposed to the outside
 
 - **Interconnect:**
@@ -78,6 +78,17 @@ Additionally, Vernii assumes the following parametrized layout for external reso
 ## UART
 
 ## Boot ROM
+
+`SCB.BOOTSEL` selects where the first stage comes from. Both loaders read 512
+bytes to address zero and jump there.
+
+| BOOTSEL | Source |
+| ------- | ------ |
+| `0` | Parks for the debug module, which leaves an entry point in `SCB.SCRATCH0` |
+| `1` | QSPI0 flash on CS0, from offset 0 |
+| `2`, `3` | UART0, 8N1 at 115200 |
+
+The UART divisor is fixed in the ROM, so the baud rate scales with the core clock.
 
 ## Not Implemented
 
