@@ -17,8 +17,6 @@
 // Emil Popović <mail@emilpopovic.me>
 // Matej Jurasić <matej.jurasic@cappig.dev>
 
-`include "apb/typedef.svh"
-
 module vernii_soc
     import vernii_pkg::*;
     import axi_pkg::xbar_rule_32_t;
@@ -62,6 +60,8 @@ module vernii_soc
     parameter type axi_rsp_t      = vernii_axi_resp_t,
     parameter type reg_req_t      = vernii_reg_req_t,
     parameter type reg_rsp_t      = vernii_reg_rsp_t,
+    parameter type apb_req_t      = vernii_apb_req_t,
+    parameter type apb_rsp_t      = vernii_apb_resp_t,
 
     parameter axi_pkg::xbar_rule_32_t [NumMRegRules-1:0]   MRegRules   = '{default: '0},
     parameter axi_pkg::xbar_rule_32_t [NumSAxiGpRules-1:0] SAxiGpRules = '{default: '0}
@@ -480,8 +480,6 @@ friscv_mem_hub #(
 ////////////////////////////////////////////////////////////////////////
 // Interconnect: mem_if -> mem -> reg_bus -> reg demux -> peripherals //
 ////////////////////////////////////////////////////////////////////////
-
-`APB_TYPEDEF_ALL(apb, addr_t, data_t, strb_t)
 
 // mem_if -> mem
 logic        soc_req, soc_gnt, soc_we, soc_rvalid, soc_err;
@@ -913,13 +911,13 @@ mem_to_friscv i_sba_mem (
 /////////////////////////////////////////////////
 
 // reg_bus -> APB
-apb_req_t  uart0_apb_req;
-apb_resp_t uart0_apb_rsp;
+apb_req_t uart0_apb_req;
+apb_rsp_t uart0_apb_rsp;
 reg_to_apb #(
-    .reg_req_t ( reg_req_t  ),
-    .reg_rsp_t ( reg_rsp_t  ),
-    .apb_req_t ( apb_req_t  ),
-    .apb_rsp_t ( apb_resp_t )
+    .reg_req_t ( reg_req_t ),
+    .reg_rsp_t ( reg_rsp_t ),
+    .apb_req_t ( apb_req_t ),
+    .apb_rsp_t ( apb_rsp_t )
 ) i_reg_to_apb (
     .clk_i,
     .rst_ni    ( soc_rst_n              ),
@@ -935,8 +933,8 @@ logic uart0_irq;
 `pragma diagnostic push
 `pragma diagnostic ignore="-Wempty-output-connection"
 apb_uart_wrap #(
-    .apb_req_t ( apb_req_t  ),
-    .apb_rsp_t ( apb_resp_t )
+    .apb_req_t ( apb_req_t ),
+    .apb_rsp_t ( apb_rsp_t )
 ) i_uart0 (
     .clk_i,
     .rst_ni    ( soc_rst_n     ),

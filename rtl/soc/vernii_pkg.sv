@@ -10,6 +10,7 @@
 
 `include "axi/typedef.svh"
 `include "register_interface/typedef.svh"
+`include "apb/typedef.svh"
 
 package vernii_pkg;
 
@@ -28,6 +29,7 @@ typedef logic [AxiUserWidth-1:0] user_t;
 `AXI_LITE_TYPEDEF_ALL(vernii_axi_lite, addr_t, data_t, strb_t)
 `AXI_TYPEDEF_ALL(vernii_axi, addr_t, id_t, data_t, strb_t, user_t)
 `REG_BUS_TYPEDEF_ALL(vernii_reg, addr_t, data_t, strb_t)
+`APB_TYPEDEF_ALL(vernii_apb, addr_t, data_t, strb_t)
 
 localparam int unsigned NumIntRegPorts = 9;
 
