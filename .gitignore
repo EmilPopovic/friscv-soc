@@ -7,3 +7,4 @@ Bender.local
 sources.f
 *.log
 verif/directed/*.elf
+*.bin
