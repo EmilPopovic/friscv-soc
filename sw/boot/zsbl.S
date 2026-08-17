@@ -30,10 +30,12 @@
 .equ UART_DLL,     0x00
 .equ UART_LCR,     0x0c
 .equ UART_LSR,     0x14
+.equ UART_THR,     0x00
 .equ F_CPU,        50000000
 .equ BAUD,         115200
 .equ UART_DIV,     ((F_CPU + 8 * BAUD) / (16 * BAUD))
 .equ FSBL_BYTES,  512           # one RX command's worth
+.equ BANNER,       0x56          # 'V', sent before the first byte is expected
 
 _start:
     lui t0, (SCB_BASE >> 12)
@@ -60,6 +62,8 @@ uart:
     sw t1, UART_DLL(t0)
     li t1, 3
     sw t1, UART_LCR(t0)          # 8N1, DLAB off
+    li t1, BANNER                # THR is empty out of reset, no need to poll
+    sw t1, UART_THR(t0)
     li a0, -FSBL_BYTES           # counts up to zero
 3:  lw t2, UART_LSR(t0)
     andi t2, t2, 1               # data ready

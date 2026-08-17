@@ -89,6 +89,8 @@ bytes to address zero and jump there.
 | `2`, `3` | UART0, 8N1 at 115200 |
 
 The UART divisor is fixed in the ROM, so the baud rate scales with the core clock.
+UART boot sends `V` before it starts receiving, which tells a terminal that the
+ROM is running and that the baud rate agrees.
 
 ## Not Implemented
 

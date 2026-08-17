@@ -385,6 +385,9 @@ int uartboot_command(SocTestbench& testbench, Jtag& jtag, const char* path) {
         testbench.run_cycles(1);
     }
 
+    // The rom's banner byte lands on stderr, keep it off the verdict line
+    std::fputc('\n', stderr);
+
     uint32_t result = read_word(jtag, SCRATCH_ADDRESS);
     unsigned long long cycles = testbench.cycles();
 

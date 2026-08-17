@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `OcmOnly` parameter on `vernii_soc`.
 - Boot select 2 loads the first stage over UART0, 8N1 at 115200. The ROM window
   is 256 bytes now.
+- UART boot sends `V` before receiving, so a terminal shows whether the ROM is
+  running and the baud rate agrees.
 
 ### Changed
 

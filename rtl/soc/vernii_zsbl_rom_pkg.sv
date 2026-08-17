@@ -11,14 +11,14 @@
 // Generated from zsbl.S by gen_zsbl_rom.py, do not edit
 package vernii_zsbl_rom_pkg;
 
-    localparam int unsigned ZSBL_PROG_WORDS = 50;
-    localparam logic [31:0] ZSBL_PROG [50] = '{
+    localparam int unsigned ZSBL_PROG_WORDS = 52;
+    localparam logic [31:0] ZSBL_PROG [52] = '{
         32'h030002b7,
         32'h0042a303,
         32'h00237393,
         32'h02039263,
         32'h00137313,
-        32'h04031e63,
+        32'h06031263,
         32'h00100313,
         32'h0062a023,
         32'h0002a383,
@@ -32,6 +32,8 @@ package vernii_zsbl_rom_pkg;
         32'h0062a023,
         32'h00300313,
         32'h0062a623,
+        32'h05600313,
+        32'h0062a023,
         32'he0000513,
         32'h0142a383,
         32'h0013f393,
