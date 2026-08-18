@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Removed the `ZsblBaseAddr` parameter, the ROM has a fixed slot now.
 - **Breaking:** Replaced the SCB strap register with boot select.
 - Refactored core to use [lowRISC style guide](https://github.com/lowRISC/style-guides/blob/master/VerilogCodingStyle.md).
+- Add reset duplication.
 
 ## [0.3.0] - 2026-08-15
 
