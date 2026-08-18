@@ -202,6 +202,34 @@ assign soc_rst_n_async = por_rst_n & (test_mode_i | ~ndmreset);
 assign por_rst_no = por_rst_n;
 assign soc_rst_no = soc_rst_n;
 
+///////////////////////
+// Reset replication //
+///////////////////////
+
+// Reset replication per-module to avoid fanout of the reset tree
+
+logic cpu_rst_n;      // i_cpu
+logic axi_rst_n;      // slave AXI GP path, master AXI bridge
+logic mem_hub_rst_n;  // i_mem_hub
+logic scb_rst_n;      // i_scb
+logic uart0_rst_n;    // i_uart0
+logic gpio_a_rst_n;   // i_gpio_a
+logic qspi0_rst_n;    // i_qspi0
+logic plic_rst_n;     // i_plic
+logic aclint_rst_n;   // i_aclint
+logic glue_rst_n;     // reg/mem shims, zsbl rom, debug-module
+
+soc_rst_replica i_rst_rep_cpu     ( .clk_i, .rst_ni ( soc_rst_n ), .rst_no ( cpu_rst_n     ) );
+soc_rst_replica i_rst_rep_axi     ( .clk_i, .rst_ni ( soc_rst_n ), .rst_no ( axi_rst_n     ) );
+soc_rst_replica i_rst_rep_mem_hub ( .clk_i, .rst_ni ( soc_rst_n ), .rst_no ( mem_hub_rst_n ) );
+soc_rst_replica i_rst_rep_scb     ( .clk_i, .rst_ni ( soc_rst_n ), .rst_no ( scb_rst_n     ) );
+soc_rst_replica i_rst_rep_uart0   ( .clk_i, .rst_ni ( soc_rst_n ), .rst_no ( uart0_rst_n   ) );
+soc_rst_replica i_rst_rep_gpio_a  ( .clk_i, .rst_ni ( soc_rst_n ), .rst_no ( gpio_a_rst_n  ) );
+soc_rst_replica i_rst_rep_qspi0   ( .clk_i, .rst_ni ( soc_rst_n ), .rst_no ( qspi0_rst_n   ) );
+soc_rst_replica i_rst_rep_plic    ( .clk_i, .rst_ni ( soc_rst_n ), .rst_no ( plic_rst_n    ) );
+soc_rst_replica i_rst_rep_aclint  ( .clk_i, .rst_ni ( soc_rst_n ), .rst_no ( aclint_rst_n  ) );
+soc_rst_replica i_rst_rep_glue    ( .clk_i, .rst_ni ( soc_rst_n ), .rst_no ( glue_rst_n    ) );
+
 // The zsbl rom is a reg-bus peripheral, the core just boots at its base
 localparam int unsigned ResetVec = ZsblRomEnable ? ZsblBaseAddr : ExtBase;
 
@@ -219,7 +247,7 @@ friscv #(
     .EnableFineTlbFlush ( FineTlbFlush     )
 ) i_cpu (
     .clk_i,
-    .rst_ni    ( soc_rst_n ),
+    .rst_ni    ( cpu_rst_n ),
     .end_o     ( end_o     ),
     .msip_i    ( msip      ),
     .mtip_i    ( mtip      ),
@@ -320,7 +348,7 @@ axi_demux_simple #(
     .AxiLookBits ( SAxiIdWidth       )
 ) i_s_axi_gp_demux (
     .clk_i,
-    .rst_ni          ( soc_rst_n          ),
+    .rst_ni          ( axi_rst_n          ),
     .test_i          ( test_mode_i        ),
     .slv_req_i       ( s_axi_gp_req       ),
     .slv_aw_select_i ( s_axi_gp_aw_select ),
@@ -343,7 +371,7 @@ axi_err_slv #(
     .ATOPs      ( 1'b0                 )
 ) i_s_axi_gp_err_slv (
     .clk_i,
-    .rst_ni     ( soc_rst_n                       ),
+    .rst_ni     ( axi_rst_n                       ),
     .test_i     ( test_mode_i                     ),
     .slv_req_i  ( s_axi_gp_dev_req[SAxiGpErrPort] ),
     .slv_resp_o ( s_axi_gp_dev_rsp[SAxiGpErrPort] )
@@ -370,7 +398,7 @@ if (EnableSAxiGp) begin : gen_axi_gp
         .IdWidth    ( SAxiIdWidth       )
     ) i_s_axi_to_mem (
         .clk_i,
-        .rst_ni       ( soc_rst_n                       ),
+        .rst_ni       ( axi_rst_n                       ),
         .busy_o       ( /* unused */                    ),
         .axi_req_i    ( s_axi_gp_dev_req[SAxiGpBusPort] ),
         .axi_resp_o   ( s_axi_gp_dev_rsp[SAxiGpBusPort] ),
@@ -400,7 +428,7 @@ if (EnableSAxiGp) begin : gen_axi_gp
     `pragma diagnostic ignore="-Wempty-output-connection"
     mem_to_friscv i_s_mem_to_friscv (
         .clk_i,
-        .rst_ni      ( soc_rst_n    ),
+        .rst_ni      ( axi_rst_n    ),
         .req_i       ( s_mem_req    ),
         .addr_i      ( s_mem_addr   ),
         .we_i        ( s_mem_we     ),
@@ -458,23 +486,23 @@ friscv_mem_hub #(
     .SramTags   ( SramTags   )
 ) i_mem_hub (
     .clk_i,
-    .rst_ni      ( soc_rst_n    ),
-    .s_a_req_i   ( cpu_req      ),
-    .s_a_rsp_o   ( cpu_rsp      ),
-    .s_b_req_i   ( s_gp_mem_req ),
-    .s_b_rsp_o   ( s_gp_mem_rsp ),
-    .s_dm_req_i  ( dm_req       ),
-    .s_dm_rsp_o  ( dm_rsp       ),
-    .m_ext_req_o ( ext_req      ),
-    .m_ext_rsp_i ( ext_rsp      ),
-    .m_sys_req_o ( sys_req      ),
-    .m_sys_rsp_i ( sys_rsp      ),
-    .rd_acc_o    ( llc_rd_acc   ),
-    .rd_miss_o   ( llc_rd_miss  ),
-    .wr_acc_o    ( llc_wr_acc   ),
-    .llcsel_i    ( llcsel       ),
-    .crpsel_i    ( crpsel       ),
-    .llcinv_i    ( llcinv       )
+    .rst_ni      ( mem_hub_rst_n ),
+    .s_a_req_i   ( cpu_req       ),
+    .s_a_rsp_o   ( cpu_rsp       ),
+    .s_b_req_i   ( s_gp_mem_req  ),
+    .s_b_rsp_o   ( s_gp_mem_rsp  ),
+    .s_dm_req_i  ( dm_req        ),
+    .s_dm_rsp_o  ( dm_rsp        ),
+    .m_ext_req_o ( ext_req       ),
+    .m_ext_rsp_i ( ext_rsp       ),
+    .m_sys_req_o ( sys_req       ),
+    .m_sys_rsp_i ( sys_rsp       ),
+    .rd_acc_o    ( llc_rd_acc    ),
+    .rd_miss_o   ( llc_rd_miss   ),
+    .wr_acc_o    ( llc_wr_acc    ),
+    .llcsel_i    ( llcsel        ),
+    .crpsel_i    ( crpsel        ),
+    .llcinv_i    ( llcinv        )
 );
 
 ////////////////////////////////////////////////////////////////////////
@@ -491,7 +519,7 @@ friscv_to_mem #(
     .RegisterReq ( 1 )
 ) i_soc_to_mem (
     .clk_i,
-    .rst_ni      ( soc_rst_n  ),
+    .rst_ni      ( glue_rst_n ),
     .req_o       ( soc_req    ),
     .addr_o      ( soc_addr   ),
     .we_o        ( soc_we     ),
@@ -517,7 +545,7 @@ mem_to_reg #(
     .reg_rsp_t ( reg_rsp_t )
 ) i_soc_mem_to_reg (
     .clk_i     ( clk_i        ),
-    .rst_ni    ( soc_rst_n    ),
+    .rst_ni    ( glue_rst_n   ),
     .req_i     ( soc_req      ),
     .gnt_o     ( soc_gnt      ),
     .we_i      ( soc_we       ),
@@ -670,7 +698,7 @@ reg_demux #(
     .rsp_t   ( reg_rsp_t  )
 ) i_reg_demux (
     .clk_i       ( clk_i        ),
-    .rst_ni      ( soc_rst_n    ),
+    .rst_ni      ( glue_rst_n   ),
     .in_select_i ( reg_select   ),
     .in_req_i    ( regs_reg_req ),
     .in_rsp_o    ( regs_reg_rsp ),
@@ -696,7 +724,7 @@ if (ZsblRomEnable) begin : gen_zsbl_rom
         .reg_rsp_t ( reg_rsp_t    )
     ) i_zsbl_rom (
         .clk_i,
-        .rst_ni    ( soc_rst_n             ),
+        .rst_ni    ( glue_rst_n            ),
         .reg_req_i ( reg_dev_req[ZsblPort] ),
         .reg_rsp_o ( reg_dev_rsp[ZsblPort] )
     );
@@ -712,7 +740,7 @@ vernii_scb #(
     .OcmOnly    ( OcmOnly   )
 ) i_scb (
     .clk_i,
-    .rst_ni          ( soc_rst_n            ),
+    .rst_ni          ( scb_rst_n            ),
     .reg_req_i       ( reg_dev_req[ScbPort] ),
     .reg_rsp_o       ( reg_dev_rsp[ScbPort] ),
     .boot_sel_i,
@@ -734,7 +762,7 @@ friscv_to_axi4_full #(
     .axi_rsp_t ( axi_rsp_t             )
 ) i_m_axi_bridge (
     .clk_i,
-    .rst_ni      ( soc_rst_n      ),
+    .rst_ni      ( axi_rst_n      ),
     .s_req_i     ( ext_req        ),
     .s_rsp_o     ( ext_rsp        ),
     .m_axi_req_o ( m_axi_hp_req_o ),
@@ -868,7 +896,7 @@ reg_to_mem #(
     .rsp_t ( reg_rsp_t )
 ) i_dm_reg_to_mem (
     .clk_i,
-    .rst_ni    ( soc_rst_n           ),
+    .rst_ni    ( glue_rst_n          ),
     .reg_req_i ( reg_dev_req[DmPort] ),
     .reg_rsp_o ( reg_dev_rsp[DmPort] ),
     .req_o     ( dbg_slv_req         ),
@@ -883,15 +911,15 @@ reg_to_mem #(
 );
 
 assign dbg_slv_gnt = 1'b1;
-always_ff @(posedge clk_i or negedge soc_rst_n) begin
-    if (!soc_rst_n) dbg_slv_rvalid <= 1'b0;
+always_ff @(posedge clk_i or negedge glue_rst_n) begin
+    if (!glue_rst_n) dbg_slv_rvalid <= 1'b0;
     else            dbg_slv_rvalid <= dbg_slv_req & ~dbg_slv_we;
 end
 
 // DM SBA master port: dm master -> bridge -> mem hub DM port
 mem_to_friscv i_sba_mem (
     .clk_i,
-    .rst_ni      ( soc_rst_n     ),
+    .rst_ni      ( glue_rst_n    ),
     .req_i       ( sba_req       ),
     .addr_i      ( sba_addr      ),
     .we_i        ( sba_we        ),
@@ -920,7 +948,7 @@ reg_to_apb #(
     .apb_rsp_t ( apb_rsp_t )
 ) i_reg_to_apb (
     .clk_i,
-    .rst_ni    ( soc_rst_n              ),
+    .rst_ni    ( glue_rst_n             ),
     .reg_req_i ( reg_dev_req[Uart0Port] ),
     .reg_rsp_o ( reg_dev_rsp[Uart0Port] ),
     .apb_req_o ( uart0_apb_req          ),
@@ -937,7 +965,7 @@ apb_uart_wrap #(
     .apb_rsp_t ( apb_rsp_t )
 ) i_uart0 (
     .clk_i,
-    .rst_ni    ( soc_rst_n     ),
+    .rst_ni    ( uart0_rst_n   ),
     .apb_req_i ( uart0_apb_req ),
     .apb_rsp_o ( uart0_apb_rsp ),
     .intr_o    ( uart0_irq     ),
@@ -966,7 +994,7 @@ gpio #(
     .GpioAsyncOn ( 1         )
 ) i_gpio_a (
     .clk_i,
-    .rst_ni        ( soc_rst_n              ),
+    .rst_ni        ( gpio_a_rst_n           ),
     .reg_req_i     ( reg_dev_req[GpioAPort] ),
     .reg_rsp_o     ( reg_dev_rsp[GpioAPort] ),
     .intr_gpio_o   ( gpio_a_irq             ),
@@ -986,7 +1014,7 @@ spi_host #(
     .reg_rsp_t ( reg_rsp_t )
 ) i_qspi0 (
     .clk_i,
-    .rst_ni           ( soc_rst_n              ),
+    .rst_ni           ( qspi0_rst_n            ),
     .reg_req_i        ( reg_dev_req[Qspi0Port] ),
     .reg_rsp_o        ( reg_dev_rsp[Qspi0Port] ),
     .cio_sck_o        ( qspi0_sck_o            ),
@@ -1044,7 +1072,7 @@ if (NumExtIrq > 0) begin : gen_ext_irq
             .ResetValue ( 1'b0 )
         ) i_sync_ext_irq (
             .clk_i,
-            .rst_ni   ( soc_rst_n       ),
+            .rst_ni   ( glue_rst_n      ),
             .serial_i ( ext_irq_i[i]    ),
             .serial_o ( ext_irq_sync[i] )
         );
@@ -1071,7 +1099,7 @@ plic_top #(
     .reg_rsp_t ( reg_rsp_t   )
 ) i_plic (
     .clk_i,
-    .rst_ni        ( soc_rst_n             ),
+    .rst_ni        ( plic_rst_n            ),
     .req_i         ( reg_dev_req[PlicPort] ),
     .resp_o        ( reg_dev_rsp[PlicPort] ),
     .le_i          ( '0                    ),  // All level-held
@@ -1100,7 +1128,7 @@ aclint #(
     .reg_rsp_t     ( reg_rsp_t )
 ) i_aclint (
     .clk_i,
-    .rst_ni     ( soc_rst_n              ),
+    .rst_ni     ( aclint_rst_n           ),
     .reg_req_i  ( clint_reg_req          ),
     .reg_rsp_o  ( reg_dev_rsp[ClintPort] ),
     .mtip_o     ( mtip                   ),
@@ -1109,6 +1137,25 @@ aclint #(
     .mtime_o    ( mtime                  )
 );
 `pragma diagnostic pop
+
+endmodule
+
+(* keep *)
+(* keep_hierarchy *)
+module soc_rst_replica (
+    input  logic clk_i,
+    input  logic rst_ni,
+    output logic rst_no
+);
+
+logic rst_nq;
+
+always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) rst_nq <= 1'b0;
+    else         rst_nq <= 1'b1;
+end
+
+assign rst_no = rst_nq;
 
 endmodule
 
