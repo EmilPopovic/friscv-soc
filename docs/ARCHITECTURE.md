@@ -51,6 +51,10 @@ Vernii's internal memory map is static.
 | Debug module | `0x0305_0000` | `0x0305_1000` | E |
 | PLIC | `0x0C00_0000` | `0x0C20_2000` | |
 
+`0x0300_0000` to `0x03FF_FFFF` is reserved for Vernii, including the slots it
+does not use yet. `MRegRules` may not map into it, and elaboration fails if one
+does. Integrator peripherals start at `0x0400_0000`.
+
 The flags are defined as follows:
 
 - **C**acheable: Accessed data may be cached in the LLC.

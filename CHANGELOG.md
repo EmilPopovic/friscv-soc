@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking:** `0x0300_0000` to `0x03FF_FFFF` is reserved for Vernii and
+  `MRegRules` may no longer map into it. Integrator peripherals start at
+  `0x0400_0000`.
+
 - **Breaking:** The boot ROM holds a fixed 4 KiB slot rather than one sized by
   its contents, so the memory map no longer moves with the image. Reads past the
   image return an error.

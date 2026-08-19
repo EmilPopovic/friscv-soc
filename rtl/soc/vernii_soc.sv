@@ -134,6 +134,7 @@ module vernii_soc
 //   0x0303_0000  gpio port a
 //   0x0304_0000  zsbl rom
 //   0x0305_0000  debug module
+//   0x0306_0000  reserved for vernii, through 0x03ff_ffff
 //   0x0c00_0000  plic             2 MiB
 //   0x8000_0000  external memory  ExtSize
 
@@ -153,6 +154,7 @@ localparam logic [31:0] GpioABaseAddr = 32'h0303_0000;
 localparam logic [31:0] ZsblBaseAddr  = 32'h0304_0000;
 localparam logic [31:0] DmBaseAddr    = 32'h0305_0000;
 localparam logic [31:0] DmSize        = PeriphSize;
+localparam logic [31:0] VerniiPeriphEnd = 32'h0400_0000;
 
 // A fixed slot, so the map does not move when the image does
 localparam int unsigned ZsblRomSlotWords = PeriphSize / 4;
@@ -663,6 +665,14 @@ for (genvar e = 0; e < NumMRegRules; e++) begin : gen_chk_m_reg_rule
         rule_end(MRegRules[e]) < MRegRules[e].start_addr) begin : gen_chk_range
         $fatal(1, "MRegRules[%0d] ends (%08x) below where it starts (%08x)",
                e, MRegRules[e].end_addr, MRegRules[e].start_addr);
+    end
+    // Unoccupied slots in the block are reserved, not free
+    if (rule_populated(MRegRules[e]) &&
+        MRegRules[e].start_addr < VerniiPeriphEnd &&
+        ScbBaseAddr < rule_end(MRegRules[e])) begin : gen_chk_reserved
+        $fatal(1, "MRegRules[%0d] (%08x..%08x) is inside the reserved Vernii block %08x..%08x",
+               e, MRegRules[e].start_addr, rule_end(MRegRules[e]),
+               ScbBaseAddr, VerniiPeriphEnd);
     end
     // Check that the external rule does not overlap any internal rule
     for (genvar n = 0; n < NoIntRegRules; n++) begin : gen_chk_int_overlap
