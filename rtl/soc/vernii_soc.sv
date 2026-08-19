@@ -92,8 +92,17 @@ module vernii_soc
     input  logic [BootSelW-1:0] boot_sel_i,
 
     // UART
-    input  logic  uart0_rx_i,
-    output logic  uart0_tx_o,
+    input  logic uart0_rx_i,
+    output logic uart0_tx_o,
+    // Tie to 0 if unused
+    input  logic uart0_cts_ni,
+    input  logic uart0_dsr_ni,
+    input  logic uart0_dcd_ni,
+    input  logic uart0_rin_ni,
+    output logic uart0_out1_no,
+    output logic uart0_out2_no,
+    output logic uart0_rts_no,
+    output logic uart0_dtr_no,
 
     // JTAG
     input  logic jtag_tck_i,
@@ -841,7 +850,7 @@ dm_top #(
     .testmode_i           ( test_mode_i    ),
     .ndmreset_o           ( ndmreset       ),
     .ndmreset_ack_i       ( ndmreset       ),  // ack immediately
-    .dmactive_o           (                ),
+    .dmactive_o           ( /* unused */   ),
     .debug_req_o          ( debug_req      ),
 
     .unavailable_i        ( 1'b0           ),
@@ -997,14 +1006,14 @@ apb_uart_wrap #(
     .intr_o    ( uart0_irq     ),
     .sin_i     ( uart0_rx_i    ),
     .sout_o    ( uart0_tx_o    ),
-    .cts_ni    ( 1'b0          ),
-    .dsr_ni    ( 1'b0          ),
-    .dcd_ni    ( 1'b0          ),
-    .rin_ni    ( 1'b0          ),
-    .out1_no   ( /* unused */  ),
-    .out2_no   ( /* unused */  ),
-    .rts_no    ( /* unused */  ),
-    .dtr_no    ( /* unused */  )
+    .cts_ni    ( uart0_cts_ni  ),
+    .dsr_ni    ( uart0_dsr_ni  ),
+    .dcd_ni    ( uart0_dcd_ni  ),
+    .rin_ni    ( uart0_rin_ni  ),
+    .out1_no   ( uart0_out1_no ),
+    .out2_no   ( uart0_out2_no ),
+    .rts_no    ( uart0_rts_no  ),
+    .dtr_no    ( uart0_dtr_no  )
 );
 `pragma diagnostic pop
 

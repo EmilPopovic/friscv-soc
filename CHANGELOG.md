@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is 256 bytes now.
 - UART boot sends `V` before receiving, so a terminal shows whether the ROM is
   running and the baud rate agrees.
+- Wire all UART lines to top-level ports.
 
 ### Changed
 
