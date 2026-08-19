@@ -154,8 +154,14 @@ localparam logic [31:0] ZsblBaseAddr  = 32'h0304_0000;
 localparam logic [31:0] DmBaseAddr    = 32'h0305_0000;
 localparam logic [31:0] DmSize        = PeriphSize;
 
-// Contents rounded up to a power of two, the rest of the slot decodes as error
-localparam int unsigned ZsblRomWindow = ZsblRomEnable ? (1 << $clog2(ZsblRomWords * 4)) : 0;
+// A fixed slot, so the map does not move when the image does
+localparam int unsigned ZsblRomSlotWords = PeriphSize / 4;
+localparam logic [31:0] ZsblRomWindow    = ZsblRomEnable ? PeriphSize : 32'h0;
+
+if (ZsblRomEnable &&
+    (ZsblRomWords == 0 || ZsblRomWords > ZsblRomSlotWords)) begin : gen_chk_zsbl_words
+    $fatal(1, "ZsblRomWords (%0d) must be 1 to %0d", ZsblRomWords, ZsblRomSlotWords);
+end
 
 logic por_rst_n;  // power-on reset synchronizer
 logic soc_rst_n, soc_rst_n_async;
@@ -716,6 +722,8 @@ end
 //////////////////////////
 
 if (ZsblRomEnable) begin : gen_zsbl_rom
+    reg_rsp_t zsbl_rom_rsp;
+
     reg_rom #(
         .NumWords  ( ZsblRomWords ),
         .Data      ( ZsblRomProg  ),
@@ -726,8 +734,16 @@ if (ZsblRomEnable) begin : gen_zsbl_rom
         .clk_i,
         .rst_ni    ( glue_rst_n            ),
         .reg_req_i ( reg_dev_req[ZsblPort] ),
-        .reg_rsp_o ( reg_dev_rsp[ZsblPort] )
+        .reg_rsp_o ( zsbl_rom_rsp          )
     );
+
+    logic zsbl_rom_oob;
+    assign zsbl_rom_oob = reg_dev_req[ZsblPort].valid &&
+                          (reg_dev_req[ZsblPort].addr - ZsblBaseAddr) >= ZsblRomWords * 4;
+
+    assign reg_dev_rsp[ZsblPort].rdata = zsbl_rom_rsp.rdata;
+    assign reg_dev_rsp[ZsblPort].ready = zsbl_rom_rsp.ready;
+    assign reg_dev_rsp[ZsblPort].error = zsbl_rom_rsp.error || zsbl_rom_oob;
 end else begin : gen_no_zsbl_rom
     `REG_TIE_OFF(ZsblPort)
 end

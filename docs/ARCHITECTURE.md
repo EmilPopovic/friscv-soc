@@ -47,7 +47,7 @@ Vernii's internal memory map is static.
 | UART0 | `0x0301_0000` | `0x0301_1000` | |
 | QSPI0 | `0x0302_0000` | `0x0302_1000` | |
 | GPIO port A | `0x0303_0000` | `0x0303_1000` | |
-| ZSBL ROM | `0x0304_0000` | `0x0304_0080` | E |
+| ZSBL ROM | `0x0304_0000` | `0x0304_1000` | E |
 | Debug module | `0x0305_0000` | `0x0305_1000` | E |
 | PLIC | `0x0C00_0000` | `0x0C20_2000` | |
 
@@ -78,6 +78,10 @@ Additionally, Vernii assumes the following parametrized layout for external reso
 ## UART
 
 ## Boot ROM
+
+The ROM holds a fixed 4 KiB slot whatever it contains, so the memory map does
+not move when the image does. An image may be at most 1024 words, and a read
+past its end returns a bus error.
 
 `SCB.BOOTSEL` selects where the first stage comes from. Both loaders read 512
 bytes to address zero and jump there.

@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking:** The boot ROM holds a fixed 4 KiB slot rather than one sized by
+  its contents, so the memory map no longer moves with the image. Reads past the
+  image return an error.
+
 - Bumped `friscv-mem-utils` to `v4.1.0`, now using packed struct pairs instead of `friscv_mem_if` interface. There are no more `interface`s in the design.
 - **Breaking:** Moved every peripheral into one block 64 KiB apart: SCB `0x0300_0000`,
   UART0 `0x0301_0000`, QSPI0 `0x0302_0000`, GPIO port A `0x0303_0000`, ZSBL ROM
