@@ -35,10 +35,13 @@ module vernii_soc
     parameter int unsigned Ways             = 4,
     parameter bit          SramTags         = 1'b1,
     parameter bit          OcmOnly          = 1'b0,
+    parameter bit          EnableMmu        = 1,
     parameter int unsigned ItlbEntries      = 2,
     parameter int unsigned DtlbEntries      = 4,
     parameter bit          FineTlbFlush     = 0,
     parameter bit          EnforcePmp       = 0,
+    parameter bit          EnforcePtwPmp    = 0,
+    parameter int unsigned PmpEntries       = 8,
     parameter bit          EnableIsaE       = 0,
     parameter bit          EnableIsaM       = 1,
     parameter bit          EnableIsaA       = 1,
@@ -247,6 +250,10 @@ soc_rst_replica i_rst_rep_plic    ( .clk_i, .rst_ni ( soc_rst_n ), .rst_no ( pli
 soc_rst_replica i_rst_rep_aclint  ( .clk_i, .rst_ni ( soc_rst_n ), .rst_no ( aclint_rst_n  ) );
 soc_rst_replica i_rst_rep_glue    ( .clk_i, .rst_ni ( soc_rst_n ), .rst_no ( glue_rst_n    ) );
 
+//////////////
+// CPU Core //
+//////////////
+
 // The zsbl rom is a reg-bus peripheral, the core just boots at its base
 localparam int unsigned ResetVec = ZsblRomEnable ? ZsblBaseAddr : ExtBase;
 
@@ -254,14 +261,18 @@ friscv #(
     .ResetVec           ( ResetVec         ),
     .DmBase             ( DmBaseAddr       ),
     .HaltOnEndAddress   ( HaltOnEnd        ),
+    .EnableMmu          ( EnableMmu        ),
     .ItlbEntries        ( ItlbEntries      ),
     .DtlbEntries        ( DtlbEntries      ),
+    .EnableFineTlbFlush ( FineTlbFlush     ),
     .EnableIsaE         ( EnableIsaE       ),
     .EnableIsaM         ( EnableIsaM       ),
     .EnableFastMul      ( EnableFastMul    ),
     .EnableIsaA         ( EnableIsaA       ),
     .EnforcePmp         ( EnforcePmp       ),
-    .EnableFineTlbFlush ( FineTlbFlush     )
+    .EnforcePtwPmp      ( EnforcePtwPmp    ),
+    .PmpEntries         ( PmpEntries       ),
+    .PmpUsable          ( PmpEntries       )
 ) i_cpu (
     .clk_i,
     .rst_ni    ( cpu_rst_n ),
