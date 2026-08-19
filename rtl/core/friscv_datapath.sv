@@ -107,6 +107,13 @@ addr_t jump_target, jal_target;  // ex_alu_data_out is branch_target
 // IF stage signals
 addr_t if_pc, if_next_pc;
 data_t if_ir;
+logic  if_discard;
+
+// A discarded fetch reaches ID as a NOP, so its fault is dropped with it
+logic  if_fault, if_err, if_pmp_fault;
+assign if_fault     = inst_fault_i     && !if_discard;
+assign if_err       = imem_err_i       && !if_discard;
+assign if_pmp_fault = imem_pmp_fault_i && !if_discard;
 
 // ID stage signals
 reg_addr_t id_rs1_sel, id_rs2_sel, id_rd_sel;
@@ -268,6 +275,7 @@ friscv_if_stage #(
     .pc_o          ( if_pc            ),
     .next_pc_o     ( if_next_pc       ),
     .ir_o          ( if_ir            ),
+    .discard_o     ( if_discard       ),
 
     // Instruction memory interface
     .mem_addr_o    ( imem_addr_o      ),
@@ -316,10 +324,10 @@ friscv_id_stage #(
     .mtime_i,
 
     // Page fault signals, from MMU
-    .inst_fault_i,
+    .inst_fault_i       ( if_fault         ),
     .fault_addr_i,
-    .inst_err_i         ( imem_err_i       ),
-    .inst_pmp_fault_i   ( imem_pmp_fault_i ),
+    .inst_err_i         ( if_err           ),
+    .inst_pmp_fault_i   ( if_pmp_fault     ),
 
     // Page fault signals, from MEM stage
     .mem_trap_i         ( mem_trap         ),

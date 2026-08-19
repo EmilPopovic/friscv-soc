@@ -32,6 +32,7 @@ module friscv_if_stage
     output addr_t pc_o,
     output addr_t next_pc_o,
     output inst_t ir_o,
+    output logic  discard_o,
 
     // Instruction memory interface
     output addr_t mem_addr_o,
@@ -77,6 +78,7 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
     end
 end
 
+assign discard_o  = flush_pending_q;
 assign pc_o       = pc_q;
 assign next_pc_o  = pc_q + 4;
 assign mem_addr_o = pc_q;

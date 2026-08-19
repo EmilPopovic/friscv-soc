@@ -40,6 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refactored core to use [lowRISC style guide](https://github.com/lowRISC/style-guides/blob/master/VerilogCodingStyle.md).
 - Add reset duplication.
 
+### Fixed
+
+- An access fault from an instruction fetch that a redirect has already
+  discarded no longer traps.
+
 ## [0.3.0] - 2026-08-15
 
 ### Changed
