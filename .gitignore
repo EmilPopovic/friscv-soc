@@ -8,3 +8,4 @@ sources.f
 *.log
 verif/directed/*.elf
 *.bin
+*.img
