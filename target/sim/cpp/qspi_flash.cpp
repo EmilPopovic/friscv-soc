@@ -21,7 +21,6 @@ constexpr uint8_t JEDEC_ID[3] = { 0xef, 0x40, 0x18 };
 }  // namespace
 
 QspiFlash::QspiFlash(Dut& top) : top_(top), memory_(0, MEMORY_SIZE) {
-    dut::qspi_miso(top_, false);
 }
 
 void QspiFlash::preload(uint32_t address, const std::vector<uint8_t>& data) {
@@ -92,17 +91,17 @@ void QspiFlash::sample_bit(bool mosi) {
 
 void QspiFlash::drive_bit() {
     // mode 0: shift out on the falling edge, MSB first
-    dut::qspi_miso(top_, (shift_out_ & 0x80) != 0);
+    miso_ = (shift_out_ & 0x80) != 0;
     shift_out_ = uint8_t(shift_out_ << 1);
 }
 
 void QspiFlash::update() {
-    bool selected = dut::qspi_selected(top_);
+    bool selected = dut::qspi_selected(top_, CS_INDEX);
     bool clock = dut::qspi_sck(top_);
 
     if (!selected) {
         if (selected_) {
-            dut::qspi_miso(top_, false);
+            miso_ = false;
         }
 
         selected_ = false;

@@ -11,6 +11,7 @@
 #include "axi_mem.hpp"
 #include "dut.hpp"
 #include "qspi_flash.hpp"
+#include "sd_card.hpp"
 #include "uart_rx_driver.hpp"
 #include "uart_tx_monitor.hpp"
 
@@ -22,6 +23,7 @@ class SocTestbench {
     Dut& top() { return top_; }
     AxiMem& ext_mem() { return ext_mem_; }
     QspiFlash& flash() { return flash_; }
+    SdCard& sd() { return sd_; }
     UartTxMonitor& uart() { return uart_; }
     UartRxDriver& uart_rx() { return uart_rx_; }
 
@@ -31,10 +33,12 @@ class SocTestbench {
 
   private:
     void eval();
+    void drive_miso();
 
     Dut top_;
     AxiMem ext_mem_;
     QspiFlash flash_;
+    SdCard sd_;
     UartTxMonitor uart_;
     UartRxDriver uart_rx_;
     uint64_t cycles_ = 0;

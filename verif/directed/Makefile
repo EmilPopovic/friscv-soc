@@ -10,7 +10,7 @@ SIM             := $(TARGET_SIM_ROOT)/$(SIM_DIR)/vernii_soc
 CROSS   ?= riscv64-unknown-elf-
 CFLAGS  := -march=rv32i_zicsr -mabi=ilp32 -nostdlib -nostartfiles -Wl,--fatal-warnings
 
-TESTS   := llc_tags llc_counters
+TESTS   := llc_tags llc_counters sd_read
 ELFS    := $(addsuffix .elf,$(TESTS))
 
 # All four ways as cache, so the whole image runs through the LLC
@@ -19,6 +19,9 @@ CYCLES  ?= 40000000
 
 %.elf: %.S link.ld
 	$(CROSS)gcc $(CFLAGS) -T link.ld -o $@ $<
+
+%.elf: %.c link.ld
+	$(CROSS)gcc $(CFLAGS) -O2 -Wall -Wextra -T link.ld -o $@ $<
 
 # The boot ROM leaves its first stage at zero, so this one does not use link.ld
 uart_stage.bin: uart_stage.S

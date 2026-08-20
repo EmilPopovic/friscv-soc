@@ -3,7 +3,7 @@ CORE_DIR = obj_dir_core
 CORE_BIN = $(CORE_DIR)/friscv_core
 
 SOC_ONLY_CPP = cpp/axi_mem.cpp cpp/jtag.cpp cpp/remote_bitbang.cpp \
-	cpp/soc_memory.cpp cpp/qspi_flash.cpp cpp/soc_testbench.cpp cpp/tb_soc_main.cpp \
+	cpp/soc_memory.cpp cpp/qspi_flash.cpp cpp/sd_card.cpp cpp/soc_testbench.cpp cpp/tb_soc_main.cpp \
 	cpp/uart_rx_driver.cpp cpp/uart_tx_monitor.cpp
 CORE_CPP = $(filter-out $(SOC_ONLY_CPP),$(wildcard cpp/*.cpp))
 

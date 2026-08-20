@@ -21,7 +21,13 @@ class QspiFlash {
     void update();
     void preload(uint32_t address, const std::vector<uint8_t>& data);
 
+    // The bus shares one MISO line, so the testbench arbitrates between devices
+    bool driving() const { return selected_; }
+    bool miso() const { return miso_; }
+
   private:
+    static constexpr unsigned CS_INDEX = 0;
+
     enum class Phase {
         Command,
         Address,
@@ -47,4 +53,5 @@ class QspiFlash {
     uint8_t command_ = 0;
     bool clock_ = false;
     bool selected_ = false;
+    bool miso_ = false;
 };

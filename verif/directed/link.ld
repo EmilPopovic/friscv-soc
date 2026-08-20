@@ -12,5 +12,14 @@ SECTIONS
 {
   . = 0x80000000;
   .text.init : { *(.text.init) }
+  .text     : { *(.text .text.*) }
+  .rodata   : { *(.rodata .rodata.* .srodata .srodata.*) }
+  .data     : { *(.data .data.* .sdata .sdata.*) }
+  .bss      : { *(.bss .bss.* .sbss .sbss.* COMMON) }
   _end = .;
+
+  /* C tests need a stack, the assembly ones never touch sp */
+  . = ALIGN(16);
+  . += 0x4000;
+  _stack_top = .;
 }

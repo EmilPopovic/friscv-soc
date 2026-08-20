@@ -6,13 +6,25 @@
 
 #include "soc_testbench.hpp"
 
+#include <cstdlib>
+
 namespace {
 
 constexpr unsigned RESET_CYCLES = 20;
 
+// Blocks the card comes up holding
+constexpr unsigned SD_PATTERN_BLOCKS = 4;
+
 }  // namespace
 
-SocTestbench::SocTestbench() : ext_mem_(top_), flash_(top_) {
+SocTestbench::SocTestbench() : ext_mem_(top_), flash_(top_), sd_(top_) {
+    sd_.fill_test_pattern(SD_PATTERN_BLOCKS);
+
+    // Round-trip delay on the card's read data, to find where capture breaks
+    if (const char* env = std::getenv("VERNII_SD_MISO_DELAY")) {
+        sd_.set_miso_delay(unsigned(std::strtoul(env, nullptr, 0)));
+    }
+
     top_.clk_i = 0;
     top_.rst_ni = 0;
     top_.uart0_rx_i = 1;
@@ -29,10 +41,26 @@ SocTestbench::~SocTestbench() {
     top_.final();
 }
 
+void SocTestbench::drive_miso() {
+    // One line, two devices. Whichever holds chip select owns it, and it idles
+    // high the way a pulled up bus does.
+    bool value = true;
+
+    if (flash_.driving()) {
+        value = flash_.miso();
+    } else if (sd_.driving()) {
+        value = sd_.miso();
+    }
+
+    dut::qspi_miso(top_, value);
+}
+
 void SocTestbench::eval() {
     top_.eval();
     ext_mem_.update();
     flash_.update();
+    sd_.update();
+    drive_miso();
     top_.eval();
 }
 
