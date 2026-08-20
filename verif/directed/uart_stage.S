@@ -12,8 +12,8 @@
 .equ PASS,    0xaabbccdd
 .equ FAIL,    0xdeadbeef
 
-.equ PATTERN, 256               # must match STAGE_PATTERN_START in tb_soc_main
-.equ BLOCK,   512
+.equ PATTERN, 1024              # must match STAGE_PATTERN_START in tb_soc_main
+.equ BLOCK,   0x1000            # STAGE_BYTES in zsbl.S
 
 .section .text.init
 .global _start
@@ -28,7 +28,7 @@ _start:
     andi t2, t2, 0xff
     bne  t1, t2, fail
     addi t0, t0, 1
-    blt  t0, t3, 1b
+    bltu t0, t3, 1b
 
 pass:
     li   t0, SCRATCH

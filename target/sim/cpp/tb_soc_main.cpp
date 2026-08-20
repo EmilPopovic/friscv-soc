@@ -42,12 +42,12 @@ constexpr uint16_t RISCV_MACHINE = 243;
 constexpr uint64_t RUN_CYCLES = 2000;
 constexpr uint64_t TEST_CYCLES = 10000000;
 
-// What the boot ROM reads before it jumps to zero
-constexpr size_t ZSBL_STAGE_BYTES = 512;
+// The ROM reads whole segments and takes the total from the stage's first word
+constexpr size_t ZSBL_STAGE_BYTES = 0x1000;
 // UART_DIV in zsbl.S, fixed in mask ROM
 constexpr uint32_t ZSBL_UART_DIV = 27;
 // The stage checks the block from here on, so a partial transfer cannot pass
-constexpr size_t STAGE_PATTERN_START = 256;
+constexpr size_t STAGE_PATTERN_START = 1024;
 
 uint32_t parse_u32(const char* text) {
     char* end = nullptr;
@@ -257,6 +257,19 @@ void apply_flash_image(SocTestbench& testbench) {
     std::fprintf(stderr, "flash image %s: %zu bytes\n", path, data.size());
 }
 
+// VERNII_SD_IMAGE=<file> fills the card for a stage that boots from it
+void apply_sd_image(SocTestbench& testbench) {
+    const char* path = std::getenv("VERNII_SD_IMAGE");
+
+    if (path == nullptr) {
+        return;
+    }
+
+    std::vector<uint8_t> data = read_file(path);
+    testbench.sd().preload(0, data);
+    std::fprintf(stderr, "sd image %s: %zu bytes\n", path, data.size());
+}
+
 ElfImage prepare_image(SocTestbench& testbench, Jtag& jtag,
                        const char* path) {
     ElfImage image = read_elf(path);
@@ -266,6 +279,7 @@ ElfImage prepare_image(SocTestbench& testbench, Jtag& jtag,
     apply_cache_config(jtag);
     apply_uart_config(testbench, jtag);
     apply_flash_image(testbench);
+    apply_sd_image(testbench);
 
     return image;
 }
@@ -296,6 +310,8 @@ int qspiboot_command(SocTestbench& testbench, Jtag& jtag, const char* path) {
     std::vector<uint8_t> image = read_file(path);
     testbench.flash().preload(0, image);
     std::fprintf(stderr, "flash image %s: %zu bytes\n", path, image.size());
+
+    apply_sd_image(testbench);
 
     // the second stage sets the divisor, this is just for the decoder
     if (const char* div = std::getenv("VERNII_UART_DIV")) {
@@ -340,7 +356,8 @@ int uartboot_command(SocTestbench& testbench, Jtag& jtag, const char* path) {
         return 1;
     }
 
-    // Pad to the length the ROM expects, with a known tail the stage checks
+    // Padded out the way mkflash.py does, with a known tail so a short or
+    // garbled transfer cannot pass
     stage.resize(ZSBL_STAGE_BYTES, 0);
 
     for (size_t i = STAGE_PATTERN_START; i < ZSBL_STAGE_BYTES; ++i) {

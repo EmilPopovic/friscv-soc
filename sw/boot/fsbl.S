@@ -52,8 +52,8 @@ _start:
 
     lui     t0, (QSPI_BASE >> 12)
 
-    // Read from flash offset 0x200
-    li      t1, 0x00020003
+    // Read from flash offset 0x1000, just past the stage the ROM loads
+    li      t1, 0x00100003
     sw      t1, SPI_TXDATA(t0)
     li      t1, 0x2203              // csaat | TX | 4 bytes
     sw      t1, SPI_COMMAND(t0)

@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `sdbl.c`, a first stage that boots from an SD card in SPI mode on QSPI0 CS1.
+  The ROM loads it from flash, so the card carries only the image, laid out by
+  `mksdimg.py`.
+- An SD card model, the `sd_read` directed test, and `sd_boot`, which boots a
+  payload off the card through `sdbl.c`.
 - Add `OcmOnly` parameter on `vernii_soc`.
 - Boot select 2 loads the first stage over UART0, 8N1 at 115200. The ROM window
   is 256 bytes now.
@@ -21,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking:** The boot ROM reads a 4 KiB first stage rather than 512 bytes, so
+  the flash image header moves from `0x200` to `0x1000`.
+- The boot ROM points `mtvec` at its park loop, so a trap during boot leaves the
+  hart parked for the debug module.
 - **Breaking:** `0x0300_0000` to `0x03FF_FFFF` is reserved for Vernii and
   `MRegRules` may no longer map into it. Integrator peripherals start at
   `0x0400_0000`.

@@ -6,7 +6,7 @@
 //
 // Zero stage boot loader. Boot select 0 parks for the debug module, 1 loads a
 // first stage from QSPI flash, 2 or 3 receives one over the UART. Either loader
-// leaves 512 bytes at zero and jumps there.
+// takes STAGE_BYTES, lands it at zero and enters it there. A trap parks too.
 
 .section .text
 .global _start
@@ -34,23 +34,30 @@
 .equ F_CPU,        50000000
 .equ BAUD,         115200
 .equ UART_DIV,     ((F_CPU + 8 * BAUD) / (16 * BAUD))
-.equ FSBL_BYTES,  512           # one RX command's worth
+.equ SEG_BYTES,    512          # the most one RX command can carry
+.equ STAGE_BYTES,  0x1000       # every stage is this long
 .equ BANNER,       0x56          # 'V', sent before the first byte is expected
 
 _start:
     lui t0, (SCB_BASE >> 12)
+    la t1, park
+    csrw mtvec, t1               # nothing here handles a trap, so park on one
     lw t1, SCB_BOOTSEL(t0)       # boot select pads
+    li a0, 0                     # both loaders fill from zero
+    li a2, STAGE_BYTES
     andi t2, t1, 2
     bnez t2, uart
     andi t1, t1, 1               # leaves t1 = 1, the CLKDIV qspi writes
     bnez t1, qspi
 
+# Also the trap handler, so it assumes nothing
 park:
-    li t1, 1             # misaligned, never a real entry point
+    lui t0, (SCB_BASE >> 12)
+    li t1, 1                     # misaligned, never a real entry point
     sw t1, SCB_SCRATCH0(t0)
 1:  lw t2, SCB_SCRATCH0(t0)
     beq t2, t1, 1b
-    fence.i              # the DM wrote code
+    fence.i                      # the DM wrote code
     jr t2
 
 uart:
@@ -64,14 +71,13 @@ uart:
     sw t1, UART_LCR(t0)          # 8N1, DLAB off
     li t1, BANNER                # THR is empty out of reset, no need to poll
     sw t1, UART_THR(t0)
-    li a0, -FSBL_BYTES           # counts up to zero
 3:  lw t2, UART_LSR(t0)
     andi t2, t2, 1               # data ready
     beqz t2, 3b
     lw t2, UART_RBR(t0)
-    sb t2, FSBL_BYTES(a0)
+    sb t2, 0(a0)
     addi a0, a0, 1
-    bnez a0, 3b
+    bltu a0, a2, 3b
     j done
 
 qspi:
@@ -80,20 +86,23 @@ qspi:
     sw t1, SPI_CONFIGOPTS(t0)    # CLKDIV=1: SCK = core clock / 4
     lui t1, 0xa0000              # SPIEN | OUTPUT_EN
     sw t1, SPI_CONTROL(t0)
-    li t1, 3                     # 0x03 read from address 0, LSB first
-    sw t1, SPI_TXDATA(t0)
+    # One transaction per segment, the most an RX command can carry
+4:  slli a3, a0, 8               # 0x03 read from a0, address byte swapped
+    addi a3, a3, 3
+    sw a3, SPI_TXDATA(t0)
     li t1, 0x2203                # csaat | TX | 4 bytes
     sw t1, SPI_COMMAND(t0)
     li t1, 0x11ff                # RX | 512 bytes, releases CS
     sw t1, SPI_COMMAND(t0)
-    li a0, -FSBL_BYTES          # counts up to zero
 2:  lw t2, SPI_STATUS(t0)
     slli t2, t2, 7               # rxempty is bit 24
     bltz t2, 2b
     lw t2, SPI_RXDATA(t0)
-    sw t2, FSBL_BYTES(a0)
+    sw t2, 0(a0)
     addi a0, a0, 4
-    bnez a0, 2b
+    andi t3, a0, (SEG_BYTES - 1)
+    bnez t3, 2b                  # same segment
+    bltu a0, a2, 4b              # next segment
 
 done:
     fence.i

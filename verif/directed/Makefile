@@ -23,20 +23,35 @@ CYCLES  ?= 40000000
 %.elf: %.c link.ld
 	$(CROSS)gcc $(CFLAGS) -O2 -Wall -Wextra -T link.ld -o $@ $<
 
+BOOT_SRC := $(CURDIR)/../../sw/boot
+
 # The boot ROM leaves its first stage at zero, so this one does not use link.ld
 uart_stage.bin: uart_stage.S
 	$(CROSS)gcc $(CFLAGS) -Wl,-Ttext=0 -o uart_stage.elf $<
 	$(CROSS)objcopy -O binary uart_stage.elf $@
+
+# The SD loader boots out of flash and pulls the payload off the card
+sdflash.bin: $(BOOT_SRC)/sdbl.c $(BOOT_SRC)/stage.ld
+	$(CROSS)gcc -march=rv32ima_zicsr_zifencei -mabi=ilp32 -Os -Wall -Wextra \
+		-nostdlib -nostartfiles -Wl,--no-warn-rwx-segments \
+		-T $(BOOT_SRC)/stage.ld -o sdbl.elf $(BOOT_SRC)/sdbl.c
+	$(CROSS)objcopy -O binary sdbl.elf sdbl.bin
+	python3 $(BOOT_SRC)/mkflash.py sdbl.bin /dev/null $@
+
+sd_payload.img: sd_payload.S
+	$(CROSS)gcc $(CFLAGS) -Wl,-Ttext=0x80000000 -o sd_payload.elf $<
+	$(CROSS)objcopy -O binary sd_payload.elf sd_payload.bin
+	python3 $(BOOT_SRC)/mksdimg.py sd_payload.bin $@
 
 .PHONY: sim-build
 sim-build:
 	$(MAKE) -C $(TARGET_SIM_ROOT) soc SOC_DIR=$(SIM_DIR)
 
 .PHONY: all
-all: $(ELFS) uart_stage.bin
+all: $(ELFS) uart_stage.bin sdflash.bin sd_payload.img
 
 .PHONY: run
-run: $(ELFS) uart_stage.bin sim-build
+run: $(ELFS) uart_stage.bin sdflash.bin sd_payload.img sim-build
 	@fail=0; \
 	for t in $(TESTS); do \
 	    printf '%-16s ' "$$t"; \
@@ -54,9 +69,17 @@ run: $(ELFS) uart_stage.bin sim-build
 	else \
 	    tail -1 uart_boot.log; fail=1; \
 	fi; \
+	printf '%-16s ' sd_boot; \
+	if VERNII_TEST_CYCLES=$(CYCLES) VERNII_SD_IMAGE=sd_payload.img \
+	   $(SIM) qspiboot sdflash.bin > sd_boot.log 2>&1; then \
+	    tail -1 sd_boot.log; \
+	else \
+	    tail -1 sd_boot.log; fail=1; \
+	fi; \
 	exit $$fail
 
 .PHONY: clean
 clean:
 	rm -f $(ELFS) uart_stage.elf uart_stage.bin *.log
+	rm -f sdbl.elf sdbl.bin sdflash.bin sd_payload.elf sd_payload.bin sd_payload.img
 	rm -rf $(TARGET_SIM_ROOT)/$(SIM_DIR)

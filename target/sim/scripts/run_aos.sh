@@ -31,12 +31,30 @@ DIR=obj_dir_aos
 mkdir -p "$DIR"
 make soc SOC_MEM_SIZE="$MEM_SIZE" SOC_DIR="$DIR" >/dev/null
 
+# boot through the ROM and the flash, with the image on an SD card
+if [ "${BOOT:-jtag}" = sd ]; then
+    BOOT_SRC=$HERE/../../../sw/boot
+
+    riscv64-unknown-elf-gcc -march=rv32ima_zicsr_zifencei -mabi=ilp32 -Os \
+        -Wall -Wextra -nostdlib -nostartfiles -Wl,--no-warn-rwx-segments \
+        -T "$BOOT_SRC/stage.ld" -o "$DIR/sdbl.elf" "$BOOT_SRC/sdbl.c"
+    riscv64-unknown-elf-objcopy -O binary "$DIR/sdbl.elf" "$DIR/sdbl.bin"
+
+    # The card holds the image, so the flash only carries the stage
+    python3 "$BOOT_SRC/mkflash.py" "$DIR/sdbl.bin" /dev/null "$DIR/flash.bin"
+    python3 "$BOOT_SRC/mksdimg.py" "$IMAGE" "$DIR/sd.img"
+
+    exec env VERNII_UART_DIV="$UART_DIV" VERNII_TEST_CYCLES="$CYCLES" \
+        VERNII_SD_IMAGE="$DIR/sd.img" \
+        "./$DIR/vernii_soc" qspiboot "$DIR/flash.bin"
+fi
+
 # boot through the ROM and the flash instead of the debug module
 if [ "${BOOT:-jtag}" = qspi ]; then
     BOOT_SRC=$HERE/../../../sw/boot
 
     riscv64-unknown-elf-gcc -march=rv32ima_zicsr_zifencei -mabi=ilp32 \
-        -nostdlib -nostartfiles -Wl,--no-warn-rwx-segments -Wl,-Ttext=0 \
+        -nostdlib -nostartfiles -Wl,--no-warn-rwx-segments -Wl,-Ttext=4 \
         -o "$DIR/fsbl.elf" "$BOOT_SRC/fsbl.S"
     riscv64-unknown-elf-objcopy -O binary "$DIR/fsbl.elf" "$DIR/fsbl.bin"
     python3 "$BOOT_SRC/mkflash.py" "$DIR/fsbl.bin" "$IMAGE" "$DIR/flash.bin"

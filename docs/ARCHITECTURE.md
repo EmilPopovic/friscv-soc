@@ -83,22 +83,13 @@ Additionally, Vernii assumes the following parametrized layout for external reso
 
 ## Boot ROM
 
-The ROM holds a fixed 4 KiB slot whatever it contains, so the memory map does
-not move when the image does. An image may be at most 1024 words, and a read
-past its end returns a bus error.
+The reset vector, and a fixed 4 KiB slot whatever the ROM contains, so the
+memory map does not move when the image does. An image may be at most 1024
+words, and a read past its end returns a bus error.
 
-`SCB.BOOTSEL` selects where the first stage comes from. Both loaders read 512
-bytes to address zero and jump there.
-
-| BOOTSEL | Source |
-| ------- | ------ |
-| `0` | Parks for the debug module, which leaves an entry point in `SCB.SCRATCH0` |
-| `1` | QSPI0 flash on CS0, from offset 0 |
-| `2`, `3` | UART0, 8N1 at 115200 |
-
-The UART divisor is fixed in the ROM, so the baud rate scales with the core clock.
-UART boot sends `V` before it starts receiving, which tells a terminal that the
-ROM is running and that the baud rate agrees.
+The ROM itself is an integrator's to replace, through `ZsblRomWords` and
+`ZsblRomProg`. What the default one does, and the layouts it expects on flash
+and on a card, are in [SOFTWARE_STACK.md](SOFTWARE_STACK.md).
 
 ## Not Implemented
 
