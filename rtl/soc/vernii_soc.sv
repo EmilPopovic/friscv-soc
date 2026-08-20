@@ -134,6 +134,24 @@ module vernii_soc
     output logic [31:0] gpio_a_oe_o
 );
 
+// Parameter check
+
+localparam int unsigned MaxBootSelW = 4;
+localparam int unsigned MaxWays     = 8;
+
+if (BootSelW < 1) begin : gen_chk_boot_sel_w_min
+    $fatal(1, "BootSelW (%0d) must be at least 1", BootSelW);
+end
+if (BootSelW > MaxBootSelW) begin : gen_chk_boot_sel_w_max
+    $fatal(1, "BootSelW (%0d) must be at most %0d", BootSelW, MaxBootSelW);
+end
+if (Ways < 1) begin : gen_chk_ways_min
+    $fatal(1, "Ways (%0d) must be at least 1", Ways);
+end
+if (Ways > MaxWays) begin : gen_chk_ways_max
+    $fatal(1, "Ways (%0d) must be at most %0d", Ways, MaxWays);
+end
+
 /////////////////
 // Address map //
 /////////////////
