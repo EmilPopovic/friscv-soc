@@ -12,6 +12,9 @@ class UartTxMonitor {
     void set_divisor(unsigned divisor);
     void sample(bool tx);  // once per clock cycle
 
+    // Whether the decoded output left the cursor at the start of a line
+    bool at_line_start() const { return at_line_start_; }
+
   private:
     enum class State { IDLE, START, DATA, STOP };
 
@@ -22,4 +25,5 @@ class UartTxMonitor {
     unsigned char shifter_ = 0;
     bool     last_       = true;
     bool     warned_     = false;
+    bool     at_line_start_ = true;
 };

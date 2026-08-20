@@ -6,8 +6,6 @@
 
 #include "soc_testbench.hpp"
 
-#include <cstdlib>
-
 namespace {
 
 constexpr unsigned RESET_CYCLES = 20;
@@ -19,11 +17,6 @@ constexpr unsigned SD_PATTERN_BLOCKS = 4;
 
 SocTestbench::SocTestbench() : ext_mem_(top_), flash_(top_), sd_(top_) {
     sd_.fill_test_pattern(SD_PATTERN_BLOCKS);
-
-    // Round-trip delay on the card's read data, to find where capture breaks
-    if (const char* env = std::getenv("VERNII_SD_MISO_DELAY")) {
-        sd_.set_miso_delay(unsigned(std::strtoul(env, nullptr, 0)));
-    }
 
     top_.clk_i = 0;
     top_.rst_ni = 0;

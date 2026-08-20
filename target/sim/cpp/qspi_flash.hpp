@@ -50,7 +50,6 @@ class QspiFlash {
     unsigned bit_ = 0;
     unsigned address_bytes_ = 0;
     uint32_t address_ = 0;
-    uint8_t command_ = 0;
     bool clock_ = false;
     bool selected_ = false;
     bool miso_ = false;

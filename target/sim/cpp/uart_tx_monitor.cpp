@@ -54,11 +54,13 @@ void UartTxMonitor::sample(bool tx) {
                 if (tx) {
                     std::fputc(shifter_, stderr);
                     std::fflush(stderr);
+                    at_line_start_ = shifter_ == '\n';
                 } else if (!warned_) {
                     // No stop bit: the program changed the divisor
                     warned_ = true;
                     std::fprintf(stderr, "\n[uart] framing error at %u cycles "
                                          "per bit\n", bit_cycles_);
+                    at_line_start_ = true;
                 }
                 state_ = State::IDLE;
             }

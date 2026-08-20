@@ -46,11 +46,9 @@ void QspiFlash::begin_transaction() {
 void QspiFlash::finish_byte() {
     switch (phase_) {
         case Phase::Command:
-            command_ = shift_in_;
-
-            if (command_ == CMD_READ) {
+            if (shift_in_ == CMD_READ) {
                 phase_ = Phase::Address;
-            } else if (command_ == CMD_JEDEC_ID) {
+            } else if (shift_in_ == CMD_JEDEC_ID) {
                 phase_ = Phase::Id;
                 address_ = 0;
                 shift_out_ = JEDEC_ID[0];
