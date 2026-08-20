@@ -93,7 +93,7 @@ typedef struct {  // SCB_TypeDef
     uint32_t      RESERVED[1];  // 0x08 - 0x00C Reserved
     __IO uint32_t LLCSEL;       // 0x00C SCB Last-level cache way select
     __IO uint32_t LLCCRPSEL;    // 0x010 SCB LLC replacement policy select
-    __IO uint32_t LLCINV;       // 0x014 SCB LLC invalidateji
+    __IO uint32_t LLCINV;       // 0x014 SCB LLC invalidate all cache lines
     reg64_t       LLCRDACC;     // 0x018 SCB LLC read access count
     reg64_t       LLCRDMISS;    // 0x020 SCB LLC read miss count
     reg64_t       LLCRDWRACC;   // 0x028 SCB LLC write access count
@@ -200,8 +200,20 @@ typedef struct {  // PLIC_TypeDef
 /////////////////////////////////////////
 
 // Bit definitions for SCB
-
-// TODO
+#define SCB_BOOTSEL_BOOT0      ((uint32_t)0x0000_0001u)  // Boot select bit 0
+#define SCB_BOOTSEL_BOOT1      ((uint32_t)0x0000_0002u)  // Boot select bit 1
+#define SCB_BOOTSEL_BOOT2      ((uint32_t)0x0000_0004u)  // Boot select bit 2
+#define SCB_BOOTSEL_BOOT3      ((uint32_t)0x0000_0008u)  // Boot select bit 3
+#define SCB_LLCSEL_WAY0_LLC_EN ((uint32_t)0x0000_0001u)  // Set way 0 to cache
+#define SCB_LLCSEL_WAY1_LLC_EN ((uint32_t)0x0000_0002u)  // Set way 1 to cache
+#define SCB_LLCSEL_WAY2_LLC_EN ((uint32_t)0x0000_0004u)  // Set way 2 to cache
+#define SCB_LLCSEL_WAY3_LLC_EN ((uint32_t)0x0000_0008u)  // Set way 3 to cache
+#define SCB_LLCSEL_WAY4_LLC_EN ((uint32_t)0x0000_0010u)  // Set way 4 to cache
+#define SCB_LLCSEL_WAY5_LLC_EN ((uint32_t)0x0000_0020u)  // Set way 5 to cache
+#define SCB_LLCSEL_WAY6_LLC_EN ((uint32_t)0x0000_0040u)  // Set way 6 to cache
+#define SCB_LLCSEL_WAY7_LLC_EN ((uint32_t)0x0000_0080u)  // Set way 7 to cache
+#define SCB_LLCCRPSEL_RR       ((uint32_t)0x0000_0000u)  // Round-robin replacement policy
+#define SCB_LLCCRPSEL_RAND     ((uint32_t)0x0000_0001u)  // LFSR-based random replacement policy
 
 // Bit definitions for UART
 
