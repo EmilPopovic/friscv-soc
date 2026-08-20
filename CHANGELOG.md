@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   running and the baud rate agrees.
 - Wire all UART lines to top-level ports.
 - Pass through all relevant core parameters to top level.
+- Add peripheral access layer header file.
 
 ### Changed
 
