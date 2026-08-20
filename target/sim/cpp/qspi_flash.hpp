@@ -13,7 +13,7 @@
 
 #include "dut.hpp"
 
-// SPI NOR on QSPI0 CS0. JEDEC ID and single-bit reads, mode 0; no quad, no writes.
+// SPI NOR on QSPI0 CS0. JEDEC ID and single-bit reads, mode 0. No quad, no writes.
 class QspiFlash {
   public:
     explicit QspiFlash(Dut& top);
@@ -21,7 +21,6 @@ class QspiFlash {
     void update();
     void preload(uint32_t address, const std::vector<uint8_t>& data);
 
-    // The bus shares one MISO line, so the testbench arbitrates between devices
     bool driving() const { return selected_; }
     bool miso() const { return miso_; }
 
@@ -35,7 +34,7 @@ class QspiFlash {
         Id,
     };
 
-    static constexpr uint32_t MEMORY_SIZE = 0x1000000;  // 16 MB, 24-bit addresses
+    static constexpr uint32_t MEMORY_SIZE = 0x1000000;  // 24-bit addresses
 
     void begin_transaction();
     void sample_bit(bool mosi);

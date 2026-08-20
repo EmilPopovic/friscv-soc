@@ -33,7 +33,6 @@ void BusRouter::cycle(uint8_t size, uint32_t offset, uint32_t wdata,
 
     for (const auto& mapping : address_map) {
         if (!owner && offset >= mapping.base && offset - mapping.base < mapping.size) {
-            // Accept the transfer for the first matching device
             owner = mapping.dev;
             owner_base = mapping.base;
             mapping.dev->cycle(size, offset - mapping.base, wdata, w_en, r_en, burst_en);

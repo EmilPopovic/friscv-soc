@@ -9,21 +9,19 @@
 #include <deque>
 #include <vector>
 
-// Drives uart0_rx_i, the other half of UartTxMonitor. 8N1 only, and holds the
-// line idle until it is given the divisor.
+// Drives uart0_rx_i, the other half of UartTxMonitor. 8N1, idle until given a divisor.
 class UartRxDriver {
   public:
     void set_divisor(unsigned divisor);
 
-    // Set the bit period directly, to model a host clock that does not match
-    // the chip's. The ROM cannot adapt, so this is where its margin shows.
+    // Bit period straight from the host, for a clock that differs from the chip's
     void set_bit_cycles(unsigned cycles) { bit_cycles_ = cycles; }
 
     void send(const std::vector<uint8_t>& bytes);
 
     bool idle() const { return queue_.empty() && state_ == State::IDLE; }
 
-    bool drive();  // once per clock cycle, returns the line level
+    bool drive();  // once per clock cycle
 
   private:
     enum class State { IDLE, START, DATA, STOP };

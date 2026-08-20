@@ -18,7 +18,6 @@ constexpr uint8_t CMD_APP_CMD = 55;
 constexpr uint8_t CMD_READ_OCR = 58;
 constexpr uint8_t ACMD_SEND_OP_COND = 41;
 
-// R1 flags
 constexpr uint8_t R1_READY = 0x00;
 constexpr uint8_t R1_IDLE = 0x01;
 constexpr uint8_t R1_ILLEGAL_COMMAND = 0x04;
@@ -96,9 +95,8 @@ void SdCard::begin_transaction() {
     in_cmd_ = false;
     cmd_len_ = 0;
 
-    // Mode 0 samples on the first rising edge, so the first bit has to be up
-    // before it arrives. A pending response survives, the card does not forget
-    // it just because the host dropped chip select between segments.
+    // Mode 0 samples on the first rising edge, so present bit one now. A queued
+    // response survives chip select dropping between segments.
     out_bit_ = 0;
     present_bit();
 }
@@ -146,8 +144,7 @@ void SdCard::finish_byte() {
         return;
     }
 
-    // A command frame opens with 01xxxxxx. Anything else is a filler byte, and
-    // while a response is still going out the host is only clocking it along.
+    // Command frames open with 01xxxxxx, and never while a response is going out
     if (out_queue_.empty() && (byte & 0xc0) == 0x40) {
         in_cmd_ = true;
         cmd_len_ = 0;
@@ -176,7 +173,6 @@ void SdCard::process_command() {
 
     switch (command) {
         case CMD_GO_IDLE_STATE:
-            // Without the init clocks the card is not listening yet
             if (idle_clocks_ < REQUIRED_INIT_CLOCKS) {
                 return;
             }
@@ -293,8 +289,7 @@ void SdCard::update() {
     if (!selected) {
         selected_ = false;
 
-        // Clocks the host issues on another chip select still reach this card,
-        // which is how the 74 init clocks get delivered
+        // Clocks on another chip select still reach the card, that is how init works
         if (clock != clock_ && clock) {
             ++idle_clocks_;
         }

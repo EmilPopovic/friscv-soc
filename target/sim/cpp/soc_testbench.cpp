@@ -10,7 +10,6 @@ namespace {
 
 constexpr unsigned RESET_CYCLES = 20;
 
-// Blocks the card comes up holding
 constexpr unsigned SD_PATTERN_BLOCKS = 4;
 
 }  // namespace
@@ -35,8 +34,7 @@ SocTestbench::~SocTestbench() {
 }
 
 void SocTestbench::drive_miso() {
-    // One line, two devices. Whichever holds chip select owns it, and it idles
-    // high the way a pulled up bus does.
+    // One line, two devices. Chip select decides, and it idles high.
     bool value = true;
 
     if (flash_.driving()) {

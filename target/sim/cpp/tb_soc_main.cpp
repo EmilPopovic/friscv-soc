@@ -84,7 +84,6 @@ void check_range(uint32_t address, size_t size) {
 }
 
 
-// A bad VERNII_* value is an error rather than a silent zero
 uint64_t env_u64(const char* name, uint64_t fallback) {
     const char* text = std::getenv(name);
 
@@ -131,7 +130,6 @@ uint32_t read_word(Jtag& jtag, uint32_t address) {
            (uint32_t(data[3]) << 24);
 }
 
-// Reset, then wait for the boot ROM to reach its idle loop
 void park(SocTestbench& testbench, Jtag& jtag) {
     jtag.reset_soc();
 
@@ -222,8 +220,7 @@ void preload_sd(SocTestbench& testbench, const char* path) {
     std::fprintf(stderr, "sd image %s: %zu bytes\n", path, data.size());
 }
 
-// VERNII_HB_CFG="reg:value[,...]" writes the HyperBus config before the program
-// runs, so a sweep needs no rebuild
+// VERNII_HB_CFG="reg:value[,...]" configures the HyperBus, so a sweep needs no rebuild
 void apply_hyperbus_config(Jtag& jtag) {
     const char* spec = std::getenv("VERNII_HB_CFG");
 
@@ -254,8 +251,7 @@ void apply_hyperbus_config(Jtag& jtag) {
     }
 }
 
-// VERNII_LLCSEL marks ways as cache, so an image linked into the cached region
-// can run from there
+// VERNII_LLCSEL marks ways as cache, for an image linked into the cached region
 void apply_cache_config(Jtag& jtag) {
     if (std::getenv("VERNII_LLCSEL") == nullptr) {
         return;
@@ -264,8 +260,7 @@ void apply_cache_config(Jtag& jtag) {
     jtag.write_memory(SCB_LLCSEL, word_bytes(env_u32("VERNII_LLCSEL", 0)));
 }
 
-// VERNII_UART_DIV sets the 16550 divisor for software that expects a boot stub
-// to have done it, and gives the monitor its bit period
+// VERNII_UART_DIV sets the 16550 divisor for software that expects a stub to have set it
 void apply_uart_config(SocTestbench& testbench, Jtag& jtag) {
     if (std::getenv("VERNII_UART_DIV") == nullptr) {
         return;
@@ -281,7 +276,6 @@ void apply_uart_config(SocTestbench& testbench, Jtag& jtag) {
     testbench.uart().set_divisor(divisor);
 }
 
-// Media for programs that drive the flash or the card themselves
 void apply_media(SocTestbench& testbench) {
     if (const char* path = std::getenv("VERNII_FLASH")) {
         preload_flash(testbench, path);
@@ -306,14 +300,12 @@ ElfImage prepare_image(SocTestbench& testbench, Jtag& jtag, const char* path) {
 }
 
 
-// Come out of reset on a strap
 void boot(SocTestbench& testbench, Jtag& jtag, unsigned boot_sel) {
     dut::set_boot_sel(testbench.top(), boot_sel);
     testbench.reset();
     jtag.initialize();  // the reset above took the debug module with it
 }
 
-// Run to ebreak or out of budget, then read the verdict
 int run_to_end(SocTestbench& testbench, Jtag& jtag) {
     Dut& top = testbench.top();
     uint64_t limit = env_u64("VERNII_TEST_CYCLES", TEST_CYCLES);
@@ -354,7 +346,6 @@ int cmd_load(SocTestbench& testbench, Jtag& jtag, int, char** argv) {
 int cmd_test(SocTestbench& testbench, Jtag& jtag, int, char** argv) {
     ElfImage image = prepare_image(testbench, jtag, argv[2]);
 
-    // An image outside the SRAM belongs to the external memory
     if (is_external(image.entry)) {
         for (const ElfSegment& segment : image.segments) {
             testbench.ext_mem().preload(segment.address - MEM_BASE, segment.data);
@@ -469,7 +460,7 @@ int cmd_server(SocTestbench& testbench, Jtag&, int argc, char** argv) {
 struct Command {
     const char* name;
     int         argc;   // exact, or negative for a minimum of -argc
-    bool        jtag;   // whether the debug module comes up first
+    bool        jtag;
     int       (*run)(SocTestbench&, Jtag&, int, char**);
     const char* usage;
 };

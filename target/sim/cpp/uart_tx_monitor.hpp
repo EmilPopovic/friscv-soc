@@ -5,14 +5,12 @@
 
 #pragma once
 
-// Decodes o_uart_tx so simulation can see what software prints. 8N1 only.
-// Stays quiet until given the 16550 divisor, which fixes the bit period.
+// Decodes o_uart_tx to see what software prints. 8N1, quiet until given a divisor.
 class UartTxMonitor {
   public:
     void set_divisor(unsigned divisor);
     void sample(bool tx);  // once per clock cycle
 
-    // Whether the decoded output left the cursor at the start of a line
     bool at_line_start() const { return at_line_start_; }
 
   private:

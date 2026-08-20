@@ -54,7 +54,6 @@ void cycle(Vfriscv_cpu_verilator* top, BusRouter& bus) {
     // Posedge for the core
     posedge(top);
 
-    // Evaluate bus models
     bus.cycle(top->size_o, top->addr_o, top->wdata_o,
               top->w_en_o, top->r_en_o, top->burst_en_o);
 
