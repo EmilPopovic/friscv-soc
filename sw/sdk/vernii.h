@@ -200,6 +200,7 @@ typedef struct {  // PLIC_TypeDef
 /////////////////////////////////////////
 
 // Bit definitions for SCB
+
 #define SCB_BOOTSEL_BOOT0      ((uint32_t)0x0000_0001u)  // Boot select bit 0
 #define SCB_BOOTSEL_BOOT1      ((uint32_t)0x0000_0002u)  // Boot select bit 1
 #define SCB_BOOTSEL_BOOT2      ((uint32_t)0x0000_0004u)  // Boot select bit 2
@@ -212,8 +213,8 @@ typedef struct {  // PLIC_TypeDef
 #define SCB_LLCSEL_WAY5_LLC_EN ((uint32_t)0x0000_0020u)  // Set way 5 to cache
 #define SCB_LLCSEL_WAY6_LLC_EN ((uint32_t)0x0000_0040u)  // Set way 6 to cache
 #define SCB_LLCSEL_WAY7_LLC_EN ((uint32_t)0x0000_0080u)  // Set way 7 to cache
-#define SCB_LLCCRPSEL_RR       ((uint32_t)0x0000_0000u)  // Round-robin replacement policy
-#define SCB_LLCCRPSEL_RAND     ((uint32_t)0x0000_0001u)  // LFSR-based random replacement policy
+#define SCB_LLCCRPSEL_CRP_RR   ((uint32_t)0x0000_0000u)  // Round-robin replacement policy
+#define SCB_LLCCRPSEL_CRP_RAND ((uint32_t)0x0000_0001u)  // LFSR-based random replacement policy
 
 // Bit definitions for UART
 
