@@ -55,6 +55,10 @@
 #define CLKDIV_SLOW 63u
 #define CLKDIV_FAST 1u
 
+#ifndef LLCSEL
+#define LLCSEL 0xf
+#endif
+
 #define BLOCK_BYTES 512u
 #define BLOCK_WORDS (BLOCK_BYTES / 4)
 #define SPIN_LIMIT  2000000u
@@ -294,14 +298,14 @@ __attribute__((naked, used)) static void tramp_blob(void) {
         ".globl sd_tramp\n"
         "sd_tramp:\n"
         "   li t0, %0\n"
-        "   li t1, 0xf\n"             // every way a cache way
+        "   li t1, %2\n"
         "   sw t1, 0(t0)\n"
         "   li a0, 0\n"               // hartid
         "   li a1, 0\n"               // no dtb, the image carries its own
         "   li t0, %1\n"
         "   jr t0\n"
         ".globl sd_tramp_end\n"
-        "sd_tramp_end:\n" ::"i"(SCB_LLCSEL), "i"(RAM_BASE));
+        "sd_tramp_end:\n" ::"i"(SCB_LLCSEL), "i"(RAM_BASE), "i"(LLCSEL));
 }
 
 // The debug module can read SCRATCH0

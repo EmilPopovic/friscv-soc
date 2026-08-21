@@ -3,7 +3,7 @@
 //
 // Matej Jurasić <matej.jurasic@cappig.dev>
 // Emil Popović <mail@emilpopovic.me>
-
+//
 // Zero stage boot loader
 
 .section .text

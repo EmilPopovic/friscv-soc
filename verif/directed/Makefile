@@ -24,25 +24,23 @@ CYCLES  ?= 40000000
 %.elf: %.c link.ld
 	$(CROSS)gcc $(CFLAGS) -O2 -Wall -Wextra -T link.ld -o $@ $<
 
-BOOT_SRC := $(CURDIR)/../../sw/boot
-
 # The ROM leaves its stage at zero
 uart_stage.bin: uart_stage.S
 	$(CROSS)gcc $(CFLAGS) -Wl,-Ttext=0 -o uart_stage.elf $<
 	$(CROSS)objcopy -O binary uart_stage.elf $@
 
 # The SD loader itself boots from flash
-sdflash.bin: $(BOOT_SRC)/sdbl.c $(BOOT_SRC)/stage.ld
+sdflash.bin: $(SDK)/loaders/sdbl.c $(SDK)/loaders/loader.ld
 	$(CROSS)gcc -march=rv32ima_zicsr_zifencei -mabi=ilp32 -Os -Wall -Wextra \
 		-nostdlib -nostartfiles -Wl,--no-warn-rwx-segments \
-		-T $(BOOT_SRC)/stage.ld -o sdbl.elf $(BOOT_SRC)/sdbl.c
+		-T $(SDK)/loaders/loader.ld -o sdbl.elf $(SDK)/loaders/sdbl.c
 	$(CROSS)objcopy -O binary sdbl.elf sdbl.bin
-	python3 $(BOOT_SRC)/mkflash.py sdbl.bin /dev/null $@
+	python3 $(SDK)/tools/mkflash.py sdbl.bin /dev/null $@
 
 sd_payload.img: sd_payload.S
 	$(CROSS)gcc $(CFLAGS) -Wl,-Ttext=0x80000000 -o sd_payload.elf $<
 	$(CROSS)objcopy -O binary sd_payload.elf sd_payload.bin
-	python3 $(BOOT_SRC)/mksdimg.py sd_payload.bin $@
+	python3 $(SDK)/tools/mksdimg.py sd_payload.bin $@
 
 .PHONY: sim-build
 sim-build:

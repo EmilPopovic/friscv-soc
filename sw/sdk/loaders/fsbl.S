@@ -27,6 +27,9 @@
 .equ BAD_HEADER,  0xbad00001      // odd, never a real entry point
 .equ BAD_CKSUM,   0xbad00003
 .equ BLOCK,       512
+.ifndef LLCSEL
+.equ LLCSEL,      0xf
+.endif
 .equ RX_CSAAT,    0x13ff          // csaat | RX | 512 bytes
 
     .section .text.init
@@ -39,7 +42,7 @@ _start:
     li      t1, F_CPU
     sw      t1, 4(t0)
 
-    // Set the UART divisor expected by apheleiaOS
+    // The image expects the UART configured already
     li      t0, UART0
     li      t1, 0x80
     sw      t1, UART_LCR(t0)
@@ -126,7 +129,7 @@ park:
 
 tramp:
     li      t0, SCB_LLCSEL
-    li      t1, 0xf                 // every way a cache way
+    li      t1, LLCSEL
     sw      t1, 0(t0)
     li      t0, RAM_BASE
     jr      t0

@@ -27,16 +27,16 @@ make soc SOC_MEM_SIZE="$MEM_SIZE" SOC_DIR="$DIR" >/dev/null
 
 # Boot from the SD card
 if [ "${BOOT:-jtag}" = sd ]; then
-    BOOT_SRC=$HERE/../../../sw/boot
+    SDK=$HERE/../../../sw/sdk
 
     riscv64-unknown-elf-gcc -march=rv32ima_zicsr_zifencei -mabi=ilp32 -Os \
         -Wall -Wextra -nostdlib -nostartfiles -Wl,--no-warn-rwx-segments \
-        -T "$BOOT_SRC/stage.ld" -o "$DIR/sdbl.elf" "$BOOT_SRC/sdbl.c"
+        -T "$SDK/loaders/loader.ld" -o "$DIR/sdbl.elf" "$SDK/loaders/sdbl.c"
     riscv64-unknown-elf-objcopy -O binary "$DIR/sdbl.elf" "$DIR/sdbl.bin"
 
     # The flash only carries the stage
-    python3 "$BOOT_SRC/mkflash.py" "$DIR/sdbl.bin" /dev/null "$DIR/flash.bin"
-    python3 "$BOOT_SRC/mksdimg.py" "$IMAGE" "$DIR/sd.img"
+    python3 "$SDK/tools/mkflash.py" "$DIR/sdbl.bin" /dev/null "$DIR/flash.bin"
+    python3 "$SDK/tools/mksdimg.py" "$IMAGE" "$DIR/sd.img"
 
     exec env VERNII_UART_DIV="$UART_DIV" VERNII_TEST_CYCLES="$CYCLES" \
         VERNII_SD_IMAGE="$DIR/sd.img" \
@@ -45,13 +45,13 @@ fi
 
 # Boot from the flash
 if [ "${BOOT:-jtag}" = qspi ]; then
-    BOOT_SRC=$HERE/../../../sw/boot
+    SDK=$HERE/../../../sw/sdk
 
     riscv64-unknown-elf-gcc -march=rv32ima_zicsr_zifencei -mabi=ilp32 \
         -nostdlib -nostartfiles -Wl,--no-warn-rwx-segments -Wl,-Ttext=4 \
-        -o "$DIR/fsbl.elf" "$BOOT_SRC/fsbl.S"
+        -o "$DIR/fsbl.elf" "$SDK/loaders/fsbl.S"
     riscv64-unknown-elf-objcopy -O binary "$DIR/fsbl.elf" "$DIR/fsbl.bin"
-    python3 "$BOOT_SRC/mkflash.py" "$DIR/fsbl.bin" "$IMAGE" "$DIR/flash.bin"
+    python3 "$SDK/tools/mkflash.py" "$DIR/fsbl.bin" "$IMAGE" "$DIR/flash.bin"
 
     # The fsbl sets the divisor itself
     exec env VERNII_UART_DIV="$UART_DIV" VERNII_TEST_CYCLES="$CYCLES" \

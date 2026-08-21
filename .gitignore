@@ -9,3 +9,4 @@ sources.f
 verif/directed/*.elf
 *.bin
 *.img
+sw/sdk/example/build/
