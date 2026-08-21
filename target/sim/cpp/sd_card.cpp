@@ -25,7 +25,7 @@ constexpr uint8_t R1_CRC_ERROR = 0x08;
 
 constexpr uint8_t DATA_TOKEN = 0xfe;
 
-// Only CMD0 and CMD8 are sent before the host turns CRC checking off
+// The host turns CRC checking off later
 constexpr uint8_t CMD0_CRC = 0x95;
 constexpr uint8_t CMD8_CRC = 0x87;
 
@@ -95,8 +95,7 @@ void SdCard::begin_transaction() {
     in_cmd_ = false;
     cmd_len_ = 0;
 
-    // Mode 0 samples on the first rising edge, so present bit one now. A queued
-    // response survives chip select dropping between segments.
+    // Mode 0 samples on the rising edge
     out_bit_ = 0;
     present_bit();
 }
@@ -144,7 +143,7 @@ void SdCard::finish_byte() {
         return;
     }
 
-    // Command frames open with 01xxxxxx, and never while a response is going out
+    // Command frames open with 01xxxxxx
     if (out_queue_.empty() && (byte & 0xc0) == 0x40) {
         in_cmd_ = true;
         cmd_len_ = 0;
@@ -197,7 +196,7 @@ void SdCard::process_command() {
                 return;
             }
 
-            // R7 echoes the voltage range and the check pattern back
+            // R7 echoes voltage range and check pattern
             respond({ R1_IDLE, 0x00, 0x00, 0x01, uint8_t(argument & 0xff) });
             return;
 
@@ -212,7 +211,7 @@ void SdCard::process_command() {
                 return;
             }
 
-            // Real cards take a while to leave idle, so make the host loop
+            // Real cards take a while here
             if (acmd41_count_++ < 1) {
                 respond({ R1_IDLE });
                 return;
@@ -223,7 +222,7 @@ void SdCard::process_command() {
             return;
 
         case CMD_READ_OCR:
-            // CCS set, this is a high capacity card and addresses are blocks
+            // CCS set, so addresses are blocks
             respond({ ready_ ? R1_READY : R1_IDLE, 0xc0, 0xff, 0x80, 0x00 });
             return;
 
@@ -289,7 +288,7 @@ void SdCard::update() {
     if (!selected) {
         selected_ = false;
 
-        // Clocks on another chip select still reach the card, that is how init works
+        // Clocks on another CS still reach us
         if (clock != clock_ && clock) {
             ++idle_clocks_;
         }

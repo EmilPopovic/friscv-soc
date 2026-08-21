@@ -2,10 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
 // Matej Jurasić <matej.jurasic@cappig.dev>
-//
-// Brings up an SD card in SPI mode on QSPI0 CS1 and reads two blocks back.
-// The init clocks go out on CS2, which is how a controller that always asserts
-// a chip select can still give the card its 74 clocks with CS1 high.
+
+// Reads blocks off an SD card
 
 #include <stdint.h>
 
@@ -44,7 +42,7 @@
 #define BLOCK_BYTES 512u
 #define BLOCK_WORDS (BLOCK_BYTES / 4)
 
-// Where the test gave up, or'd into the scratch word so a failure says which step
+// Or'd into the scratch word on failure
 enum {
     ERR_NONE = 0,
     ERR_CMD0, ERR_CMD8, ERR_ACMD41, ERR_CMD58, ERR_CMD16,
@@ -94,7 +92,7 @@ static int spi_get_word(uint32_t* out) {
     return 0;
 }
 
-// One byte in, one byte out. Byte order is little endian, first byte in the LSB.
+// First byte in is the least significant
 static int spi_read_byte(uint8_t* out, unsigned csaat) {
     uint32_t word;
 
@@ -106,8 +104,7 @@ static int spi_read_byte(uint8_t* out, unsigned csaat) {
     return 1;
 }
 
-// Six frame bytes plus two filler, so every transfer stays word aligned and no
-// byte strobes are needed on the register bus
+// Two filler bytes keep transfers word aligned
 static int sd_send_command(uint8_t command, uint32_t argument, uint8_t crc) {
     uint32_t low = (uint32_t)(0x40 | command) | ((argument >> 24) & 0xff) << 8 |
                    ((argument >> 16) & 0xff) << 16 | ((argument >> 8) & 0xff) << 24;
@@ -165,9 +162,7 @@ static int sd_init(void) {
     wr(SPI_CONFIGOPTS + 4 * CS_CARD, CLKDIV_SLOW);
     wr(SPI_CONFIGOPTS + 4 * CS_SPARE, CLKDIV_SLOW);
 
-    // 80 clocks with the card deselected. The spare chip select goes low
-    // instead, the card only sees SCK move. A dummy segment counts LEN in
-    // cycles rather than bytes.
+    // A dummy segment counts LEN in cycles
     wr(SPI_CSID, CS_SPARE);
 
     if (!spi_command(80, 0, DIR_DUMMY)) {
@@ -184,7 +179,7 @@ static int sd_init(void) {
 
     uint8_t r1;
 
-    // CMD0, the only command whose CRC still matters along with CMD8
+    // Only CMD0 and CMD8 need real CRCs
     if (!sd_send_command(0, 0, 0x95) || !sd_response(&r1)) {
         return ERR_CMD0;
     }
@@ -195,7 +190,7 @@ static int sd_init(void) {
         return ERR_CMD0;
     }
 
-    // CMD8 must echo the check pattern back or this is not a v2 card
+    // Only a v2 card echoes the pattern
     if (!sd_send_command(8, 0x1aa, 0x87) || !sd_response(&r1)) {
         return ERR_CMD8;
     }
@@ -241,7 +236,7 @@ static int sd_init(void) {
         return ERR_ACMD41;
     }
 
-    // CMD58, check CCS so we know addresses are block numbers
+    // CCS set, so addresses are blocks
     if (!sd_send_command(58, 0, 0x01) || !sd_response(&r1)) {
         return ERR_CMD58;
     }
@@ -270,7 +265,7 @@ static int sd_init(void) {
         return ERR_CMD16;
     }
 
-    // Initialised, so the bus can move up to speed
+    // Initialised, so speed up the bus
     wr(SPI_CONFIGOPTS + 4 * CS_CARD, CLKDIV_FAST);
     return ERR_NONE;
 }
@@ -286,7 +281,7 @@ static int sd_read_block(uint32_t block, uint32_t* words) {
         return ERR_CMD17;
     }
 
-    // The card takes a while to fetch, then leads the block with 0xfe
+    // The card leads the block with 0xfe
     int found = 0;
 
     for (int attempt = 0; attempt < 64 && !found; attempt++) {
@@ -307,8 +302,7 @@ static int sd_read_block(uint32_t block, uint32_t* words) {
         return ERR_TOKEN;
     }
 
-    // One segment for the whole block, drained as it arrives, the same way the
-    // boot rom reads the first stage out of flash
+    // One segment, drained as it arrives
     if (!spi_command(BLOCK_BYTES, 1, DIR_RD)) {
         return ERR_TIMEOUT;
     }

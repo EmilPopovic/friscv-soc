@@ -3,13 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 #
 # Matej Jurasić <matej.jurasic@cappig.dev>
-#
-"""Pack a boot image for an SD card: header block, then the payload.
 
-The header is the one mkflash.py writes, but on a card it gets a block to
-itself so the payload stays block aligned. sdbl.c reads block 0, then the
-payload from block 1 on.
-"""
+# Pack an SD card image
 
 import sys
 from pathlib import Path

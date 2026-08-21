@@ -109,7 +109,7 @@ addr_t if_pc, if_next_pc;
 data_t if_ir;
 logic  if_discard;
 
-// A discarded fetch reaches ID as a NOP, so its fault is dropped with it
+// A discarded fetch drops its fault too
 logic  if_fault, if_err, if_pmp_fault;
 assign if_fault     = inst_fault_i     && !if_discard;
 assign if_err       = imem_err_i       && !if_discard;

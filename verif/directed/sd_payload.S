@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
 // Matej Jurasić <matej.jurasic@cappig.dev>
-//
-// Payload for the SD boot test. sdbl.c copies it off the card to RAM_BASE and
-// jumps here, so reaching it at all means the card was read and checksummed.
+
+// Payload for the SD boot test
 
 .equ SCRATCH, 0x03000000
 .equ HALT,    0x50000000

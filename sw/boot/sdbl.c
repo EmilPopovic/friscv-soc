@@ -2,13 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
 // Matej Jurasić <matej.jurasic@cappig.dev>
-//
-// First stage that boots from an SD card in SPI mode on QSPI0 CS1. The boot ROM
-// loads this out of flash, so the card only has to hold the image: block 0 is
-// the same header the flash layout uses, and the image follows from block 1.
-//
-// The init clocks go out on CS2, which is how a controller that always asserts
-// a chip select still gives the card its 74 clocks with CS1 high.
+
+// Boots an image off the SD card
 
 #include <stdint.h>
 
@@ -21,8 +16,7 @@
 #define RAM_BASE  0x80000000u
 #define MAGIC     0x43535246u   // "FRSC", matches mkflash.py and fsbl.S
 #define MAX_IMAGE 0x10000000u
-// Top of the default OCM. The stage sits below 2 KiB, the stack grows down from
-// here, so the SoC needs at least this much on-chip memory.
+// Top of the default OCM
 #define STACK_TOP 0x00002000u
 
 #define F_CPU     50000000u
@@ -65,7 +59,7 @@
 #define BLOCK_WORDS (BLOCK_BYTES / 4)
 #define SPIN_LIMIT  2000000u
 
-// Odd, so never a real entry point, and visible in SCRATCH0 over JTAG
+// Odd, so never a real entry point
 #define BAD_CARD   0xbad00011u
 #define BAD_HEADER 0xbad00013u
 #define BAD_CKSUM  0xbad00015u
@@ -89,8 +83,7 @@ static int spi_command(unsigned bytes, unsigned csaat, unsigned direction) {
     return 0;
 }
 
-// CSID may only change between transactions, and the boot ROM jumps here as
-// soon as it has drained its last one, so the host can still be busy
+// CSID only changes between transactions
 static void spi_wait_idle(void) {
     for (uint32_t i = 0; i < SPIN_LIMIT; i++) {
         if (!(rd(SPI_STATUS) & ST_ACTIVE) && (rd(SPI_STATUS) & ST_READY)) {
@@ -121,7 +114,7 @@ static int spi_get_word(uint32_t* out) {
     return 0;
 }
 
-// Byte order is little endian, so the first byte in is the least significant
+// First byte in is the least significant
 static int spi_read_byte(uint8_t* out, unsigned csaat) {
     uint32_t word;
 
@@ -138,7 +131,7 @@ static void spi_release(void) {
     spi_read_byte(&discard, 0);
 }
 
-// Six frame bytes plus two filler, so every transfer stays word aligned
+// Two filler bytes keep transfers word aligned
 static int sd_send_command(uint8_t command, uint32_t argument, uint8_t crc) {
     uint32_t low = (uint32_t)(0x40 | command) | ((argument >> 24) & 0xff) << 8 |
                    ((argument >> 16) & 0xff) << 16 | ((argument >> 8) & 0xff) << 24;
@@ -173,7 +166,7 @@ static int sd_init(void) {
     wr(SPI_CONFIGOPTS + 4 * CS_CARD, CLKDIV_SLOW);
     wr(SPI_CONFIGOPTS + 4 * CS_SPARE, CLKDIV_SLOW);
 
-    // 80 clocks with the card deselected. A dummy segment counts LEN in cycles.
+    // A dummy segment counts LEN in cycles
     spi_wait_idle();
     wr(SPI_CSID, CS_SPARE);
 
@@ -186,7 +179,7 @@ static int sd_init(void) {
 
     uint8_t r1;
 
-    // CMD0 and CMD8 are the only commands whose CRC still matters
+    // Only CMD0 and CMD8 need real CRCs
     if (!sd_send_command(0, 0, 0x95) || !sd_response(&r1)) {
         return 0;
     }
@@ -242,7 +235,7 @@ static int sd_init(void) {
     return 0;
 }
 
-// Block addressed, so this is an SDHC card and the argument counts blocks
+// SDHC is block addressed, not byte
 static int sd_read_block(uint32_t block, uint32_t* words) {
     uint8_t r1;
 
@@ -250,7 +243,7 @@ static int sd_read_block(uint32_t block, uint32_t* words) {
         return 0;
     }
 
-    // The card takes a while to fetch, then leads the block with 0xfe
+    // The card leads the block with 0xfe
     int found = 0;
 
     for (int attempt = 0; attempt < 1024 && !found; attempt++) {
@@ -293,8 +286,7 @@ static int sd_read_block(uint32_t block, uint32_t* words) {
     return 1;
 }
 
-// Turning the OCM ways into cache pulls the ground out from under anything
-// running at zero, so the last steps happen from a copy in RAM
+// Cache ways take the OCM at zero
 extern char sd_tramp[], sd_tramp_end[];
 
 __attribute__((naked, used)) static void tramp_blob(void) {
@@ -312,7 +304,7 @@ __attribute__((naked, used)) static void tramp_blob(void) {
         "sd_tramp_end:\n" ::"i"(SCB_LLCSEL), "i"(RAM_BASE));
 }
 
-// Leaves the reason in SCRATCH0 where the debug module can read it
+// The debug module can read SCRATCH0
 static void fail(uint32_t reason) {
     wr(SCB_SCRATCH, reason);
 
@@ -321,7 +313,7 @@ static void fail(uint32_t reason) {
 }
 
 void sd_main(void) {
-    // Run mtime at MTIME_HZ, and set the divisor apheleiaOS expects
+    // The image expects mtime and UART running
     wr(ACLINT_TICK, MTIME_HZ);
     wr(ACLINT_TICK + 4, F_CPU);
 
@@ -347,7 +339,7 @@ void sd_main(void) {
         fail(BAD_HEADER);
     }
 
-    // The image starts on the block after the header, so it stays aligned
+    // The image starts on the next block
     uint32_t* dst = (uint32_t*)RAM_BASE;
     uint32_t words = (length + 3) / 4;
     uint32_t blocks = (words + BLOCK_WORDS - 1) / BLOCK_WORDS;
@@ -368,7 +360,7 @@ void sd_main(void) {
         fail(BAD_CKSUM);
     }
 
-    // Land the trampoline just past the image and finish from there
+    // Land the trampoline past the image
     uint8_t* tramp = (uint8_t*)(RAM_BASE + words * 4);
 
     for (char* p = sd_tramp; p < sd_tramp_end; p++) {

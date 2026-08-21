@@ -3,13 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 #
 # Matej Jurasić <matej.jurasic@cappig.dev>
-"""Assemble a ZSBL and emit the package vernii_soc takes its words from.
 
-    gen_zsbl_rom.py sw/boot/zsbl.S rtl/soc/vernii_zsbl_rom_pkg.sv
-
-Pass the soc that maps the peripherals to check the addresses the loader
-hardcodes, and --check to verify the committed package rather than rewrite it.
-"""
+# Assemble the ZSBL into an RTL package
 
 import re
 import subprocess
@@ -39,8 +34,7 @@ def find(text: str, pattern: str) -> str | None:
 
 
 def check_against_soc(source: Path, soc_path: Path):
-    """The loader reaches the SCB, the SPI host and the UART by address and the
-    assembler cannot check that. The register map lives in the soc."""
+    # The assembler cannot check these addresses
     asm, soc = source.read_text(), soc_path.read_text()
 
     want = [
@@ -90,7 +84,7 @@ def main():
 
     source, out = Path(args[0]), Path(args[1])
 
-    # The chip is optional, only it knows which pads the loader pokes
+    # Only the soc knows the pad addresses
     if len(args) == 3:
         check_against_soc(source, Path(args[2]))
 
@@ -104,7 +98,7 @@ def main():
              for i in range(0, len(image), 4)]
 
     lines = [HEADER,
-             f"// Generated from {source.name} by {Path(sys.argv[0]).name}, do not edit",
+             f"// Generated from {source.name}, do not edit",
              f"package {out.stem};",
              "",
              f"    localparam int unsigned ZSBL_PROG_WORDS = {len(words)};",
@@ -115,7 +109,7 @@ def main():
 
     text = "\n".join(lines) + "\n"
 
-    # --check leaves the file alone and only reports whether it is current
+    # --check reports instead of rewriting
     if check:
         if out.read_text() != text:
             raise SystemExit(f"{out} is stale, regenerate it")

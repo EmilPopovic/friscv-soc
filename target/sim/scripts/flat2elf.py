@@ -4,10 +4,7 @@
 #
 # Matej Jurasić <matej.jurasic@cappig.dev>
 
-"""Wrap a flat boot image in a minimal ELF32 so the testbench can load it.
-
-    flat2elf.py <image> <out.elf> [load address]
-"""
+# Wrap a flat image in an ELF32
 
 import struct
 import sys

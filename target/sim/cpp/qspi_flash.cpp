@@ -67,7 +67,7 @@ void QspiFlash::finish_byte() {
             break;
 
         case Phase::Read:
-            // the host clocks a dummy byte per byte read
+            // the host clocks a dummy byte out
             shift_out_ = memory_.read_byte(++address_ & (MEMORY_SIZE - 1));
             break;
 
@@ -88,7 +88,7 @@ void QspiFlash::sample_bit(bool mosi) {
 }
 
 void QspiFlash::drive_bit() {
-    // mode 0: shift out on the falling edge, MSB first
+    // mode 0: falling edge, MSB first
     miso_ = (shift_out_ & 0x80) != 0;
     shift_out_ = uint8_t(shift_out_ << 1);
 }

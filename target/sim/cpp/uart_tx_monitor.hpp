@@ -5,7 +5,7 @@
 
 #pragma once
 
-// Decodes o_uart_tx to see what software prints. 8N1, quiet until given a divisor.
+// Decodes o_uart_tx as 8N1
 class UartTxMonitor {
   public:
     void set_divisor(unsigned divisor);

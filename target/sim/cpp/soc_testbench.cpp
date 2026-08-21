@@ -34,7 +34,7 @@ SocTestbench::~SocTestbench() {
 }
 
 void SocTestbench::drive_miso() {
-    // One line, two devices. Chip select decides, and it idles high.
+    // One line, two devices, idles high
     bool value = true;
 
     if (flash_.driving()) {
@@ -70,7 +70,7 @@ void SocTestbench::run_cycles(uint64_t count) {
         uart_.sample(top_.uart0_tx_o);
         top_.uart0_rx_i = uart_rx_.drive();
 
-        // The loop ends with the clock low, a leading low phase would be a no-op
+        // The loop ends with the clock low
         top_.clk_i = 1;
         eval();
 

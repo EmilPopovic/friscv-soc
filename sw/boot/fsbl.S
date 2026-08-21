@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
 // Matej Jurasić <matej.jurasic@cappig.dev>
-//
-// First stage boot loader. Runs from OCM, copies the flash image to RAM and
-// boots it. Flash layout: fsbl block, magic, length, checksum, image
+
+// Copies the flash image to RAM
 
 .equ SCB_SCRATCH, 0x03000000
 .equ SCB_LLCSEL,  0x0300000C
@@ -52,7 +51,7 @@ _start:
 
     lui     t0, (QSPI_BASE >> 12)
 
-    // Read from flash offset 0x1000, just past the stage the ROM loads
+    // Just past the stage the ROM loads
     li      t1, 0x00100003
     sw      t1, SPI_TXDATA(t0)
     li      t1, 0x2203              // csaat | TX | 4 bytes

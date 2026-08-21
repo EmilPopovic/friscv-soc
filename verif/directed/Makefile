@@ -26,12 +26,12 @@ CYCLES  ?= 40000000
 
 BOOT_SRC := $(CURDIR)/../../sw/boot
 
-# The boot ROM leaves its first stage at zero, so this one does not use link.ld
+# The ROM leaves its stage at zero
 uart_stage.bin: uart_stage.S
 	$(CROSS)gcc $(CFLAGS) -Wl,-Ttext=0 -o uart_stage.elf $<
 	$(CROSS)objcopy -O binary uart_stage.elf $@
 
-# The SD loader boots out of flash and pulls the payload off the card
+# The SD loader itself boots from flash
 sdflash.bin: $(BOOT_SRC)/sdbl.c $(BOOT_SRC)/stage.ld
 	$(CROSS)gcc -march=rv32ima_zicsr_zifencei -mabi=ilp32 -Os -Wall -Wextra \
 		-nostdlib -nostartfiles -Wl,--no-warn-rwx-segments \

@@ -9,12 +9,12 @@
 #include <deque>
 #include <vector>
 
-// Drives uart0_rx_i, the other half of UartTxMonitor. 8N1, idle until given a divisor.
+// Drives uart0_rx_i as 8N1
 class UartRxDriver {
   public:
     void set_divisor(unsigned divisor);
 
-    // Bit period straight from the host, for a clock that differs from the chip's
+    // Bit period straight from the host
     void set_bit_cycles(unsigned cycles) { bit_cycles_ = cycles; }
 
     void send(const std::vector<uint8_t>& bytes);

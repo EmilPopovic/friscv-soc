@@ -18,7 +18,7 @@ SECTIONS
   .bss      : { *(.bss .bss.* .sbss .sbss.* COMMON) }
   _end = .;
 
-  /* C tests need a stack, the assembly ones never touch sp */
+  /* C tests need a stack */
   . = ALIGN(16);
   . += 0x4000;
   _stack_top = .;

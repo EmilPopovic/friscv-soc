@@ -12,8 +12,7 @@
 #include "dut.hpp"
 #include "paged_mem.hpp"
 
-// An SDHC card in SPI mode on QSPI0 CS1, mode 0. Single-block reads only.
-// Init is enforced: 74 clocks with CS high, CRC on CMD0 and CMD8, busy bytes.
+// An SDHC card in SPI mode 0
 class SdCard {
   public:
     explicit SdCard(Dut& top);
@@ -38,9 +37,9 @@ class SdCard {
 
     // Only counted while CS is high
     static constexpr unsigned REQUIRED_INIT_CLOCKS = 74;
-    // Busy bytes before a response, N_CR in the spec
+    // N_CR in the spec
     static constexpr unsigned RESPONSE_DELAY_BYTES = 2;
-    // Busy bytes between the CMD17 response and the data token
+    // Busy bytes before the data token
     static constexpr unsigned READ_ACCESS_BYTES = 3;
 
     void begin_transaction();

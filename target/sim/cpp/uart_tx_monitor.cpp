@@ -7,7 +7,7 @@
 
 #include <cstdio>
 
-// The 16550 oversamples by 16, so a bit lasts 16 divisor clocks
+// The 16550 oversamples by 16
 void UartTxMonitor::set_divisor(unsigned divisor) {
     bit_cycles_ = 16 * divisor;
 }
@@ -26,7 +26,7 @@ void UartTxMonitor::sample(bool tx) {
             break;
 
         case State::START:
-            // Re-check mid bit so a glitch does not start a character
+            // Re-check mid bit against glitches
             if (++counter_ >= bit_cycles_ / 2) {
                 if (tx) {
                     state_ = State::IDLE;
@@ -56,7 +56,7 @@ void UartTxMonitor::sample(bool tx) {
                     std::fflush(stderr);
                     at_line_start_ = shifter_ == '\n';
                 } else if (!warned_) {
-                    // No stop bit: the program changed the divisor
+                    // No stop bit, the divisor changed
                     warned_ = true;
                     std::fprintf(stderr, "\n[uart] framing error at %u cycles "
                                          "per bit\n", bit_cycles_);

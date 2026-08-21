@@ -13,7 +13,7 @@
 
 #include "dut.hpp"
 
-// SPI NOR on QSPI0 CS0. JEDEC ID and single-bit reads, mode 0. No quad, no writes.
+// SPI NOR flash, single-bit reads only
 class QspiFlash {
   public:
     explicit QspiFlash(Dut& top);

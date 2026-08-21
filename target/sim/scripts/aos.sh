@@ -3,11 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 #
 # Matej Jurasić <matej.jurasic@cappig.dev>
-#
-# Fetch, build and boot apheleiaOS. Needs clang, ld.lld and dtc.
-#
-#   aos.sh           boot, building only if there is no image yet
-#   aos.sh rebuild   build again first
+
+# Fetch, build and boot apheleiaOS
 
 set -euo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -35,8 +32,7 @@ if [ -z "$image" ]; then
 
     [ -d "$SRC/.git" ] || git clone --depth 1 "$AOS_REPO" "$SRC"
 
-    # RISCV_FRISC selects the FRISC device tree and the register stride this
-    # SoC's 16550 uses, and drops the M extension the build notes call unstable
+    # RISCV_FRISC picks our dtb and UART stride
     make -C "$SRC" all ARCH=riscv_32 TOOLCHAIN=llvm RISCV_FRISC=true
 
     image=$(find_image)

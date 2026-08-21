@@ -3,18 +3,13 @@
 # SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 #
 # Matej Jurasić <matej.jurasic@cappig.dev>
-#
-"""Pack a boot image for the QSPI flash: stage, header, payload.
 
-The boot ROM always reads STAGE_BYTES, so the stage is padded out to that and
-the payload follows it. The payload sits at a fixed offset so a stage can find
-it without being told.
-"""
+# Pack a QSPI flash image
 
 import sys
 from pathlib import Path
 
-STAGE_BYTES = 0x1000  # STAGE_BYTES in zsbl.S, the whole of what the ROM reads
+STAGE_BYTES = 0x1000  # Matches STAGE_BYTES in zsbl.S
 MAGIC = 0x43535246    # "FRSC", must match fsbl.S
 
 
@@ -31,7 +26,7 @@ def main():
     stage = stage_path.read_bytes()
 
     if len(stage) > STAGE_BYTES:
-        raise SystemExit(f"stage is {len(stage)} bytes, over the {STAGE_BYTES} the ROM reads")
+        raise SystemExit(f"stage is {len(stage)} bytes, ROM reads {STAGE_BYTES}")
 
     image = payload.read_bytes()
     image += bytes(-len(image) % 4)

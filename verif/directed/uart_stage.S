@@ -2,12 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
 // Matej Jurasić <matej.jurasic@cappig.dev>
-//
-// First stage for the UART boot test. Links at zero, where the boot ROM leaves
-// it. The testbench fills the block from PATTERN on with a known sequence, so
-// checking it catches a transfer that only got the opening instructions right.
 
-.equ SCRATCH, 0x03000000        # SCB.SCRATCH0, where the testbench reads the result
+// First stage for the UART boot test
+
+.equ SCRATCH, 0x03000000        # SCB.SCRATCH0, read by the testbench
 .equ HALT,    0x50000000        # END_ADDRESS to end simulation
 .equ PASS,    0xaabbccdd
 .equ FAIL,    0xdeadbeef

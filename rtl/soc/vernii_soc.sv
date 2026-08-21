@@ -171,7 +171,7 @@ end
 //   0x0c00_0000  plic             2 MiB
 //   0x8000_0000  external memory  ExtSize
 
-// MSWI + MTIMER + tick generator config + SSWI, the whole ACLINT map
+// The whole ACLINT map
 localparam logic [31:0] ClintBaseAddr = 32'h0200_0000;
 localparam logic [31:0] ClintSize     = 32'h0002_0000;
 
@@ -189,7 +189,7 @@ localparam logic [31:0] DmBaseAddr    = 32'h0305_0000;
 localparam logic [31:0] DmSize        = PeriphSize;
 localparam logic [31:0] VerniiPeriphEnd = 32'h0400_0000;
 
-// A fixed slot, so the map does not move when the image does
+// A fixed slot keeps the map still
 localparam int unsigned ZsblRomSlotWords = PeriphSize / 4;
 localparam logic [31:0] ZsblRomWindow    = ZsblRomEnable ? PeriphSize : 32'h0;
 
@@ -275,7 +275,7 @@ soc_rst_replica i_rst_rep_glue    ( .clk_i, .rst_ni ( soc_rst_n ), .rst_no ( glu
 // CPU Core //
 //////////////
 
-// The zsbl rom is a reg-bus peripheral, the core just boots at its base
+// The zsbl rom is a reg-bus peripheral
 localparam int unsigned ResetVec = ZsblRomEnable ? ZsblBaseAddr : ExtBase;
 
 friscv #(
@@ -647,8 +647,7 @@ localparam xbar_rule_32_t [NoIntRegRules-1:0] IntRegRules = '{
     '{ idx: ZsblPort,  start_addr: ZsblBaseAddr,  end_addr: ZsblBaseAddr  + ZsblRomWindow }
 };
 
-// The hub answers for the OCM window before the reg bus sees it, so anything
-// the OCM covers is unreachable. An empty rule (a disabled rom) cannot collide.
+// The OCM window hides reg bus rules
 for (genvar r = 0; r < NoIntRegRules; r++) begin : gen_chk_ocm_int_overlap
     if (rule_populated(IntRegRules[r]) &&
         OcmBase < rule_end(IntRegRules[r]) &&
@@ -703,9 +702,8 @@ endfunction
 
 localparam xbar_rule_32_t [NoRegRules-1:0] RegAddrMap = gen_reg_rules();
 
-// Check that the manager reg rules are valid and do not overlap internal rules
+// Manager rules must not overlap internal ones
 for (genvar e = 0; e < NumMRegRules; e++) begin : gen_chk_m_reg_rule
-    // Check if the manager port index is in range
     if (rule_populated(MRegRules[e]) && MRegRules[e].idx >= NumMRegRules) begin : gen_chk_idx
         $fatal(1, "MRegRules[%0d].idx (%0d) is not a valid manager reg port (0..%0d)",
                e, MRegRules[e].idx, NumMRegRules - 1);
@@ -716,7 +714,7 @@ for (genvar e = 0; e < NumMRegRules; e++) begin : gen_chk_m_reg_rule
         $fatal(1, "MRegRules[%0d] ends (%08x) below where it starts (%08x)",
                e, MRegRules[e].end_addr, MRegRules[e].start_addr);
     end
-    // Unoccupied slots in the block are reserved, not free
+    // Unoccupied slots are reserved, not free
     if (rule_populated(MRegRules[e]) &&
         MRegRules[e].start_addr < VerniiPeriphEnd &&
         ScbBaseAddr < rule_end(MRegRules[e])) begin : gen_chk_reserved

@@ -3,14 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 #
 # Matej Jurasić <matej.jurasic@cappig.dev>
-#
-# Boot an apheleiaOS image on the SoC simulator.
-#
-#   run_aos.sh ../aos/bin/apheleia_1.0_riscv_32.img
-#
-# The image loads at MEM_BASE and runs from cache, so MEM_SIZE must cover the
-# kernel and scratch addresses it picks. Build it with:
-# make all ARCH=riscv_32 TOOLCHAIN=llvm RISCV_FRISC=true
+
+# Boot an apheleiaOS image on the simulator
 
 set -euo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -31,7 +25,7 @@ DIR=obj_dir_aos
 mkdir -p "$DIR"
 make soc SOC_MEM_SIZE="$MEM_SIZE" SOC_DIR="$DIR" >/dev/null
 
-# boot through the ROM and the flash, with the image on an SD card
+# Boot from the SD card
 if [ "${BOOT:-jtag}" = sd ]; then
     BOOT_SRC=$HERE/../../../sw/boot
 
@@ -40,7 +34,7 @@ if [ "${BOOT:-jtag}" = sd ]; then
         -T "$BOOT_SRC/stage.ld" -o "$DIR/sdbl.elf" "$BOOT_SRC/sdbl.c"
     riscv64-unknown-elf-objcopy -O binary "$DIR/sdbl.elf" "$DIR/sdbl.bin"
 
-    # The card holds the image, so the flash only carries the stage
+    # The flash only carries the stage
     python3 "$BOOT_SRC/mkflash.py" "$DIR/sdbl.bin" /dev/null "$DIR/flash.bin"
     python3 "$BOOT_SRC/mksdimg.py" "$IMAGE" "$DIR/sd.img"
 
@@ -49,7 +43,7 @@ if [ "${BOOT:-jtag}" = sd ]; then
         "./$DIR/vernii_soc" qspiboot "$DIR/flash.bin"
 fi
 
-# boot through the ROM and the flash instead of the debug module
+# Boot from the flash
 if [ "${BOOT:-jtag}" = qspi ]; then
     BOOT_SRC=$HERE/../../../sw/boot
 
@@ -59,15 +53,14 @@ if [ "${BOOT:-jtag}" = qspi ]; then
     riscv64-unknown-elf-objcopy -O binary "$DIR/fsbl.elf" "$DIR/fsbl.bin"
     python3 "$BOOT_SRC/mkflash.py" "$DIR/fsbl.bin" "$IMAGE" "$DIR/flash.bin"
 
-    # The fsbl sets the divisor and the cache ways itself
+    # The fsbl sets the divisor itself
     exec env VERNII_UART_DIV="$UART_DIV" VERNII_TEST_CYCLES="$CYCLES" \
         "./$DIR/vernii_soc" qspiboot "$DIR/flash.bin"
 fi
 
 python3 "$HERE/flat2elf.py" "$IMAGE" "$DIR/aos.elf"
 
-# The boot stub expects the baud rate to be set already, as a real boot ROM
-# would, and never programs the divisor itself
+# The image expects the baud rate set
 VERNII_LLCSEL="$LLCSEL" \
 VERNII_UART_DIV="$UART_DIV" \
 VERNII_TEST_CYCLES="$CYCLES" \

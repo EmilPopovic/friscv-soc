@@ -8,7 +8,7 @@
 //
 // Matej Jurasić <matej.jurasic@cappig.dev>
 
-// Generated from zsbl.S by gen_zsbl_rom.py, do not edit
+// Generated from zsbl.S, do not edit
 package vernii_zsbl_rom_pkg;
 
     localparam int unsigned ZSBL_PROG_WORDS = 59;

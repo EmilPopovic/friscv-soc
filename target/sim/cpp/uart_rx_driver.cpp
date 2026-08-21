@@ -5,7 +5,7 @@
 
 #include "uart_rx_driver.hpp"
 
-// The 16550 oversamples by 16, so a bit lasts 16 divisor clocks
+// The 16550 oversamples by 16
 void UartRxDriver::set_divisor(unsigned divisor) {
     bit_cycles_ = 16 * divisor;
 }

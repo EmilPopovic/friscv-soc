@@ -278,9 +278,7 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
     end
 end
 
-// A request the memory has taken cannot be withdrawn, so it must not be
-// translated again. An sfence.vma in between would make it a TLB miss and
-// the walk would read the request's own response as its PTE.
+// An sfence.vma mid-request would break the walk
 logic  r_access_busy;
 addr_t r_access_pa, tlate_pa;
 logic  walk_en;

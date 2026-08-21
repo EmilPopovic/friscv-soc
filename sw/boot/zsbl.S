@@ -3,10 +3,8 @@
 //
 // Matej Jurasić <matej.jurasic@cappig.dev>
 // Emil Popović <mail@emilpopovic.me>
-//
-// Zero stage boot loader. Boot select 0 parks for the debug module, 1 loads a
-// first stage from QSPI flash, 2 or 3 receives one over the UART. Either loader
-// takes STAGE_BYTES, lands it at zero and enters it there. A trap parks too.
+
+// Zero stage boot loader
 
 .section .text
 .global _start
@@ -36,21 +34,21 @@
 .equ UART_DIV,     ((F_CPU + 8 * BAUD) / (16 * BAUD))
 .equ SEG_BYTES,    512          # the most one RX command can carry
 .equ STAGE_BYTES,  0x1000       # every stage is this long
-.equ BANNER,       0x56          # 'V', sent before the first byte is expected
+.equ BANNER,       0x56          # 'V', sent before the first byte
 
 _start:
     lui t0, (SCB_BASE >> 12)
     la t1, park
-    csrw mtvec, t1               # nothing here handles a trap, so park on one
+    csrw mtvec, t1               # nothing handles a trap, so park
     lw t1, SCB_BOOTSEL(t0)       # boot select pads
     li a0, 0                     # both loaders fill from zero
     li a2, STAGE_BYTES
     andi t2, t1, 2
     bnez t2, uart
-    andi t1, t1, 1               # leaves t1 = 1, the CLKDIV qspi writes
+    andi t1, t1, 1               # t1 = 1, the CLKDIV qspi writes
     bnez t1, qspi
 
-# Also the trap handler, so it assumes nothing
+# Also the trap handler, assumes nothing
 park:
     lui t0, (SCB_BASE >> 12)
     li t1, 1                     # misaligned, never a real entry point
@@ -61,7 +59,7 @@ park:
     jr t2
 
 uart:
-    # DLM resets to zero, so only DLL needs the divisor
+    # DLM resets to zero, only DLL needed
     lui t0, (UART_BASE >> 12)
     li t1, 0x80
     sw t1, UART_LCR(t0)          # DLAB
@@ -69,7 +67,7 @@ uart:
     sw t1, UART_DLL(t0)
     li t1, 3
     sw t1, UART_LCR(t0)          # 8N1, DLAB off
-    li t1, BANNER                # THR is empty out of reset, no need to poll
+    li t1, BANNER                # THR is empty out of reset
     sw t1, UART_THR(t0)
 3:  lw t2, UART_LSR(t0)
     andi t2, t2, 1               # data ready
@@ -86,7 +84,6 @@ qspi:
     sw t1, SPI_CONFIGOPTS(t0)    # CLKDIV=1: SCK = core clock / 4
     lui t1, 0xa0000              # SPIEN | OUTPUT_EN
     sw t1, SPI_CONTROL(t0)
-    # One transaction per segment, the most an RX command can carry
 4:  slli a3, a0, 8               # 0x03 read from a0, address byte swapped
     addi a3, a3, 3
     sw a3, SPI_TXDATA(t0)

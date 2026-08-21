@@ -12,8 +12,7 @@
 #undef RVMODEL_IO_WRITE_STR
 #undef FRISCV_GPIO_ADDR
 
-// The core testbench answers at its own addresses, the soc puts the scratch the
-// runner reads in the SCB
+// The soc scratch lives in the SCB
 #define FRISCV_GPIO_ADDR 0x03000000
 
 #define RVMODEL_IO_INIT(_R1, _R2, _R3)

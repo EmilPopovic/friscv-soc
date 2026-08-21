@@ -7,10 +7,8 @@
 // You may obtain a copy of the License at https://solderpad.org/licenses/SHL-2.1/
 
 /*
- * Iterative 32-cycle multiplier and non-restoring divider.
- * i_start begins an operation; o_done pulses when o_result is valid.
- * The result is {high, low} for multiplication or {remainder, quotient}
- * for division. Inputs and outputs must be registered across pipeline stalls.
+ * Iterative multiplier and non-restoring divider
+ * Inputs and outputs must survive pipeline stalls
  */
 
 module friscv_muldiv

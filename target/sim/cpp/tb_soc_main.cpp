@@ -38,7 +38,7 @@ constexpr uint64_t TEST_CYCLES = 10000000;
 // STAGE_BYTES and UART_DIV in zsbl.S
 constexpr size_t   ZSBL_STAGE_BYTES = 0x1000;
 constexpr uint32_t ZSBL_UART_DIV = 27;
-// The stage checks the tail, so a short transfer cannot pass
+// The stage checks its tail bytes
 constexpr size_t   STAGE_PATTERN_START = 1024;
 
 
@@ -149,8 +149,7 @@ void start_image(Jtag& jtag, uint32_t entry) {
 }
 
 
-// The arch-test build relocates the SRAM over MEM_BASE, so external means
-// outside the SRAM, not simply at or above MEM_BASE
+// Arch tests relocate the SRAM over MEM_BASE
 bool is_external(uint32_t address) {
     return address < SRAM_BASE || address >= uint64_t(SRAM_BASE) + SRAM_SIZE;
 }
@@ -220,7 +219,7 @@ void preload_sd(SocTestbench& testbench, const char* path) {
     std::fprintf(stderr, "sd image %s: %zu bytes\n", path, data.size());
 }
 
-// VERNII_HB_CFG="reg:value[,...]" configures the HyperBus, so a sweep needs no rebuild
+// VERNII_HB_CFG is "reg:value[,...]"
 void apply_hyperbus_config(Jtag& jtag) {
     const char* spec = std::getenv("VERNII_HB_CFG");
 
@@ -251,7 +250,7 @@ void apply_hyperbus_config(Jtag& jtag) {
     }
 }
 
-// VERNII_LLCSEL marks ways as cache, for an image linked into the cached region
+// VERNII_LLCSEL marks ways as cache
 void apply_cache_config(Jtag& jtag) {
     if (std::getenv("VERNII_LLCSEL") == nullptr) {
         return;
@@ -260,7 +259,7 @@ void apply_cache_config(Jtag& jtag) {
     jtag.write_memory(SCB_LLCSEL, word_bytes(env_u32("VERNII_LLCSEL", 0)));
 }
 
-// VERNII_UART_DIV sets the 16550 divisor for software that expects a stub to have set it
+// VERNII_UART_DIV stands in for a boot stub
 void apply_uart_config(SocTestbench& testbench, Jtag& jtag) {
     if (std::getenv("VERNII_UART_DIV") == nullptr) {
         return;
@@ -303,7 +302,7 @@ ElfImage prepare_image(SocTestbench& testbench, Jtag& jtag, const char* path) {
 void boot(SocTestbench& testbench, Jtag& jtag, unsigned boot_sel) {
     dut::set_boot_sel(testbench.top(), boot_sel);
     testbench.reset();
-    jtag.initialize();  // the reset above took the debug module with it
+    jtag.initialize();  // the reset took the debug module too
 }
 
 int run_to_end(SocTestbench& testbench, Jtag& jtag) {
@@ -314,7 +313,7 @@ int run_to_end(SocTestbench& testbench, Jtag& jtag) {
         testbench.run_cycles(1);
     }
 
-    // Do not append the verdict to a line the program left open
+    // Do not append the verdict mid-line
     if (!testbench.uart().at_line_start()) {
         std::fputc('\n', stderr);
     }
@@ -358,7 +357,7 @@ int cmd_test(SocTestbench& testbench, Jtag& jtag, int, char** argv) {
     return run_to_end(testbench, jtag);
 }
 
-// Boot select 1: the ROM takes its first stage out of the flash
+// Boot select 1: stage from flash
 int cmd_qspiboot(SocTestbench& testbench, Jtag& jtag, int, char** argv) {
     preload_flash(testbench, argv[2]);
 
@@ -366,14 +365,14 @@ int cmd_qspiboot(SocTestbench& testbench, Jtag& jtag, int, char** argv) {
         preload_sd(testbench, path);
     }
 
-    // The stage sets the divisor itself, this is only for the monitor
+    // Only the monitor needs this
     testbench.uart().set_divisor(env_u32("VERNII_UART_DIV", 0));
 
     boot(testbench, jtag, 1);
     return run_to_end(testbench, jtag);
 }
 
-// Boot select 2: the ROM takes its first stage off the UART instead
+// Boot select 2: stage from UART
 int cmd_uartboot(SocTestbench& testbench, Jtag& jtag, int, char** argv) {
     std::vector<uint8_t> stage = read_file(argv[2]);
 
@@ -394,7 +393,7 @@ int cmd_uartboot(SocTestbench& testbench, Jtag& jtag, int, char** argv) {
     testbench.uart().set_divisor(divisor);
     testbench.uart_rx().set_divisor(divisor);
 
-    // VERNII_UART_BIT_CYCLES models a host clock that differs from the chip's
+    // The host clock may differ
     testbench.uart_rx().set_bit_cycles(
         env_u32("VERNII_UART_BIT_CYCLES", 16 * divisor));
 
@@ -459,7 +458,7 @@ int cmd_server(SocTestbench& testbench, Jtag&, int argc, char** argv) {
 
 struct Command {
     const char* name;
-    int         argc;   // exact, or negative for a minimum of -argc
+    int         argc;   // negative means a minimum of -argc
     bool        jtag;
     int       (*run)(SocTestbench&, Jtag&, int, char**);
     const char* usage;
