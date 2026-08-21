@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Wire all UART lines to top-level ports.
 - Pass through all relevant core parameters to top level.
 - Add peripheral access layer header file.
+- Add `EnableOcm` parameter, default to 1.
 
 ### Changed
 
