@@ -88,15 +88,31 @@ typedef struct {  // ACLINT_TypeDef
 // System Control Block
 
 typedef struct {  // SCB_TypeDef
-    __IO uint32_t SCRATCH0;     // 0x00 SCB Scratch register 0
-    __I  uint32_t BOOTSEL;      // 0x04 SCB Boot select register
-    uint32_t      RESERVED[1];  // 0x08 - 0x00C Reserved
-    __IO uint32_t LLCSEL;       // 0x00C SCB Last-level cache way select
-    __IO uint32_t LLCCRPSEL;    // 0x010 SCB LLC replacement policy select
-    __IO uint32_t LLCINV;       // 0x014 SCB LLC invalidate all cache lines
-    reg64_t       LLCRDACC;     // 0x018 SCB LLC read access count
-    reg64_t       LLCRDMISS;    // 0x020 SCB LLC read miss count
-    reg64_t       LLCRDWRACC;   // 0x028 SCB LLC write access count
+    __IO uint32_t SCRATCH0;         // 0x000 SCB Scratch register 0
+    __I  uint32_t BOOTSEL;          // 0x004 SCB Boot select register
+    uint32_t      RESERVED0[1];     // 0x008 - 0x00B Reserved
+    __IO uint32_t LLCSEL;           // 0x00C SCB Last-level cache way select
+    __IO uint32_t LLCCRPSEL;        // 0x010 SCB LLC replacement policy select
+    __IO uint32_t LLCINV;           // 0x014 SCB LLC invalidate all cache lines
+    reg64_t       LLCRDACC;         // 0x018 SCB LLC read access count
+    reg64_t       LLCRDMISS;        // 0x020 SCB LLC read miss count
+    reg64_t       LLCRDWRACC;       // 0x028 SCB LLC write access count
+    uint32_t      RESERVED1[52];    // 0x030 - 0x0FF Reserved
+    __I  uint32_t SYSID;            // 0x100 SCB Identification block magic
+    __I  uint32_t SYSIMPL;          // 0x104 SCB Which system, which build of it
+    __I  uint32_t SYSVER;           // 0x108 SCB System version
+    __I  uint32_t SYSFEAT;          // 0x10C SCB Features this build has
+    __I  uint32_t SYSCACHECFG;      // 0x110 SCB OCM and LLC geometry
+    __I  uint32_t SYSMMUCFG;        // 0x114 SCB TLB and PMP table sizes
+    __I  uint32_t SYSIRQCFG;        // 0x118 SCB Interrupt lines wired to the PLIC
+    __I  uint32_t SYSBUSCFG;        // 0x11C SCB Integrator bus rule counts
+    __I  uint32_t SYSBOOTCFG;       // 0x120 SCB Boot ROM and boot select sizes
+    __I  uint32_t SYSOCMBASE;       // 0x124 SCB OCM base address
+    __I  uint32_t SYSOCMSIZE;       // 0x128 SCB OCM size in bytes
+    __I  uint32_t SYSEXTBASE;       // 0x12C SCB External memory base address
+    __I  uint32_t SYSEXTSIZE;       // 0x130 SCB External memory size in bytes
+    __I  uint32_t SYSCACHEDBASE;    // 0x134 SCB Cached window base address
+    __I  uint32_t SYSCACHEDSIZE;    // 0x138 SCB Cached window size in bytes
 } SCB_TypeDef;
 
 // Universal Asynchronous Receiver/Transmitter
@@ -234,6 +250,91 @@ typedef struct {  // PLIC_TypeDef
 #define SCB_LLCCRPSEL_CRP_OFF      ((uint32_t)0x00000000u)  // LLC replacement policy offset
 #define SCB_LLCCRPSEL_CRP_RR       ((uint32_t)0x00000000u)  // Round-robin replacement policy
 #define SCB_LLCCRPSEL_CRP_RAND     ((uint32_t)0x00000001u)  // LFSR-based random replacement policy
+
+// SYSID (0x100) reset 0x5645524E
+#define SCB_SYSID_MAGIC_BM            ((uint32_t)0xFFFFFFFFu)  // Identification block magic bit mask
+#define SCB_SYSID_MAGIC_OFF           ((uint32_t)0x00000000u)  // Identification block magic offset
+#define SCB_SYSID_MAGIC_VALID         ((uint32_t)0x5645524Eu)  // "VERN", the valid magic value
+
+// SYSIMPL (0x104) reset X
+#define SCB_SYSIMPL_SYSTEM_BM         ((uint32_t)0xFFFF0000u)  // Which system of the family bit mask
+#define SCB_SYSIMPL_SYSTEM_OFF        ((uint32_t)0x00000010u)  // Which system of the family offset
+#define SCB_SYSIMPL_SYSTEM_VERNII     ((uint32_t)0x00010000u)  // Vernii, not later compatible version
+#define SCB_SYSIMPL_VARIANT_BM        ((uint32_t)0x0000FFFFu)  // Integrator-assigned build variant bit mask
+#define SCB_SYSIMPL_VARIANT_OFF       ((uint32_t)0x00000000u)  // Integrator-assigned build variant offset
+#define SCB_SYSIMPL_VARIANT_REFERENCE ((uint32_t)0x00000000u)  // The reference configuration
+
+// SYSVER (0x108) reset X
+#define SCB_SYSVER_MAJOR_BM           ((uint32_t)0xFF000000u)  // Major version bit mask
+#define SCB_SYSVER_MAJOR_OFF          ((uint32_t)0x00000018u)  // Major version offset
+#define SCB_SYSVER_MINOR_BM           ((uint32_t)0x00FF0000u)  // Minor version bit mask
+#define SCB_SYSVER_MINOR_OFF          ((uint32_t)0x00000010u)  // Minor version offset
+#define SCB_SYSVER_PATCH_BM           ((uint32_t)0x0000FF00u)  // Patch version bit mask
+#define SCB_SYSVER_PATCH_OFF          ((uint32_t)0x00000008u)  // Patch version offset
+#define SCB_SYSVER_REL_BM             ((uint32_t)0x00000001u)  // Set if this is that release, clear if it has unreleased changes
+#define SCB_SYSVER_REL_OFF            ((uint32_t)0x00000000u)  // Release offset
+
+// SYSFEAT (0x10C) reset X
+#define SCB_SYSFEAT_OCM_BM            ((uint32_t)0x00000001u)  // On-chip memory present bit mask
+#define SCB_SYSFEAT_OCM_OFF           ((uint32_t)0x00000000u)  // On-chip memory present offset
+#define SCB_SYSFEAT_LLC_BM            ((uint32_t)0x00000002u)  // LLC present, LLC* registers usable bit mask
+#define SCB_SYSFEAT_LLC_OFF           ((uint32_t)0x00000001u)  // LLC present offset
+#define SCB_SYSFEAT_SRAMTAGS_BM       ((uint32_t)0x00000004u)  // LLC tags in SRAM bit mask
+#define SCB_SYSFEAT_SRAMTAGS_OFF      ((uint32_t)0x00000002u)  // LLC tags in SRAM offset
+#define SCB_SYSFEAT_MMU_BM            ((uint32_t)0x00000010u)  // MMU present bit mask
+#define SCB_SYSFEAT_MMU_OFF           ((uint32_t)0x00000004u)  // MMU present offset
+#define SCB_SYSFEAT_FINETLBFLUSH_BM   ((uint32_t)0x00000020u)  // sfence.vma with rs1 flushes one entry bit mask
+#define SCB_SYSFEAT_FINETLBFLUSH_OFF  ((uint32_t)0x00000005u)  // sfence.vma with rs1 flushes one entry offset
+#define SCB_SYSFEAT_PMP_BM            ((uint32_t)0x00000040u)  // PMP enforced bit mask
+#define SCB_SYSFEAT_PMP_OFF           ((uint32_t)0x00000006u)  // PMP enforced offset
+#define SCB_SYSFEAT_PTWPMP_BM         ((uint32_t)0x00000080u)  // PMP enforced on page table walks bit mask
+#define SCB_SYSFEAT_PTWPMP_OFF        ((uint32_t)0x00000007u)  // PMP enforced on page table walks offset
+#define SCB_SYSFEAT_ISAE_BM           ((uint32_t)0x00000100u)  // RV32E register file bit mask
+#define SCB_SYSFEAT_ISAE_OFF          ((uint32_t)0x00000008u)  // RV32E register file offset
+#define SCB_SYSFEAT_ISAM_BM           ((uint32_t)0x00000200u)  // M extension bit mask
+#define SCB_SYSFEAT_ISAM_OFF          ((uint32_t)0x00000009u)  // M extension offset
+#define SCB_SYSFEAT_ISAA_BM           ((uint32_t)0x00000400u)  // A extension bit mask
+#define SCB_SYSFEAT_ISAA_OFF          ((uint32_t)0x0000000Au)  // A extension offset
+#define SCB_SYSFEAT_FASTMUL_BM        ((uint32_t)0x00000800u)  // Single-cycle multiplier bit mask
+#define SCB_SYSFEAT_FASTMUL_OFF       ((uint32_t)0x0000000Bu)  // Single-cycle multiplier offset
+#define SCB_SYSFEAT_ZSBLROM_BM        ((uint32_t)0x00001000u)  // Integrated boot ROM bit mask
+#define SCB_SYSFEAT_ZSBLROM_OFF       ((uint32_t)0x0000000Cu)  // Integrated boot ROM offset
+#define SCB_SYSFEAT_SAXIGP_BM         ((uint32_t)0x00002000u)  // General-purpose AXI Lite subordinate port enabled bit mask
+#define SCB_SYSFEAT_SAXIGP_OFF        ((uint32_t)0x0000000Du)  // General-purpose AXI Lite subordinate port enabled offset
+#define SCB_SYSFEAT_HALTONEND_BM      ((uint32_t)0x00010000u)  // Core halts on the end marker bit mask
+#define SCB_SYSFEAT_HALTONEND_OFF     ((uint32_t)0x00000010u)  // Core halts on the end marker offset
+
+// SYSCACHECFG (0x110) reset X
+#define SCB_SYSCACHECFG_LINEBYTES_BM  ((uint32_t)0x0000FFFFu)  // Bytes per LLC line bit mask
+#define SCB_SYSCACHECFG_LINEBYTES_OFF ((uint32_t)0x00000000u)  // Bytes per LLC line offset
+#define SCB_SYSCACHECFG_WAYS_BM       ((uint32_t)0x00FF0000u)  // OCM/LLC ways bit mask
+#define SCB_SYSCACHECFG_WAYS_OFF      ((uint32_t)0x00000010u)  // OCM/LLC ways offset
+
+// SYSMMUCFG (0x114) reset X
+#define SCB_SYSMMUCFG_ITLB_BM         ((uint32_t)0x000000FFu)  // Instruction TLB entries bit mask
+#define SCB_SYSMMUCFG_ITLB_OFF        ((uint32_t)0x00000000u)  // Instruction TLB entries offset
+#define SCB_SYSMMUCFG_DTLB_BM         ((uint32_t)0x0000FF00u)  // Data TLB entries bit mask
+#define SCB_SYSMMUCFG_DTLB_OFF        ((uint32_t)0x00000008u)  // Data TLB entries offset
+#define SCB_SYSMMUCFG_PMP_BM          ((uint32_t)0x00FF0000u)  // Usable pmpcfg/pmpaddr entries bit mask
+#define SCB_SYSMMUCFG_PMP_OFF         ((uint32_t)0x00000010u)  // Usable pmpcfg/pmpaddr entries offset
+
+// SYSIRQCFG (0x118) reset X
+#define SCB_SYSIRQCFG_EXTIRQ_BM       ((uint32_t)0x000000FFu)  // External lines wired to the PLIC bit mask
+#define SCB_SYSIRQCFG_EXTIRQ_OFF      ((uint32_t)0x00000000u)  // External lines wired to the PLIC offset
+#define SCB_SYSIRQCFG_GPIOAIRQ_BM     ((uint32_t)0x0000FF00u)  // GPIO port A lines wired to the PLIC bit mask
+#define SCB_SYSIRQCFG_GPIOAIRQ_OFF    ((uint32_t)0x00000008u)  // GPIO port A lines wired to the PLIC offset
+
+// SYSBUSCFG (0x11C) reset X
+#define SCB_SYSBUSCFG_MREGRULES_BM    ((uint32_t)0x000000FFu)  // Populated manager register bus rules bit mask
+#define SCB_SYSBUSCFG_MREGRULES_OFF   ((uint32_t)0x00000000u)  // Populated manager register bus rules offset
+#define SCB_SYSBUSCFG_SAXIGPRULES_BM  ((uint32_t)0x0000FF00u)  // Populated GP subordinate rules bit mask
+#define SCB_SYSBUSCFG_SAXIGPRULES_OFF ((uint32_t)0x00000008u)  // Populated GP subordinate rules offset
+
+// SYSBOOTCFG (0x120) reset X
+#define SCB_SYSBOOTCFG_ZSBLWORDS_BM   ((uint32_t)0x0000FFFFu)  // Words of boot ROM image bit mask
+#define SCB_SYSBOOTCFG_ZSBLWORDS_OFF  ((uint32_t)0x00000000u)  // Words of boot ROM image offset
+#define SCB_SYSBOOTCFG_BOOTSELW_BM    ((uint32_t)0x00FF0000u)  // Boot select pads bit mask
+#define SCB_SYSBOOTCFG_BOOTSELW_OFF   ((uint32_t)0x00000010u)  // Boot select pads offset
 
 // Bit definitions for UART
 
@@ -406,17 +507,19 @@ typedef struct {  // PLIC_TypeDef
 // Exported macros //
 /////////////////////
 
-#define SET_BIT(REG, BIT)     ((REG) |= (BIT))
+#define SET_BIT(REG, BIT)         ((REG) |= (BIT))
 
-#define CLEAR_BIT(REG, BIT)   ((REG) &= ~(BIT))
+#define CLEAR_BIT(REG, BIT)       ((REG) &= ~(BIT))
 
-#define READ_BIT(REG, BIT)    ((REG) & (BIT))
+#define READ_BIT(REG, BIT)        ((REG) & (BIT))
 
-#define CLEAR_REG(REG)        ((REG) = (0x0))
+#define READ_FIELD(REG, BM, OFF)  (((REG) & (BM)) >> (OFF))
 
-#define WRITE_REG(REG, VAL)   ((REG) = (VAL))
+#define CLEAR_REG(REG)            ((REG) = (0x0))
 
-#define READ_REG(REG)         ((REG))
+#define WRITE_REG(REG, VAL)       ((REG) = (VAL))
+
+#define READ_REG(REG)             ((REG))
 
 #define MODIFY_REG(REG, CLEARMASK, SETMASK)  ((REG) = (((REG) & (~(CLEARMASK))) | (SETMASK)))
 

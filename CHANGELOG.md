@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pass through all relevant core parameters to top level.
 - Add peripheral access layer header file.
 - Add `EnableOcm` parameter, default to 1.
+- Add system identification/configuration block to SCB.
 
 ### Changed
 

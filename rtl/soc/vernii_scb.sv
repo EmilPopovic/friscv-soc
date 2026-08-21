@@ -15,11 +15,11 @@
 module vernii_scb
     import vernii_pkg::*;
 #(
-    parameter int unsigned BootSelW   = 2,
-    parameter int unsigned OcmLlcWays = 4,
-    parameter bit          OcmOnly    = 1'b0,
-    parameter type         reg_req_t  = vernii_reg_req_t,
-    parameter type         reg_rsp_t  = vernii_reg_rsp_t
+    parameter int unsigned    BootSelW   = 2,
+    parameter int unsigned    OcmLlcWays = 4,
+    parameter vernii_syscfg_t SysCfg     = '0,
+    parameter type            reg_req_t  = vernii_reg_req_t,
+    parameter type            reg_rsp_t  = vernii_reg_rsp_t
 ) (
     input  logic clk_i,
     input  logic rst_ni,
@@ -38,18 +38,35 @@ module vernii_scb
     input  logic                  inc_llcwracc_i
 );
 
-// Byte offsets within the block's register page
 localparam logic [11:0] OFF_SCRATCH0   = 12'h000;
 localparam logic [11:0] OFF_BOOTSEL    = 12'h004;
 localparam logic [11:0] OFF_LLCSEL     = 12'h00C;
 localparam logic [11:0] OFF_LLCCRPSEL  = 12'h010;
 localparam logic [11:0] OFF_LLCINV     = 12'h014;
-localparam logic [11:0] OFF_LLCRDACC   = 12'h018;
+localparam logic [11:0] OFF_LLCRDACCL  = 12'h018;
 localparam logic [11:0] OFF_LLCRDACCH  = 12'h01C;
-localparam logic [11:0] OFF_LLCRDMISS  = 12'h020;
+localparam logic [11:0] OFF_LLCRDMISSL = 12'h020;
 localparam logic [11:0] OFF_LLCRDMISSH = 12'h024;
-localparam logic [11:0] OFF_LLCWRACC   = 12'h028;
+localparam logic [11:0] OFF_LLCWRACCL  = 12'h028;
 localparam logic [11:0] OFF_LLCWRACCH  = 12'h02C;
+
+localparam logic [11:0] OFF_SYSID         = 12'h100;
+localparam logic [11:0] OFF_SYSIMPL       = 12'h104;
+localparam logic [11:0] OFF_SYSVER        = 12'h108;
+localparam logic [11:0] OFF_SYSFEAT       = 12'h10C;
+localparam logic [11:0] OFF_SYSCACHECFG   = 12'h110;
+localparam logic [11:0] OFF_SYSMMUCFG     = 12'h114;
+localparam logic [11:0] OFF_SYSIRQCFG     = 12'h118;
+localparam logic [11:0] OFF_SYSBUSCFG     = 12'h11C;
+localparam logic [11:0] OFF_SYSBOOTCFG    = 12'h120;
+localparam logic [11:0] OFF_SYSOCMBASE    = 12'h124;
+localparam logic [11:0] OFF_SYSOCMSIZE    = 12'h128;
+localparam logic [11:0] OFF_SYSEXTBASE    = 12'h12C;
+localparam logic [11:0] OFF_SYSEXTSIZE    = 12'h130;
+localparam logic [11:0] OFF_SYSCACHEDBASE = 12'h134;
+localparam logic [11:0] OFF_SYSCACHEDSIZE = 12'h138;
+
+localparam bit LlcPresent = SysCfg.llc;
 
 logic [11:0] off;
 assign off = reg_req_i.addr[11:0];
@@ -141,7 +158,7 @@ end
 always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni)
         llcrdacc <= '0;
-    else if (do_write && (off == OFF_LLCRDACC || off == OFF_LLCRDACCH))
+    else if (do_write && (off == OFF_LLCRDACCL || off == OFF_LLCRDACCH))
         llcrdacc <= '0;
     else if (inc_llcrdacc)
         llcrdacc <= llcrdacc + 1'b1;
@@ -152,7 +169,7 @@ end
 always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni)
         llcrdmiss <= '0;
-    else if (do_write && (off == OFF_LLCRDMISS || off == OFF_LLCRDMISSH))
+    else if (do_write && (off == OFF_LLCRDMISSL || off == OFF_LLCRDMISSH))
         llcrdmiss <= '0;
     else if (inc_llcrdmiss)
         llcrdmiss <= llcrdmiss + 1'b1;
@@ -163,7 +180,7 @@ end
 always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni)
         llcwracc  <= '0;
-    else if (do_write && (off == OFF_LLCWRACC || off == OFF_LLCWRACCH))
+    else if (do_write && (off == OFF_LLCWRACCL || off == OFF_LLCWRACCH))
         llcwracc <= '0;
     else if (inc_llcwracc)
         llcwracc <= llcwracc + 1'b1;
@@ -172,6 +189,53 @@ end
 assign llcsel_o = llcsel;
 assign crpsel_o = llccrpsel;
 assign llcinv_o = llcinv;
+
+////////////////////
+// Identification //
+////////////////////
+
+// SYSIMPL
+localparam logic [31:0] SysImpl = {SysIdVernii, SysCfg.variant};
+
+// SYSVER
+localparam logic [31:0] SysVer = {SysVerMajor, SysVerMinor, SysVerPatch,
+                                  7'h0, SysVerRelease};
+
+// SYSFEAT
+localparam logic [31:0] SysFeat = {
+    15'h0,                  // [31:17]  reserved
+    SysCfg.halt_on_end,     // [16]    HALTONEND
+    2'h0,                   // [15:14]  reserved
+    SysCfg.s_axi_gp,        // [13]    SAXIGP
+    SysCfg.zsbl_rom,        // [12]    ZSBLROM
+    SysCfg.fast_mul,        // [11]    FASTMUL
+    SysCfg.isa_a,           // [10]    ISAA
+    SysCfg.isa_m,           // [9]     ISAM
+    SysCfg.isa_e,           // [8]     ISAE
+    SysCfg.ptw_pmp,         // [7]     PTWPMP
+    SysCfg.pmp,             // [6]     PMP
+    SysCfg.fine_tlb_flush,  // [5]     FINETLBFLUSH
+    SysCfg.mmu,             // [4]     MMU
+    1'b0,                   // [3]      reserved
+    SysCfg.sram_tags,       // [2]     SRAMTAGS
+    SysCfg.llc,             // [1]     LLC
+    SysCfg.ocm              // [0]     OCM
+};
+
+// SYSCACHECFG..SYSBOOTCFG
+localparam logic [31:0] SysCacheCfg = {8'h0, SysCfg.ways, SysCfg.line_bytes};
+
+localparam logic [31:0] SysMmuCfg = {8'h0, SysCfg.pmp_entries,
+                                     SysCfg.dtlb_entries, SysCfg.itlb_entries};
+
+localparam logic [31:0] SysIrqCfg = {16'h0, SysCfg.num_gpio_a_irq,
+                                     SysCfg.num_ext_irq};
+
+localparam logic [31:0] SysBusCfg = {16'h0, SysCfg.num_s_axi_gp_rules,
+                                     SysCfg.num_m_reg_rules};
+
+localparam logic [31:0] SysBootCfg = {8'h0, SysCfg.boot_sel_w,
+                                      SysCfg.zsbl_rom_words};
 
 /////////////////////
 // Read / Response //
@@ -186,34 +250,52 @@ always_comb begin
     unique case (off)
         OFF_SCRATCH0:   rdata = scratch0;
         OFF_BOOTSEL:    rdata = 32'(bootsel);
-        // LLC* are only accessible if OcmOnly is not set (LLC is present)
+        // LLC* are only accessible if the config built an LLC
         OFF_LLCSEL:
-            if (!OcmOnly) rdata = {{32-OcmLlcWays{1'b0}}, {llcsel}};
+            if (LlcPresent) rdata = {{32-OcmLlcWays{1'b0}}, {llcsel}};
             else map_err = 1'b1;
         OFF_LLCCRPSEL:
-            if (!OcmOnly) rdata = {31'h0, llccrpsel};
+            if (LlcPresent) rdata = {31'h0, llccrpsel};
             else map_err = 1'b1;
         OFF_LLCINV:
-            if (!OcmOnly) rdata = 32'h0;   // write-only
+            if (LlcPresent) rdata = 32'h0;   // write-only
             else map_err = 1'b1;
-        OFF_LLCRDACC:
-            if (!OcmOnly) rdata = llcrdacc [31:0];
+        OFF_LLCRDACCL:
+            if (LlcPresent) rdata = llcrdacc [31:0];
             else map_err = 1'b1;
         OFF_LLCRDACCH:
-            if (!OcmOnly) rdata = llcrdacc [63:32];
+            if (LlcPresent) rdata = llcrdacc [63:32];
             else map_err = 1'b1;
-        OFF_LLCRDMISS:
-            if (!OcmOnly) rdata = llcrdmiss[31:0];
+        OFF_LLCRDMISSL:
+            if (LlcPresent) rdata = llcrdmiss[31:0];
             else map_err = 1'b1;
         OFF_LLCRDMISSH:
-            if (!OcmOnly) rdata = llcrdmiss[63:32];
+            if (LlcPresent) rdata = llcrdmiss[63:32];
             else map_err = 1'b1;
-        OFF_LLCWRACC:
-            if (!OcmOnly) rdata = llcwracc [31:0];
+        OFF_LLCWRACCL:
+            if (LlcPresent) rdata = llcwracc [31:0];
             else map_err = 1'b1;
         OFF_LLCWRACCH:
-            if (!OcmOnly) rdata = llcwracc [63:32];
+            if (LlcPresent) rdata = llcwracc [63:32];
             else map_err = 1'b1;
+
+        // Identification, read-only
+        OFF_SYSID:         rdata = SysIdMagic;
+        OFF_SYSIMPL:       rdata = SysImpl;
+        OFF_SYSVER:        rdata = SysVer;
+        OFF_SYSFEAT:       rdata = SysFeat;
+        OFF_SYSCACHECFG:   rdata = SysCacheCfg;
+        OFF_SYSMMUCFG:     rdata = SysMmuCfg;
+        OFF_SYSIRQCFG:     rdata = SysIrqCfg;
+        OFF_SYSBUSCFG:     rdata = SysBusCfg;
+        OFF_SYSBOOTCFG:    rdata = SysBootCfg;
+        OFF_SYSOCMBASE:    rdata = SysCfg.ocm_base;
+        OFF_SYSOCMSIZE:    rdata = SysCfg.ocm_size;
+        OFF_SYSEXTBASE:    rdata = SysCfg.ext_base;
+        OFF_SYSEXTSIZE:    rdata = SysCfg.ext_size;
+        OFF_SYSCACHEDBASE: rdata = SysCfg.cached_base;
+        OFF_SYSCACHEDSIZE: rdata = SysCfg.cached_size;
+
         default: map_err = 1'b1;
     endcase
 end

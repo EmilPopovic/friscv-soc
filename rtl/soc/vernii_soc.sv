@@ -25,6 +25,8 @@ module vernii_soc
     import friscv_mem_pkg::friscv_mem_rsp_t;
     import friscv_mem_pkg::MEM_REQ_IDLE;
 #(
+    parameter logic [15:0] SysVariant       = 16'h0000,
+
     parameter int unsigned OcmBase          = 32'h0000_0000,
     parameter int unsigned OcmSize          = 32'h0000_2000,
     parameter int unsigned ExtBase          = 32'h8000_0000,
@@ -664,6 +666,14 @@ function automatic int unsigned count_m_reg_rules();
     return result;
 endfunction
 
+function automatic int unsigned count_s_axi_gp_rules();
+    int unsigned result = 0;
+    for (int unsigned i = 0; i < NumSAxiGpRules; i++) begin
+        if (rule_populated(SAxiGpRules[i])) result++;
+    end
+    return result;
+endfunction
+
 localparam int unsigned NoMRegRules = count_m_reg_rules();
 localparam int unsigned NoRegRules    = NoIntRegRules + NoMRegRules;
 
@@ -798,12 +808,55 @@ end else begin : gen_no_zsbl_rom
     `REG_TIE_OFF(ZsblPort)
 end
 
+// Information for SCB identification/configuration block
+localparam vernii_syscfg_t SysCfg = '{
+    variant:            SysVariant,
+
+    ocm:                EnableOcm,
+    llc:                EnableOcm && !OcmOnly,
+    sram_tags:          EnableOcm && !OcmOnly && SramTags,
+    mmu:                EnableMmu,
+    fine_tlb_flush:     EnableMmu && FineTlbFlush,
+    pmp:                EnforcePmp,
+    ptw_pmp:            EnforcePtwPmp,
+    isa_e:              EnableIsaE,
+    isa_m:              EnableIsaM,
+    isa_a:              EnableIsaA,
+    fast_mul:           EnableFastMul,
+    zsbl_rom:           ZsblRomEnable,
+    s_axi_gp:           EnableSAxiGp,
+    halt_on_end:        HaltOnEnd,
+
+    line_bytes:         16'(LineBytes),
+    ways:               EnableOcm ? 8'(Ways) : 8'h0,  // Report 0 if built without OCM
+
+    itlb_entries:       EnableMmu  ? 8'(ItlbEntries) : 8'h0,  // Report 0 if built without MMU
+    dtlb_entries:       EnableMmu  ? 8'(DtlbEntries) : 8'h0,
+    pmp_entries:        EnforcePmp ? 8'(PmpEntries)  : 8'h0,  // Report 0 if not enforcing PMP
+
+    num_ext_irq:        8'(NumExtIrq),
+    num_gpio_a_irq:     8'(NumGpioAIrq),
+
+    num_m_reg_rules:    8'(NoMRegRules),
+    num_s_axi_gp_rules: EnableSAxiGp ? 8'(count_s_axi_gp_rules()) : 8'h0,
+
+    zsbl_rom_words:     ZsblRomEnable ? 16'(ZsblRomWords) : 16'h0,
+    boot_sel_w:         8'(BootSelW),
+
+    ocm_base:           EnableOcm ? OcmBase : 32'h0,
+    ocm_size:           EnableOcm ? OcmSize : 32'h0,
+    ext_base:           ExtBase,
+    ext_size:           ExtSize,
+    cached_base:        (EnableOcm && !OcmOnly) ? CachedBase : 32'h0,
+    cached_size:        (EnableOcm && !OcmOnly) ? CachedSize : 32'h0
+};
+
 vernii_scb #(
     .BootSelW   ( BootSelW  ),
     .reg_req_t  ( reg_req_t ),
     .reg_rsp_t  ( reg_rsp_t ),
     .OcmLlcWays ( Ways      ),
-    .OcmOnly    ( OcmOnly   )
+    .SysCfg     ( SysCfg    )
 ) i_scb (
     .clk_i,
     .rst_ni          ( scb_rst_n            ),

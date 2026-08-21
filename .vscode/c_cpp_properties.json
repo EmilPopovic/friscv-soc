@@ -7,6 +7,7 @@
             "cStandard": "c17",
             "cppStandard": "gnu++17",
             "includePath": [
+                "${workspaceFolder}/sw/sdk",
                 "${workspaceFolder}/target/sim/cpp",
                 "${workspaceFolder}/target/sim/obj_dir_core",
                 "${workspaceFolder}/target/sim/obj_dir_soc",

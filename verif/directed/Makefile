@@ -8,9 +8,10 @@ SIM_DIR         ?= obj_dir_directed
 SIM             := $(TARGET_SIM_ROOT)/$(SIM_DIR)/vernii_soc
 
 CROSS   ?= riscv64-unknown-elf-
-CFLAGS  := -march=rv32i_zicsr -mabi=ilp32 -nostdlib -nostartfiles -Wl,--fatal-warnings
+SDK     := $(CURDIR)/../../sw/sdk
+CFLAGS  := -march=rv32i_zicsr -mabi=ilp32 -nostdlib -nostartfiles -Wl,--fatal-warnings -I$(SDK)
 
-TESTS   := llc_tags llc_counters sd_read
+TESTS   := llc_tags llc_counters sd_read sysid
 ELFS    := $(addsuffix .elf,$(TESTS))
 
 # All four ways as cache, so the whole image runs through the LLC
