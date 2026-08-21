@@ -201,7 +201,7 @@ typedef struct {  // PLIC_TypeDef
 
 // Bit definitions for SCB
 
-// SCB.BOOTSEL (0x04) reset X
+// BOOTSEL (0x04) reset X
 #define SCB_BOOTSEL_BOOT0_BM       ((uint32_t)0x00000001u)  // Boot select bit 0 bit mask
 #define SCB_BOOTSEL_BOOT0_OFF      ((uint32_t)0x00000000u)  // Boot select bit 0 offset
 #define SCB_BOOTSEL_BOOT1_BM       ((uint32_t)0x00000002u)  // Boot select bit 1 bit mask
@@ -211,7 +211,7 @@ typedef struct {  // PLIC_TypeDef
 #define SCB_BOOTSEL_BOOT3_BM       ((uint32_t)0x00000008u)  // Boot select bit 3 bit mask
 #define SCB_BOOTSEL_BOOT3_OFF      ((uint32_t)0x00000003u)  // Boot select bit 3 offset
 
-// SCB.LLCSEL (0x0C) reset 0x00000000
+// LLCSEL (0x0C) reset 0x00000000
 #define SCB_LLCSEL_WAY0_LLC_EN_BM  ((uint32_t)0x00000001u)  // Set way 0 to cache bit mask
 #define SCB_LLCSEL_WAY0_LLC_EN_OFF ((uint32_t)0x00000000u)  // Set way 0 to cache offset
 #define SCB_LLCSEL_WAY1_LLC_EN_BM  ((uint32_t)0x00000002u)  // Set way 1 to cache bit mask
@@ -229,7 +229,7 @@ typedef struct {  // PLIC_TypeDef
 #define SCB_LLCSEL_WAY7_LLC_EN_BM  ((uint32_t)0x00000080u)  // Set way 7 to cache bit mask
 #define SCB_LLCSEL_WAY7_LLC_EN_OFF ((uint32_t)0x00000007u)  // Set way 7 to cache offset
 
-// SCB.LLCCRPSEL (0x10) reset 0x00000000
+// LLCCRPSEL (0x10) reset 0x00000000
 #define SCB_LLCCRPSEL_CRP_BM       ((uint32_t)0x00000001u)  // LLC replacement policy bit mask
 #define SCB_LLCCRPSEL_CRP_OFF      ((uint32_t)0x00000000u)  // LLC replacement policy offset
 #define SCB_LLCCRPSEL_CRP_RR       ((uint32_t)0x00000000u)  // Round-robin replacement policy
