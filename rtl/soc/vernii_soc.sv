@@ -1096,37 +1096,68 @@ spi_host #(
 // PLIC //
 //////////
 
+localparam int unsigned NIrqSources = 31;
+
+// The source space is split into fixed-width regions to preserve the interface
+// with different interrupt configurations:
+//   ID 1      uart0
+//   ID 2      qspi0 error
+//   ID 3      qspi0 spi event
+//   ID 4-7    reserved for future internal interrupts
+//   ID 8-23   gpio port a interrupts, bits 0 to NumGpioAIrq-1, rest of the region unused
+//   ID 24-31  ext_irq_i, rest of the region unused
+localparam int unsigned NumIntIrqSlots  = 7;
+localparam int unsigned NumGpioIrqSlots = 16;
+localparam int unsigned NumExtIrqSlots  = 8;
+
 localparam int unsigned NumUart0Irq = 1;
 localparam int unsigned NumQspi0Irq = 2;
 
-localparam int unsigned Uart0IrqBase = 0;
+localparam int unsigned IntIrqBase   = 0;
+localparam int unsigned Uart0IrqBase = IntIrqBase;
 localparam int unsigned Qspi0IrqBase = Uart0IrqBase + NumUart0Irq;
-localparam int unsigned GpioAIrqBase = Qspi0IrqBase + NumQspi0Irq;
-localparam int unsigned ExtIrqBase   = GpioAIrqBase + NumGpioAIrq;
+localparam int unsigned NumIntIrq    = NumUart0Irq + NumQspi0Irq;
 
-// Sources claimed by the allocation above
-localparam int unsigned NIrqUsed = ExtIrqBase + NumExtIrq;
+localparam int unsigned GpioAIrqBase = IntIrqBase   + NumIntIrqSlots;
+localparam int unsigned ExtIrqBase   = GpioAIrqBase + NumGpioIrqSlots;
 
-// The PLIC width is fixed to not have to regenerate the address map
-localparam int unsigned NIrqSources = 31;
-
-if (NumGpioAIrq > 32) begin : gen_chk_gpio_a_irq
-    $fatal(1, "NumGpioAIrq (%0d) more than the 32 GPIO port A pins", NumGpioAIrq);
+if (NumIntIrqSlots + NumGpioIrqSlots + NumExtIrqSlots != NIrqSources) begin : gen_chk_irq_regions
+    $fatal(1, "Irq regions (%0d + %0d + %0d) must cover the %0d PLIC sources exactly",
+           NumIntIrqSlots, NumGpioIrqSlots, NumExtIrqSlots, NIrqSources);
 end
-if (NIrqUsed > NIrqSources) begin : gen_chk_irq_budget
-    $fatal(1, "Irq params need %0d sources but PLIC has %0d, reduce NumGpioAIrq or NumExtIrq",
-           NIrqUsed, NIrqSources, NumGpioAIrq, NumExtIrq);
+if (NumIntIrq > NumIntIrqSlots) begin : gen_chk_int_irq
+    $fatal(1, "Internal interrupts (%0d) exceed the %0d slot internal region",
+           NumIntIrq, NumIntIrqSlots);
+end
+if (NumGpioAIrq > NumGpioIrqSlots) begin : gen_chk_gpio_a_irq
+    $fatal(1, "NumGpioAIrq (%0d) must be at most %0d, the width of the GPIO port A region",
+           NumGpioAIrq, NumGpioIrqSlots);
+end
+if (NumExtIrq > NumExtIrqSlots) begin : gen_chk_ext_irq
+    $fatal(1, "NumExtIrq (%0d) must be at most %0d, the width of the external region",
+           NumExtIrq, NumExtIrqSlots);
 end
 
 logic [NIrqSources-1:0] plic_irq_sources;
 
+// Connect internal interrupt sources
 assign plic_irq_sources[Uart0IrqBase]                = uart0_irq;
 assign plic_irq_sources[Qspi0IrqBase +: NumQspi0Irq] = {qspi0_irq_spi_event, qspi0_irq_error};
+// Tie off reserved internal interrupt sources
+if (NumIntIrq < NumIntIrqSlots) begin : gen_int_irq_reserved
+    assign plic_irq_sources[IntIrqBase + NumIntIrq +: NumIntIrqSlots - NumIntIrq] = '0;
+end
 
+// Connect GPIO port A interrupt sources
 if (NumGpioAIrq > 0) begin : gen_gpio_a_irq
     assign plic_irq_sources[GpioAIrqBase +: NumGpioAIrq] = gpio_a_irq[NumGpioAIrq-1:0];
 end
+// Tie off unused GPIO port A interrupt sources
+if (NumGpioAIrq < NumGpioIrqSlots) begin : gen_gpio_a_irq_unused
+    assign plic_irq_sources[GpioAIrqBase + NumGpioAIrq +: NumGpioIrqSlots - NumGpioAIrq] = '0;
+end
 
+// Synchronize and connect external interrupt sources
 if (NumExtIrq > 0) begin : gen_ext_irq
     logic [NumExtIrq-1:0] ext_irq_sync;
 
@@ -1144,9 +1175,9 @@ if (NumExtIrq > 0) begin : gen_ext_irq
 
     assign plic_irq_sources[ExtIrqBase +: NumExtIrq] = ext_irq_sync;
 end
-
-if (NIrqUsed < NIrqSources) begin : gen_irq_unused
-    assign plic_irq_sources[NIrqSources-1:NIrqUsed] = '0;
+// Tie off unused external interrupt sources
+if (NumExtIrq < NumExtIrqSlots) begin : gen_ext_irq_unused
+    assign plic_irq_sources[ExtIrqBase + NumExtIrq +: NumExtIrqSlots - NumExtIrq] = '0;
 end
 
 // Two targets, context 0 is hart 0 M-mode (MEIP), context 1 is hart 0 S-mode (SEIP)
