@@ -140,6 +140,8 @@ typedef struct {  // UART_TypeDef
 
 // Quad Serial Peripheral Interface
 
+#define QSPI_NUM_CS 3  // CONFIGOPTS entries, sets the CSID range
+
 typedef struct {  // QSPI_TypeDef
     __IO uint32_t INTR_STATE;    // 0x00 RW Interrupt State Register
     __IO uint32_t INTR_ENABLE;   // 0x04 RW Interrupt Enable Register
@@ -147,14 +149,14 @@ typedef struct {  // QSPI_TypeDef
     __O  uint32_t ALERT_TEST;    // 0x0C W  Alert Test Register
     __IO uint32_t CONTROL;       // 0x10 RW Control register
     __I  uint32_t STATUS;        // 0x14 R  Status register
-    __IO uint32_t CONFIGOPTS;    // 0x18 RW Configuration options register
-    __IO uint32_t CSID;          // 0x1C RW Chip-Select ID
-    __O  uint32_t COMMAND;       // 0x20 W  Command Register
-    __I  uint32_t RXDATA;        // 0x24 R  SPI Receive Data
-    __O  uint32_t TXDATA;        // 0x28 W  SPI Transmit Data
-    __IO uint32_t ERROR_ENABLE;  // 0x2C RW Controls which classes of errors raise an interrupt
-    __IO uint32_t ERROR_STATUS;  // 0x30 RW Indicates that any errors that have occurred
-    __IO uint32_t EVENT_ENABLE;  // 0x34 RW Controls which classes of SPI events raise an interrupt
+    __IO uint32_t CONFIGOPTS[QSPI_NUM_CS];  // 0x18 RW Configuration options register, one per chip select
+    __IO uint32_t CSID;          // 0x24 RW Chip-Select ID
+    __O  uint32_t COMMAND;       // 0x28 W  Command Register
+    __I  uint32_t RXDATA;        // 0x2C R  SPI Receive Data
+    __O  uint32_t TXDATA;        // 0x30 W  SPI Transmit Data
+    __IO uint32_t ERROR_ENABLE;  // 0x34 RW Controls which classes of errors raise an interrupt
+    __IO uint32_t ERROR_STATUS;  // 0x38 RW Indicates that any errors that have occurred
+    __IO uint32_t EVENT_ENABLE;  // 0x3C RW Controls which classes of SPI events raise an interrupt
 } QSPI_TypeDef;
 
 // General Purpose Input/Output
@@ -427,28 +429,28 @@ typedef struct {  // PLIC_TypeDef
 #define QSPI_CONFIGOPTS_CLKDIV_BM         ((uint32_t)0x0000FFFFu)  // Core clock divider, T(sck)=2*(CLKDIV+1)*T(core) bit mask
 #define QSPI_CONFIGOPTS_CLKDIV_OFF        ((uint32_t)0x00000000u)  // Core clock divider offset
 
-// CSID (0x1C) reset 0x00000000
+// CSID (0x24) reset 0x00000000
 #define QSPI_CSID_CSID_BM                 ((uint32_t)0xFFFFFFFFu)  // Chip select ID for the next command bit mask
 #define QSPI_CSID_CSID_OFF                ((uint32_t)0x00000000u)  // Chip select ID for the next command offset
 
-// COMMAND (0x20) reset 0x00000000
-#define QSPI_COMMAND_LEN_BM               ((uint32_t)0x01FFFFE0u)  // Segment length minus one bit mask
-#define QSPI_COMMAND_LEN_OFF              ((uint32_t)0x00000005u)  // Segment length minus one offset
-#define QSPI_COMMAND_DIRECTION_BM         ((uint32_t)0x00000018u)  // Segment direction bit mask
-#define QSPI_COMMAND_DIRECTION_OFF        ((uint32_t)0x00000003u)  // Segment direction offset
-#define QSPI_COMMAND_DIRECTION_DUMMY      ((uint32_t)0x00000000u)  // Dummy cycles, no TX/RX
-#define QSPI_COMMAND_DIRECTION_RX         ((uint32_t)0x00000008u)  // RX only
-#define QSPI_COMMAND_DIRECTION_TX         ((uint32_t)0x00000010u)  // TX only
-#define QSPI_COMMAND_DIRECTION_BIDIR      ((uint32_t)0x00000018u)  // Bidirectional, standard speed only
-#define QSPI_COMMAND_SPEED_BM             ((uint32_t)0x00000006u)  // Segment speed bit mask
-#define QSPI_COMMAND_SPEED_OFF            ((uint32_t)0x00000001u)  // Segment speed offset
+// COMMAND (0x28) reset 0x00000000
+#define QSPI_COMMAND_LEN_BM               ((uint32_t)0x000001FFu)  // Segment length minus one bit mask
+#define QSPI_COMMAND_LEN_OFF              ((uint32_t)0x00000000u)  // Segment length minus one offset
+#define QSPI_COMMAND_CSAAT_BM             ((uint32_t)0x00000200u)  // Chip select active after transaction bit mask
+#define QSPI_COMMAND_CSAAT_OFF            ((uint32_t)0x00000009u)  // Chip select active after transaction offset
+#define QSPI_COMMAND_SPEED_BM             ((uint32_t)0x00000C00u)  // Segment speed bit mask
+#define QSPI_COMMAND_SPEED_OFF            ((uint32_t)0x0000000Au)  // Segment speed offset
 #define QSPI_COMMAND_SPEED_STANDARD       ((uint32_t)0x00000000u)  // Standard SPI, one data line
-#define QSPI_COMMAND_SPEED_DUAL           ((uint32_t)0x00000002u)  // Dual SPI, two data lines
-#define QSPI_COMMAND_SPEED_QUAD           ((uint32_t)0x00000004u)  // Quad SPI, four data lines
-#define QSPI_COMMAND_CSAAT_BM             ((uint32_t)0x00000001u)  // Chip select active after transaction bit mask
-#define QSPI_COMMAND_CSAAT_OFF            ((uint32_t)0x00000000u)  // Chip select active after transaction offset
+#define QSPI_COMMAND_SPEED_DUAL           ((uint32_t)0x00000400u)  // Dual SPI, two data lines
+#define QSPI_COMMAND_SPEED_QUAD           ((uint32_t)0x00000800u)  // Quad SPI, four data lines
+#define QSPI_COMMAND_DIRECTION_BM         ((uint32_t)0x00003000u)  // Segment direction bit mask
+#define QSPI_COMMAND_DIRECTION_OFF        ((uint32_t)0x0000000Cu)  // Segment direction offset
+#define QSPI_COMMAND_DIRECTION_DUMMY      ((uint32_t)0x00000000u)  // Dummy cycles, no TX/RX
+#define QSPI_COMMAND_DIRECTION_RX         ((uint32_t)0x00001000u)  // RX only
+#define QSPI_COMMAND_DIRECTION_TX         ((uint32_t)0x00002000u)  // TX only
+#define QSPI_COMMAND_DIRECTION_BIDIR      ((uint32_t)0x00003000u)  // Bidirectional, standard speed only
 
-// ERROR_ENABLE (0x2C) reset 0x0000001F
+// ERROR_ENABLE (0x34) reset 0x0000001F
 #define QSPI_ERROR_ENABLE_CSIDINVAL_BM    ((uint32_t)0x00000010u)  // Enable CSID out of range error bit mask
 #define QSPI_ERROR_ENABLE_CSIDINVAL_OFF   ((uint32_t)0x00000004u)  // Enable CSID out of range error offset
 #define QSPI_ERROR_ENABLE_CMDINVAL_BM     ((uint32_t)0x00000008u)  // Enable invalid command segment error bit mask
@@ -460,7 +462,7 @@ typedef struct {  // PLIC_TypeDef
 #define QSPI_ERROR_ENABLE_CMDBUSY_BM      ((uint32_t)0x00000001u)  // Enable command-while-busy error bit mask
 #define QSPI_ERROR_ENABLE_CMDBUSY_OFF     ((uint32_t)0x00000000u)  // Enable command-while-busy error offset
 
-// ERROR_STATUS (0x30) reset 0x00000000, all fields rw1c
+// ERROR_STATUS (0x38) reset 0x00000000, all fields rw1c
 #define QSPI_ERROR_STATUS_ACCESSINVAL_BM  ((uint32_t)0x00000020u)  // Zero-byte write to TXDATA bit mask
 #define QSPI_ERROR_STATUS_ACCESSINVAL_OFF ((uint32_t)0x00000005u)  // Zero-byte write to TXDATA offset
 #define QSPI_ERROR_STATUS_CSIDINVAL_BM    ((uint32_t)0x00000010u)  // Command issued with CSID out of range bit mask
@@ -474,7 +476,7 @@ typedef struct {  // PLIC_TypeDef
 #define QSPI_ERROR_STATUS_CMDBUSY_BM      ((uint32_t)0x00000001u)  // Write to COMMAND while STATUS.READY=0 bit mask
 #define QSPI_ERROR_STATUS_CMDBUSY_OFF     ((uint32_t)0x00000000u)  // Write to COMMAND while STATUS.READY=0 offset
 
-// EVENT_ENABLE (0x34) reset 0x00000000
+// EVENT_ENABLE (0x3C) reset 0x00000000
 #define QSPI_EVENT_ENABLE_IDLE_BM         ((uint32_t)0x00000020u)  // Event on STATUS.ACTIVE falling bit mask
 #define QSPI_EVENT_ENABLE_IDLE_OFF        ((uint32_t)0x00000005u)  // Event on STATUS.ACTIVE falling offset
 #define QSPI_EVENT_ENABLE_READY_BM        ((uint32_t)0x00000010u)  // Event on STATUS.READY rising bit mask
