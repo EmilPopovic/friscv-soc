@@ -12,9 +12,13 @@ CACHE  ?= on
 NAME   ?= app
 OUT    ?= build
 CROSS  ?= riscv64-unknown-elf-
+F_CPU  ?= 50000000
+BAUD   ?= 115200
 
 ARCH := rv32ima_zicsr_zifencei
 ABI  := ilp32
+
+DEFS := -DF_CPU=$(F_CPU) -DBAUD=$(BAUD)
 
 CFLAGS  += -march=$(ARCH) -mabi=$(ABI) -Os -Wall -Wextra
 CFLAGS  += -ffreestanding -nostdlib -nostartfiles -I$(VERNII_SDK)
@@ -22,10 +26,10 @@ LDFLAGS += -Wl,--fatal-warnings -Wl,--no-warn-rwx-segments
 
 ifeq ($(TARGET),rom)
     LINK    := $(VERNII_SDK)/ocm.ld
-    LLCSEL  := 0
+    LLC_WAYS := 0
 else
     LINK    := $(VERNII_SDK)/ext.ld
-    LLCSEL  := $(if $(filter on,$(CACHE)),0xf,0)
+    LLC_WAYS := $(if $(filter on,$(CACHE)),0xf,0)
 endif
 
 ifeq ($(filter rom flash sd,$(TARGET)),)
@@ -41,8 +45,8 @@ LOADERS  := $(VERNII_SDK)/loaders
 TOOLS    := $(VERNII_SDK)/tools
 LOADER_LD := $(LOADERS)/loader.ld
 LOADER_CFLAGS := -march=$(ARCH) -mabi=$(ABI) -Os -Wall -Wextra \
-                 -ffreestanding -nostdlib -nostartfiles \
-                 -Wl,--no-warn-rwx-segments -T $(LOADER_LD)
+                 -ffreestanding -nostdlib -nostartfiles -I$(VERNII_SDK) \
+                 $(DEFS) -Wl,--no-warn-rwx-segments -T $(LOADER_LD)
 
 PROGRAM ?= $(OUT)/$(NAME).elf
 
@@ -59,11 +63,11 @@ $(OUT)/$(NAME).bin: $(PROGRAM) | $(OUT)
 	$(CROSS)objcopy -O binary $< $@
 
 $(OUT)/fsbl.bin: $(LOADERS)/fsbl.S $(LOADER_LD) | $(OUT)
-	$(CROSS)gcc $(LOADER_CFLAGS) -Wa,--defsym,LLCSEL=$(LLCSEL) -o $(OUT)/fsbl.elf $<
+	$(CROSS)gcc $(LOADER_CFLAGS) -DLLC_WAYS=$(LLC_WAYS) -o $(OUT)/fsbl.elf $<
 	$(CROSS)objcopy -O binary $(OUT)/fsbl.elf $@
 
 $(OUT)/sdbl.bin: $(LOADERS)/sdbl.c $(LOADER_LD) | $(OUT)
-	$(CROSS)gcc $(LOADER_CFLAGS) -DLLCSEL=$(LLCSEL) -o $(OUT)/sdbl.elf $<
+	$(CROSS)gcc $(LOADER_CFLAGS) -DLLC_WAYS=$(LLC_WAYS) -o $(OUT)/sdbl.elf $<
 	$(CROSS)objcopy -O binary $(OUT)/sdbl.elf $@
 
 ifeq ($(TARGET),rom)

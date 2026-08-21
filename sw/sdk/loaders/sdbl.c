@@ -5,48 +5,29 @@
 
 // Boots an image off the SD card
 
+#include <stddef.h>
 #include <stdint.h>
 
-#define SCB_SCRATCH 0x03000000u
-#define UART0       0x03010000u
-#define QSPI_BASE   0x03020000u
-#define ACLINT_TICK 0x0200c000u
-#define SCB_LLCSEL  0x0300000cu
+#include "vernii.h"
 
-#define RAM_BASE  0x80000000u
+#define RAM_BASE  EXT_BASE
 #define MAGIC     0x43535246u   // "FRSC", matches mkflash.py and fsbl.S
 #define MAX_IMAGE 0x10000000u
 // Top of the default OCM
 #define STACK_TOP 0x00002000u
 
-#define F_CPU     50000000u
-#define BAUD      115200u
+#ifndef F_CPU
+#define F_CPU 50000000u
+#endif
+#ifndef BAUD
+#define BAUD 115200u
+#endif
+
 #define UART_DIV  ((F_CPU + 8 * BAUD) / (16 * BAUD))
 #define MTIME_HZ  10000000u
 
-#define UART_DLL 0x00
-#define UART_DLM 0x04
-#define UART_LCR 0x0c
-
-#define SPI_CONTROL    (QSPI_BASE + 0x10)
-#define SPI_STATUS     (QSPI_BASE + 0x14)
-#define SPI_CONFIGOPTS (QSPI_BASE + 0x18)
-#define SPI_CSID       (QSPI_BASE + 0x24)
-#define SPI_COMMAND    (QSPI_BASE + 0x28)
-#define SPI_RXDATA     (QSPI_BASE + 0x2c)
-#define SPI_TXDATA     (QSPI_BASE + 0x30)
-
-#define CTRL_SPIEN     (1u << 31)
-#define CTRL_OUTPUT_EN (1u << 29)
-
-#define ST_RXEMPTY (1u << 24)
-#define ST_TXFULL  (1u << 29)
-#define ST_ACTIVE  (1u << 30)
-#define ST_READY   (1u << 31)
-
-#define DIR_DUMMY 0u
-#define DIR_RD    1u
-#define DIR_WR    2u
+#define LCR_DLAB 0x80u
+#define LCR_8N1  0x03u
 
 #define CS_CARD  1u
 #define CS_SPARE 2u
@@ -55,8 +36,8 @@
 #define CLKDIV_SLOW 63u
 #define CLKDIV_FAST 1u
 
-#ifndef LLCSEL
-#define LLCSEL 0xf
+#ifndef LLC_WAYS
+#define LLC_WAYS 0xf
 #endif
 
 #define BLOCK_BYTES 512u
@@ -68,18 +49,16 @@
 #define BAD_HEADER 0xbad00013u
 #define BAD_CKSUM  0xbad00015u
 
-static inline uint32_t rd(uint32_t addr) {
-    return *(volatile uint32_t*)addr;
-}
+static int spi_command(unsigned bytes, unsigned csaat, uint32_t direction) {
+    uint32_t word = ((bytes - 1) << QSPI_COMMAND_LEN_OFF) & QSPI_COMMAND_LEN_BM;
 
-static inline void wr(uint32_t addr, uint32_t value) {
-    *(volatile uint32_t*)addr = value;
-}
+    if (csaat) {
+        word |= QSPI_COMMAND_CSAAT_BM;
+    }
 
-static int spi_command(unsigned bytes, unsigned csaat, unsigned direction) {
     for (uint32_t i = 0; i < SPIN_LIMIT; i++) {
-        if (rd(SPI_STATUS) & ST_READY) {
-            wr(SPI_COMMAND, ((bytes - 1) & 0x1ff) | (csaat << 9) | (direction << 12));
+        if (READ_REG(QSPI0->STATUS) & QSPI_STATUS_READY_BM) {
+            WRITE_REG(QSPI0->COMMAND, word | direction);
             return 1;
         }
     }
@@ -90,7 +69,8 @@ static int spi_command(unsigned bytes, unsigned csaat, unsigned direction) {
 // CSID only changes between transactions
 static void spi_wait_idle(void) {
     for (uint32_t i = 0; i < SPIN_LIMIT; i++) {
-        if (!(rd(SPI_STATUS) & ST_ACTIVE) && (rd(SPI_STATUS) & ST_READY)) {
+        if (!(READ_REG(QSPI0->STATUS) & QSPI_STATUS_ACTIVE_BM)
+            && (READ_REG(QSPI0->STATUS) & QSPI_STATUS_READY_BM)) {
             return;
         }
     }
@@ -98,8 +78,8 @@ static void spi_wait_idle(void) {
 
 static int spi_put_word(uint32_t value) {
     for (uint32_t i = 0; i < SPIN_LIMIT; i++) {
-        if (!(rd(SPI_STATUS) & ST_TXFULL)) {
-            wr(SPI_TXDATA, value);
+        if (!(READ_REG(QSPI0->STATUS) & QSPI_STATUS_TXFULL_BM)) {
+            WRITE_REG(QSPI0->TXDATA, value);
             return 1;
         }
     }
@@ -109,8 +89,8 @@ static int spi_put_word(uint32_t value) {
 
 static int spi_get_word(uint32_t* out) {
     for (uint32_t i = 0; i < SPIN_LIMIT; i++) {
-        if (!(rd(SPI_STATUS) & ST_RXEMPTY)) {
-            *out = rd(SPI_RXDATA);
+        if (!(READ_REG(QSPI0->STATUS) & QSPI_STATUS_RXEMPTY_BM)) {
+            *out = READ_REG(QSPI0->RXDATA);
             return 1;
         }
     }
@@ -122,7 +102,7 @@ static int spi_get_word(uint32_t* out) {
 static int spi_read_byte(uint8_t* out, unsigned csaat) {
     uint32_t word;
 
-    if (!spi_command(1, csaat, DIR_RD) || !spi_get_word(&word)) {
+    if (!spi_command(1, csaat, QSPI_COMMAND_DIRECTION_RX) || !spi_get_word(&word)) {
         return 0;
     }
 
@@ -145,7 +125,7 @@ static int sd_send_command(uint8_t command, uint32_t argument, uint8_t crc) {
         return 0;
     }
 
-    return spi_command(8, 1, DIR_WR);
+    return spi_command(8, 1, QSPI_COMMAND_DIRECTION_TX);
 }
 
 static int sd_response(uint8_t* r1) {
@@ -166,20 +146,20 @@ static int sd_response(uint8_t* r1) {
 }
 
 static int sd_init(void) {
-    wr(SPI_CONTROL, CTRL_SPIEN | CTRL_OUTPUT_EN);
-    wr(SPI_CONFIGOPTS + 4 * CS_CARD, CLKDIV_SLOW);
-    wr(SPI_CONFIGOPTS + 4 * CS_SPARE, CLKDIV_SLOW);
+    WRITE_REG(QSPI0->CONTROL, QSPI_CONTROL_SPIEN_BM | QSPI_CONTROL_OUTPUT_EN_BM);
+    WRITE_REG(QSPI0->CONFIGOPTS[CS_CARD], CLKDIV_SLOW);
+    WRITE_REG(QSPI0->CONFIGOPTS[CS_SPARE], CLKDIV_SLOW);
 
     // A dummy segment counts LEN in cycles
     spi_wait_idle();
-    wr(SPI_CSID, CS_SPARE);
+    WRITE_REG(QSPI0->CSID, CS_SPARE);
 
-    if (!spi_command(80, 0, DIR_DUMMY)) {
+    if (!spi_command(80, 0, QSPI_COMMAND_DIRECTION_DUMMY)) {
         return 0;
     }
 
     spi_wait_idle();
-    wr(SPI_CSID, CS_CARD);
+    WRITE_REG(QSPI0->CSID, CS_CARD);
 
     uint8_t r1;
 
@@ -227,7 +207,7 @@ static int sd_init(void) {
         spi_release();
 
         if (r1 == 0x00) {
-            wr(SPI_CONFIGOPTS + 4 * CS_CARD, CLKDIV_FAST);
+            WRITE_REG(QSPI0->CONFIGOPTS[CS_CARD], CLKDIV_FAST);
             return 1;
         }
 
@@ -268,7 +248,7 @@ static int sd_read_block(uint32_t block, uint32_t* words) {
         return 0;
     }
 
-    if (!spi_command(BLOCK_BYTES, 1, DIR_RD)) {
+    if (!spi_command(BLOCK_BYTES, 1, QSPI_COMMAND_DIRECTION_RX)) {
         return 0;
     }
 
@@ -305,12 +285,13 @@ __attribute__((naked, used)) static void tramp_blob(void) {
         "   li t0, %1\n"
         "   jr t0\n"
         ".globl sd_tramp_end\n"
-        "sd_tramp_end:\n" ::"i"(SCB_LLCSEL), "i"(RAM_BASE), "i"(LLCSEL));
+        "sd_tramp_end:\n" ::"i"(SCB_BASE + offsetof(SCB_TypeDef, LLCSEL)),
+        "i"(RAM_BASE), "i"(LLC_WAYS));
 }
 
 // The debug module can read SCRATCH0
 static void fail(uint32_t reason) {
-    wr(SCB_SCRATCH, reason);
+    WRITE_REG(SCB->SCRATCH0, reason);
 
     for (;;) {
     }
@@ -318,13 +299,13 @@ static void fail(uint32_t reason) {
 
 void sd_main(void) {
     // The image expects mtime and UART running
-    wr(ACLINT_TICK, MTIME_HZ);
-    wr(ACLINT_TICK + 4, F_CPU);
+    WRITE_REG(ACLINT->TICKTARGET, MTIME_HZ);
+    WRITE_REG(ACLINT->TICKSOURCE, F_CPU);
 
-    wr(UART0 + UART_LCR, 0x80);
-    wr(UART0 + UART_DLL, UART_DIV);
-    wr(UART0 + UART_DLM, 0);
-    wr(UART0 + UART_LCR, 0x03);
+    WRITE_REG(UART0->LCR, LCR_DLAB);
+    WRITE_REG(UART0->DLL, UART_DIV);
+    WRITE_REG(UART0->DLM, 0);
+    WRITE_REG(UART0->LCR, LCR_8N1);
 
     if (!sd_init()) {
         fail(BAD_CARD);

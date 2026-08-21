@@ -32,7 +32,7 @@ uart_stage.bin: uart_stage.S
 # The SD loader itself boots from flash
 sdflash.bin: $(SDK)/loaders/sdbl.c $(SDK)/loaders/loader.ld
 	$(CROSS)gcc -march=rv32ima_zicsr_zifencei -mabi=ilp32 -Os -Wall -Wextra \
-		-nostdlib -nostartfiles -Wl,--no-warn-rwx-segments \
+		-nostdlib -nostartfiles -Wl,--no-warn-rwx-segments -I$(SDK) \
 		-T $(SDK)/loaders/loader.ld -o sdbl.elf $(SDK)/loaders/sdbl.c
 	$(CROSS)objcopy -O binary sdbl.elf sdbl.bin
 	python3 $(SDK)/tools/mkflash.py sdbl.bin /dev/null $@

@@ -30,7 +30,7 @@ if [ "${BOOT:-jtag}" = sd ]; then
     SDK=$HERE/../../../sw/sdk
 
     riscv64-unknown-elf-gcc -march=rv32ima_zicsr_zifencei -mabi=ilp32 -Os \
-        -Wall -Wextra -nostdlib -nostartfiles -Wl,--no-warn-rwx-segments \
+        -Wall -Wextra -nostdlib -nostartfiles -Wl,--no-warn-rwx-segments -I"$SDK" \
         -T "$SDK/loaders/loader.ld" -o "$DIR/sdbl.elf" "$SDK/loaders/sdbl.c"
     riscv64-unknown-elf-objcopy -O binary "$DIR/sdbl.elf" "$DIR/sdbl.bin"
 

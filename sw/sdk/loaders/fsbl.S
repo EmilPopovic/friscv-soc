@@ -12,8 +12,16 @@
 .equ UART_DLL,    0x00
 .equ UART_DLM,    0x04
 .equ UART_LCR,    0x0c
-.equ F_CPU,       50000000
-.equ BAUD,        115200
+#ifndef F_CPU
+#define F_CPU 50000000
+#endif
+#ifndef BAUD
+#define BAUD 115200
+#endif
+#ifndef LLC_WAYS
+#define LLC_WAYS 0xf
+#endif
+
 .equ MTIME_HZ,    10000000        // must match timebase-frequency in the dtb
 .equ UART_DIV,    ((F_CPU + 8 * BAUD) / (16 * BAUD))
 .equ ACLINT_TICK, 0x0200c000      // TICKTARGET, TICKSOURCE follows
@@ -27,9 +35,6 @@
 .equ BAD_HEADER,  0xbad00001      // odd, never a real entry point
 .equ BAD_CKSUM,   0xbad00003
 .equ BLOCK,       512
-.ifndef LLCSEL
-.equ LLCSEL,      0xf
-.endif
 .equ RX_CSAAT,    0x13ff          // csaat | RX | 512 bytes
 
     .section .text.init
@@ -129,7 +134,7 @@ park:
 
 tramp:
     li      t0, SCB_LLCSEL
-    li      t1, LLCSEL
+    li      t1, LLC_WAYS
     sw      t1, 0(t0)
     li      t0, RAM_BASE
     jr      t0
