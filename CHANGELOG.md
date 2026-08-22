@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-22
+
 ### Added
 
 - `sdbl.c`, a first stage that boots from an SD card in SPI mode on QSPI0 CS1.

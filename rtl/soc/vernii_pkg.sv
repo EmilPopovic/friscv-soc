@@ -48,10 +48,10 @@ localparam logic [15:0] SysIdVernii = 16'h0001;
 
 // SCB.SYSVER, names the version
 // SCB.SYSVER.RELEASE says whether it is the release commit, or a compatible modified version
-localparam logic [7:0] SysVerMajor   = 8'd0;
-localparam logic [7:0] SysVerMinor   = 8'd3;
+localparam logic [7:0] SysVerMajor   = 8'd1;
+localparam logic [7:0] SysVerMinor   = 8'd0;
 localparam logic [7:0] SysVerPatch   = 8'd0;
-localparam bit         SysVerRelease = 1'b0;
+localparam bit         SysVerRelease = 1'b1;
 
 // SYSCFG block, describes the configuration of the system
 // Allows software to autodetect the system configuration
